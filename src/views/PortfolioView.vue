@@ -17,6 +17,7 @@ const {
   changeStage,
   pinProject,
   deleteProject,
+  reorderProject,
   getValidStages,
 } = useProjects()
 
@@ -101,6 +102,14 @@ async function handleDeleteProject(projectId: string) {
 function handleOpenProject(projectId: string) {
   router.push({ name: 'project', params: { id: projectId } })
 }
+
+async function handleReorderProject(projectId: string, newIndex: number) {
+  try {
+    await reorderProject(projectId, newIndex)
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
 </script>
 
 <template>
@@ -122,6 +131,7 @@ function handleOpenProject(projectId: string) {
           :wipLimit="wipLimits[stage]"
           :validStages="getValidStages()"
           @changeStage="handleChangeStage"
+          @reorder="handleReorderProject"
           @openProject="handleOpenProject"
           @pinProject="handlePinProject"
           @deleteProject="handleDeleteProject"

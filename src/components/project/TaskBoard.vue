@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changeStatus: [taskId: string, newStatus: TaskStatus]
+  reorder: [taskId: string, status: TaskStatus, newIndex: number]
   openTask: [taskId: string]
   pinTask: [taskId: string]
   deleteTask: [taskId: string]
@@ -40,6 +41,7 @@ const statusWipLimits: Record<TaskStatus, number | undefined> = {
       :wipLimit="statusWipLimits[status]"
       :validStatuses="validStatuses"
       @changeStatus="(taskId, newStatus) => emit('changeStatus', taskId, newStatus)"
+      @reorder="(taskId, newIndex) => emit('reorder', taskId, status, newIndex)"
       @openTask="emit('openTask', $event)"
       @pinTask="emit('pinTask', $event)"
       @deleteTask="emit('deleteTask', $event)"

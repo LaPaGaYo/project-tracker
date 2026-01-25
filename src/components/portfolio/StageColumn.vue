@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import draggable from 'vuedraggable'
 import type { Project, ProjectStage } from '@/types/project'
 import ProjectCard from './ProjectCard.vue'
 
@@ -12,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changeStage: [projectId: string, newStage: ProjectStage]
+  reorder: [projectId: string, newIndex: number]
   openProject: [projectId: string]
   pinProject: [projectId: string]
   deleteProject: [projectId: string]
@@ -49,6 +51,17 @@ const headerColors: Record<ProjectStage, string> = {
   Completed: 'text-purple-700',
   Archived: 'text-gray-600',
 }
+
+// Handle drag end - emit appropriate event based on what changed
+function handleDragChange(event: { added?: { element: Project; newIndex: number }; moved?: { element: Project; newIndex: number } }) {
+  if (event.added) {
+    // Project was dragged from another column into this one
+    emit('changeStage', event.added.element.id, props.stage)
+  } else if (event.moved) {
+    // Project was reordered within the same column
+    emit('reorder', event.moved.element.id, event.moved.newIndex)
+  }
+}
 </script>
 
 <template>
@@ -78,24 +91,31 @@ const headerColors: Record<ProjectStage, string> = {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-2 space-y-2">
-      <ProjectCard
-        v-for="project in projects"
-        :key="project.id"
-        :project="project"
-        :validStages="validStages"
-        @changeStage="emit('changeStage', project.id, $event)"
-        @click="emit('openProject', project.id)"
-        @pin="emit('pinProject', project.id)"
-        @delete="emit('deleteProject', project.id)"
-      />
+    <draggable
+      :list="projects"
+      group="projects"
+      item-key="id"
+      class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]"
+      ghost-class="opacity-50"
+      @change="handleDragChange"
+    >
+      <template #item="{ element: project }">
+        <ProjectCard
+          :project="project"
+          :validStages="validStages"
+          @changeStage="emit('changeStage', project.id, $event)"
+          @click="emit('openProject', project.id)"
+          @pin="emit('pinProject', project.id)"
+          @delete="emit('deleteProject', project.id)"
+        />
+      </template>
+    </draggable>
 
-      <div
-        v-if="projects.length === 0"
-        class="text-center py-8 text-gray-400 text-sm"
-      >
-        No projects
-      </div>
+    <div
+      v-if="projects.length === 0"
+      class="text-center py-8 text-gray-400 text-sm"
+    >
+      No projects
     </div>
   </div>
 </template>

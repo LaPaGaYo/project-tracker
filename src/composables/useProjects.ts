@@ -59,6 +59,10 @@ export function useProjects(wipLimits: WipLimits = DEFAULT_WIP_LIMITS) {
     return projectService.deleteProject(db, projectId)
   }
 
+  async function reorderProject(projectId: string, newIndex: number) {
+    return projectService.reorderProject(db, projectId, newIndex)
+  }
+
   function canMoveToStage(projectId: string, targetStage: ProjectStage) {
     return policyService.canMoveProjectToStage(
       projects.value,
@@ -86,6 +90,7 @@ export function useProjects(wipLimits: WipLimits = DEFAULT_WIP_LIMITS) {
     changeStage,
     pinProject,
     deleteProject,
+    reorderProject,
     canMoveToStage,
     getValidStages,
     getProject,

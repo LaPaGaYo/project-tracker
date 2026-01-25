@@ -3,6 +3,7 @@ import type { Task, TaskStatus } from '@/types/task'
 import type { WipLimits } from '@/types/policy'
 import { policyService } from './policyService'
 import { activityService } from './activityService'
+import { calculateNewPosition, needsRebalance, POSITION_GAP } from '@/utils/position'
 
 interface CreateTaskInput {
   projectId: string
@@ -219,12 +220,59 @@ async function getTasksByStatus(
     .sortBy('position')
 }
 
+async function reorderTask(
+  db: ProjectTrackerDB,
+  taskId: string,
+  newIndex: number
+): Promise<Task> {
+  const task = await db.tasks.get(taskId)
+  if (!task) {
+    throw new Error(`Task ${taskId} not found`)
+  }
+
+  // Get all tasks in the same column, sorted by position
+  const columnTasks = await db.tasks
+    .where('[projectId+status]')
+    .equals([task.projectId, task.status])
+    .sortBy('position')
+
+  // Remove the task being moved from the list to calculate new position
+  const otherTasks = columnTasks.filter(t => t.id !== taskId)
+
+  // Calculate new position based on target index
+  const newPosition = calculateNewPosition(otherTasks, newIndex)
+
+  const updated: Task = {
+    ...task,
+    position: newPosition,
+    updatedAt: new Date().toISOString(),
+  }
+
+  await db.tasks.put(updated)
+
+  // Check if rebalance is needed
+  const updatedTasks = await db.tasks
+    .where('[projectId+status]')
+    .equals([task.projectId, task.status])
+    .sortBy('position')
+
+  if (needsRebalance(updatedTasks)) {
+    await rebalancePositions(db, task.projectId, task.status)
+    // Re-fetch the task with updated position
+    const rebalancedTask = await db.tasks.get(taskId)
+    return rebalancedTask!
+  }
+
+  return updated
+}
+
 export const taskService = {
   createTask,
   updateTask,
   moveTask,
   pinTask,
   deleteTask,
+  reorderTask,
   rebalancePositions,
   getTasksForProject,
   getTasksByStatus,

@@ -3,6 +3,7 @@ import type { Project, ProjectStage } from '@/types/project'
 import type { WipLimits } from '@/types/policy'
 import { policyService } from './policyService'
 import { activityService } from './activityService'
+import { calculateNewPosition, needsRebalance, POSITION_GAP } from '@/utils/position'
 
 interface CreateProjectInput {
   title: string
@@ -176,12 +177,82 @@ async function getProjectsByStage(db: ProjectTrackerDB, stage: ProjectStage): Pr
   return db.projects.where('stage').equals(stage).sortBy('sortOrder')
 }
 
+async function rebalanceProjectSortOrders(
+  db: ProjectTrackerDB,
+  stage: ProjectStage
+): Promise<void> {
+  const projects = await db.projects
+    .where('stage')
+    .equals(stage)
+    .sortBy('sortOrder')
+
+  await db.transaction('rw', db.projects, async () => {
+    for (let i = 0; i < projects.length; i++) {
+      const newSortOrder = (i + 1) * POSITION_GAP
+      if (projects[i]!.sortOrder !== newSortOrder) {
+        await db.projects.update(projects[i]!.id, { sortOrder: newSortOrder })
+      }
+    }
+  })
+}
+
+async function reorderProject(
+  db: ProjectTrackerDB,
+  projectId: string,
+  newIndex: number
+): Promise<Project> {
+  const project = await db.projects.get(projectId)
+  if (!project) {
+    throw new Error(`Project ${projectId} not found`)
+  }
+
+  // Get all projects in the same stage, sorted by sortOrder
+  const stageProjects = await db.projects
+    .where('stage')
+    .equals(project.stage)
+    .sortBy('sortOrder')
+
+  // Map to position interface for calculateNewPosition
+  const positionedProjects = stageProjects
+    .filter(p => p.id !== projectId)
+    .map(p => ({ position: p.sortOrder, id: p.id }))
+
+  // Calculate new sortOrder based on target index
+  const newSortOrder = calculateNewPosition(positionedProjects, newIndex)
+
+  const updated: Project = {
+    ...project,
+    sortOrder: newSortOrder,
+    updatedAt: new Date().toISOString(),
+  }
+
+  await db.projects.put(updated)
+
+  // Check if rebalance is needed
+  const updatedProjects = await db.projects
+    .where('stage')
+    .equals(project.stage)
+    .sortBy('sortOrder')
+
+  const positionedUpdated = updatedProjects.map(p => ({ position: p.sortOrder }))
+  if (needsRebalance(positionedUpdated)) {
+    await rebalanceProjectSortOrders(db, project.stage)
+    // Re-fetch the project with updated sortOrder
+    const rebalancedProject = await db.projects.get(projectId)
+    return rebalancedProject!
+  }
+
+  return updated
+}
+
 export const projectService = {
   createProject,
   updateProject,
   changeProjectStage,
   pinProject,
   deleteProject,
+  reorderProject,
+  rebalanceProjectSortOrders,
   getProject,
   getAllProjects,
   getProjectsByStage,

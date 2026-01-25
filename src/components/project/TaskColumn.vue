@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import draggable from 'vuedraggable'
 import type { Task, TaskStatus } from '@/types/task'
 import TaskCard from './TaskCard.vue'
 
@@ -12,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changeStatus: [taskId: string, newStatus: TaskStatus]
+  reorder: [taskId: string, newIndex: number]
   openTask: [taskId: string]
   pinTask: [taskId: string]
   deleteTask: [taskId: string]
@@ -46,6 +48,17 @@ const headerColors: Record<TaskStatus, string> = {
   Blocked: 'text-red-700',
   Done: 'text-green-700',
 }
+
+// Handle drag end - emit appropriate event based on what changed
+function handleDragChange(event: { added?: { element: Task; newIndex: number }; moved?: { element: Task; newIndex: number } }) {
+  if (event.added) {
+    // Task was dragged from another column into this one
+    emit('changeStatus', event.added.element.id, props.status)
+  } else if (event.moved) {
+    // Task was reordered within the same column
+    emit('reorder', event.moved.element.id, event.moved.newIndex)
+  }
+}
 </script>
 
 <template>
@@ -75,24 +88,31 @@ const headerColors: Record<TaskStatus, string> = {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-2 space-y-2">
-      <TaskCard
-        v-for="task in tasks"
-        :key="task.id"
-        :task="task"
-        :validStatuses="validStatuses"
-        @changeStatus="emit('changeStatus', task.id, $event)"
-        @click="emit('openTask', task.id)"
-        @pin="emit('pinTask', task.id)"
-        @delete="emit('deleteTask', task.id)"
-      />
+    <draggable
+      :list="tasks"
+      group="tasks"
+      item-key="id"
+      class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]"
+      ghost-class="opacity-50"
+      @change="handleDragChange"
+    >
+      <template #item="{ element: task }">
+        <TaskCard
+          :task="task"
+          :validStatuses="validStatuses"
+          @changeStatus="emit('changeStatus', task.id, $event)"
+          @click="emit('openTask', task.id)"
+          @pin="emit('pinTask', task.id)"
+          @delete="emit('deleteTask', task.id)"
+        />
+      </template>
+    </draggable>
 
-      <div
-        v-if="tasks.length === 0"
-        class="text-center py-6 text-gray-400 text-sm"
-      >
-        No tasks
-      </div>
+    <div
+      v-if="tasks.length === 0"
+      class="text-center py-6 text-gray-400 text-sm"
+    >
+      No tasks
     </div>
 
     <div v-if="status === 'Todo'" class="p-2 border-t" :class="statusColors[status]">

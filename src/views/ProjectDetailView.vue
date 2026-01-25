@@ -22,6 +22,7 @@ const {
   moveTask,
   pinTask,
   deleteTask,
+  reorderTask,
   getValidStatuses,
 } = useTasks(projectId)
 
@@ -126,6 +127,14 @@ function handleOpenTask(taskId: string) {
   console.log('Open task:', taskId)
 }
 
+async function handleReorder(taskId: string, _status: string, newIndex: number) {
+  try {
+    await reorderTask(taskId, newIndex)
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
 function goBack() {
   router.push({ name: 'portfolio' })
 }
@@ -160,6 +169,7 @@ function goBack() {
         :tasksByStatus="tasksByStatus"
         :validStatuses="getValidStatuses()"
         @changeStatus="handleChangeStatus"
+        @reorder="handleReorder"
         @openTask="handleOpenTask"
         @pinTask="handlePinTask"
         @deleteTask="handleDeleteTask"

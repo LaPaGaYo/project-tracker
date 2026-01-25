@@ -73,6 +73,10 @@ export function useTasks(projectId: Ref<string>, wipLimits: WipLimits = DEFAULT_
     return taskService.deleteTask(db, taskId)
   }
 
+  async function reorderTask(taskId: string, newIndex: number) {
+    return taskService.reorderTask(db, taskId, newIndex)
+  }
+
   function canMoveToStatus(taskId: string, targetStatus: TaskStatus, blockedReason?: string) {
     return policyService.canMoveTaskToStatus(
       tasks.value,
@@ -103,6 +107,7 @@ export function useTasks(projectId: Ref<string>, wipLimits: WipLimits = DEFAULT_
     moveTask,
     pinTask,
     deleteTask,
+    reorderTask,
     canMoveToStatus,
     getValidStatuses,
     getTask,
