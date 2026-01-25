@@ -157,6 +157,22 @@ async function logAttachmentRemoved(
 }
 
 // Note events
+async function logNoteCreated(
+  db: ProjectTrackerDB,
+  noteId: string,
+  payload: Record<string, unknown>
+): Promise<string> {
+  return log(db, 'note', noteId, 'NOTE_CREATED', payload)
+}
+
+async function logNoteUpdated(
+  db: ProjectTrackerDB,
+  noteId: string,
+  changes: Record<string, unknown>
+): Promise<string> {
+  return log(db, 'note', noteId, 'NOTE_UPDATED', changes)
+}
+
 async function logNoteAdded(
   db: ProjectTrackerDB,
   noteId: string,
@@ -182,5 +198,7 @@ export const activityService = {
   logChecklistItemToggled,
   logAttachmentAdded,
   logAttachmentRemoved,
+  logNoteCreated,
+  logNoteUpdated,
   logNoteAdded,
 }

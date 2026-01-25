@@ -3,9 +3,14 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjects } from '@/composables/useProjects'
 import { useTasks } from '@/composables/useTasks'
+import { useNotes } from '@/composables/useNotes'
+import { useAttachments } from '@/composables/useAttachments'
 import { useToast } from '@/composables/useToast'
 import type { TaskStatus } from '@/types/task'
+import type { NoteType } from '@/types/note'
 import TaskBoard from '@/components/project/TaskBoard.vue'
+import NotesList from '@/components/notes/NotesList.vue'
+import AttachmentsList from '@/components/attachments/AttachmentsList.vue'
 import Button from '@/components/ui/Button.vue'
 import Modal from '@/components/ui/Modal.vue'
 
@@ -26,7 +31,25 @@ const {
   getValidStatuses,
 } = useTasks(projectId)
 
+const {
+  sortedNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+} = useNotes(projectId)
+
+const {
+  attachments,
+  uploadAttachment,
+  deleteAttachment,
+  downloadAttachment,
+} = useAttachments('project', projectId)
+
 const project = computed(() => getProject(projectId.value))
+
+// Sidebar state
+const showSidebar = ref(false)
+const activeTab = ref<'notes' | 'attachments'>('notes')
 
 // Create task modal
 const showCreateModal = ref(false)
@@ -135,14 +158,65 @@ async function handleReorder(taskId: string, _status: string, newIndex: number) 
   }
 }
 
+// Notes handlers
+async function handleCreateNote(content: string, type: NoteType) {
+  try {
+    await createNote({ content, type })
+    toast.success('Note added')
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
+async function handleUpdateNote(noteId: string, content: string, type: NoteType) {
+  try {
+    await updateNote(noteId, { content, type })
+    toast.success('Note updated')
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
+async function handleDeleteNote(noteId: string) {
+  try {
+    await deleteNote(noteId)
+    toast.success('Note deleted')
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
+// Attachment handlers
+async function handleUploadAttachment(file: File) {
+  try {
+    await uploadAttachment(file)
+    toast.success('File uploaded')
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
+async function handleDeleteAttachment(attachmentId: string) {
+  try {
+    await deleteAttachment(attachmentId)
+    toast.success('File deleted')
+  } catch (error) {
+    toast.error((error as Error).message)
+  }
+}
+
 function goBack() {
   router.push({ name: 'portfolio' })
+}
+
+function toggleSidebar() {
+  showSidebar.value = !showSidebar.value
 }
 </script>
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b bg-white">
+    <header class="px-4 py-3 border-b bg-white flex items-center justify-between">
       <div class="flex items-center gap-4">
         <button
           class="text-gray-500 hover:text-gray-700"
@@ -162,19 +236,78 @@ function goBack() {
           Project not found
         </div>
       </div>
+      <Button
+        v-if="project"
+        variant="ghost"
+        @click="toggleSidebar"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
+        </svg>
+        <span class="ml-2">{{ showSidebar ? 'Hide Details' : 'Show Details' }}</span>
+      </Button>
     </header>
 
-    <div v-if="project" class="flex-1 overflow-hidden p-4">
-      <TaskBoard
-        :tasksByStatus="tasksByStatus"
-        :validStatuses="getValidStatuses()"
-        @changeStatus="handleChangeStatus"
-        @reorder="handleReorder"
-        @openTask="handleOpenTask"
-        @pinTask="handlePinTask"
-        @deleteTask="handleDeleteTask"
-        @createTask="showCreateModal = true"
-      />
+    <div v-if="project" class="flex-1 flex overflow-hidden">
+      <!-- Task Board -->
+      <div class="flex-1 overflow-hidden p-4">
+        <TaskBoard
+          :tasksByStatus="tasksByStatus"
+          :validStatuses="getValidStatuses()"
+          @changeStatus="handleChangeStatus"
+          @reorder="handleReorder"
+          @openTask="handleOpenTask"
+          @pinTask="handlePinTask"
+          @deleteTask="handleDeleteTask"
+          @createTask="showCreateModal = true"
+        />
+      </div>
+
+      <!-- Sidebar -->
+      <div
+        v-if="showSidebar"
+        class="w-80 border-l bg-gray-50 flex flex-col overflow-hidden"
+      >
+        <!-- Tabs -->
+        <div class="flex border-b bg-white">
+          <button
+            class="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+            :class="activeTab === 'notes'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'"
+            @click="activeTab = 'notes'"
+          >
+            Notes ({{ sortedNotes.length }})
+          </button>
+          <button
+            class="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+            :class="activeTab === 'attachments'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'"
+            @click="activeTab = 'attachments'"
+          >
+            Files ({{ attachments.length }})
+          </button>
+        </div>
+
+        <!-- Tab content -->
+        <div class="flex-1 overflow-y-auto p-4">
+          <NotesList
+            v-if="activeTab === 'notes'"
+            :notes="sortedNotes"
+            @create="handleCreateNote"
+            @update="handleUpdateNote"
+            @delete="handleDeleteNote"
+          />
+          <AttachmentsList
+            v-else
+            :attachments="attachments"
+            @upload="handleUploadAttachment"
+            @delete="handleDeleteAttachment"
+            @download="downloadAttachment"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Create Task Modal -->
