@@ -131,9 +131,18 @@ export function useTodayTasks(wipLimits: WipLimits = DEFAULT_WIP_LIMITS) {
         if (task.pinnedDate === today) return true
         return false
       }).sort((a, b) => {
-        // Sort by: Doing first, then by position
+        // Sort by: Doing first, then by dueDate asc, then by position
         if (a.status === 'Doing' && b.status !== 'Doing') return -1
         if (b.status === 'Doing' && a.status !== 'Doing') return 1
+        // Sort by dueDate (null dates go last)
+        if (a.dueDate && b.dueDate) {
+          if (a.dueDate < b.dueDate) return -1
+          if (a.dueDate > b.dueDate) return 1
+        } else if (a.dueDate && !b.dueDate) {
+          return -1
+        } else if (!a.dueDate && b.dueDate) {
+          return 1
+        }
         return a.position - b.position
       })
     },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateNewPosition, needsRebalance, POSITION_GAP, MIN_GAP } from '@/utils/position'
+import { calculateNewPosition, needsRebalance, POSITION_GAP } from '@/utils/position'
 
 describe('position utilities', () => {
   describe('calculateNewPosition', () => {

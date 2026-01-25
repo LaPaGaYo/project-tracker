@@ -3,7 +3,7 @@ import type { Task, TaskStatus } from '@/types/task'
 import type { WipLimits } from '@/types/policy'
 import { policyService } from './policyService'
 import { activityService } from './activityService'
-import { calculateNewPosition, needsRebalance, POSITION_GAP } from '@/utils/position'
+import { calculateNewPosition, needsRebalance } from '@/utils/position'
 
 interface CreateTaskInput {
   projectId: string
