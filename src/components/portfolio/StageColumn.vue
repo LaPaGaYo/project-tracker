@@ -34,22 +34,24 @@ const wipDisplay = computed(() => {
   return `${props.projects.length}/${props.wipLimit}`
 })
 
+// Planka-style dark columns
 const stageColors: Record<ProjectStage, string> = {
-  Idea: 'bg-gray-50 border-gray-200',
-  Planning: 'bg-blue-50 border-blue-200',
-  Active: 'bg-green-50 border-green-200',
-  Paused: 'bg-yellow-50 border-yellow-200',
-  Completed: 'bg-purple-50 border-purple-200',
-  Archived: 'bg-gray-100 border-gray-300',
+  Idea: 'bg-planka-bg-light border-planka-card/50',
+  Planning: 'bg-planka-bg-light border-planka-card/50',
+  Active: 'bg-planka-bg-light border-planka-card/50',
+  Paused: 'bg-planka-bg-light border-planka-card/50',
+  Completed: 'bg-planka-bg-light border-planka-card/50',
+  Archived: 'bg-planka-bg-light border-planka-card/50',
 }
 
+// Accent colors for stage headers
 const headerColors: Record<ProjectStage, string> = {
-  Idea: 'text-gray-700',
-  Planning: 'text-blue-700',
-  Active: 'text-green-700',
-  Paused: 'text-yellow-700',
-  Completed: 'text-purple-700',
-  Archived: 'text-gray-600',
+  Idea: 'text-planka-text-muted',
+  Planning: 'text-planka-accent',
+  Active: 'text-planka-success',
+  Paused: 'text-planka-warning',
+  Completed: 'text-purple-400',
+  Archived: 'text-planka-text-muted',
 }
 
 // Handle drag end - emit appropriate event based on what changed
@@ -66,26 +68,26 @@ function handleDragChange(event: { added?: { element: Project; newIndex: number 
 
 <template>
   <div
-    class="flex-shrink-0 w-72 border rounded-lg flex flex-col max-h-full"
+    class="flex-shrink-0 w-72 border rounded-planka-lg flex flex-col max-h-full"
     :class="stageColors[stage]"
   >
-    <div class="p-3 border-b flex items-center justify-between" :class="stageColors[stage]">
-      <h2 class="font-semibold" :class="headerColors[stage]">
+    <div class="p-3 border-b border-planka-card/50 flex items-center justify-between">
+      <h2 class="font-semibold text-sm uppercase tracking-wide" :class="headerColors[stage]">
         {{ stage }}
       </h2>
       <div class="flex items-center gap-2">
         <span
           v-if="wipDisplay"
-          class="text-sm font-medium px-2 py-0.5 rounded"
+          class="text-xs font-medium px-2 py-0.5 rounded-planka"
           :class="{
-            'bg-red-100 text-red-700': isOverLimit,
-            'bg-yellow-100 text-yellow-700': isAtLimit && !isOverLimit,
-            'bg-gray-100 text-gray-600': !isAtLimit,
+            'bg-planka-error/20 text-planka-error': isOverLimit,
+            'bg-planka-warning/20 text-planka-warning': isAtLimit && !isOverLimit,
+            'bg-planka-card text-planka-text-muted': !isAtLimit,
           }"
         >
           {{ wipDisplay }}
         </span>
-        <span class="text-sm text-gray-500">
+        <span class="text-xs text-planka-text-muted">
           {{ projects.length }}
         </span>
       </div>
@@ -113,7 +115,7 @@ function handleDragChange(event: { added?: { element: Project; newIndex: number 
 
     <div
       v-if="projects.length === 0"
-      class="text-center py-8 text-gray-400 text-sm"
+      class="text-center py-8 text-planka-text-muted text-sm"
     >
       No projects
     </div>

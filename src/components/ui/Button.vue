@@ -12,10 +12,10 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const variantClasses = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-blue-800',
-  secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:disabled:bg-gray-800',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:disabled:bg-red-800',
-  ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 disabled:text-gray-300 dark:text-gray-300 dark:hover:bg-gray-700 dark:disabled:text-gray-600',
+  primary: 'bg-planka-accent text-white hover:bg-planka-accent-hover disabled:opacity-50 disabled:cursor-not-allowed',
+  secondary: 'bg-planka-card text-planka-text hover:bg-planka-bg-light disabled:opacity-50 disabled:cursor-not-allowed',
+  danger: 'bg-planka-error text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed',
+  ghost: 'bg-transparent text-planka-text-muted hover:bg-planka-card hover:text-planka-text disabled:opacity-50 disabled:cursor-not-allowed',
 }
 
 const sizeClasses = {
@@ -28,7 +28,7 @@ const sizeClasses = {
 <template>
   <button
     :class="[
-      'rounded font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800',
+      'rounded-planka font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-planka-accent focus:ring-offset-2 focus:ring-offset-planka-bg',
       variantClasses[props.variant],
       sizeClasses[props.size],
     ]"

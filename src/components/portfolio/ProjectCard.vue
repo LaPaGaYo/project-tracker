@@ -25,6 +25,25 @@ const stageItems = computed(() =>
 
 const isPinned = computed(() => props.project.pinnedDate !== null)
 
+const actionItems = computed(() => [
+  {
+    label: isPinned.value ? 'Unpin' : 'Pin for Today',
+    value: 'pin',
+  },
+  {
+    label: 'Delete Project',
+    value: 'delete',
+  },
+])
+
+function handleAction(action: string) {
+  if (action === 'pin') {
+    emit('pin')
+  } else if (action === 'delete') {
+    emit('delete')
+  }
+}
+
 function handleStageChange(stage: string) {
   emit('changeStage', stage as ProjectStage)
 }
@@ -41,19 +60,19 @@ const stageColors: Record<ProjectStage, 'default' | 'info' | 'success' | 'warnin
 
 <template>
   <div
-    class="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+    class="bg-planka-card rounded-planka p-3 hover:bg-planka-card/80 transition-colors cursor-pointer"
     @click="emit('click')"
   >
     <div class="flex items-start justify-between gap-2">
       <div class="flex-1 min-w-0">
-        <h3 class="font-medium text-gray-900 truncate">{{ project.title }}</h3>
-        <p v-if="project.description" class="text-sm text-gray-500 mt-1 line-clamp-2">
+        <h3 class="font-medium text-planka-text truncate">{{ project.title }}</h3>
+        <p v-if="project.description" class="text-sm text-planka-text-muted mt-1 line-clamp-2">
           {{ project.description }}
         </p>
       </div>
       <button
         v-if="isPinned"
-        class="text-yellow-500 hover:text-yellow-600 flex-shrink-0"
+        class="text-planka-warning hover:text-yellow-400 flex-shrink-0"
         title="Pinned"
         @click.stop="emit('pin')"
       >
@@ -63,14 +82,14 @@ const stageColors: Record<ProjectStage, 'default' | 'info' | 'success' | 'warnin
       </button>
     </div>
 
-    <div class="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+    <div class="flex items-center justify-between mt-3 pt-2 border-t border-planka-bg-light">
       <div @click.stop>
         <Dropdown
           :items="stageItems"
           @select="handleStageChange"
         >
           <template #trigger>
-            <button class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+            <button class="text-sm text-planka-text-muted hover:text-planka-text flex items-center gap-1">
               Move to
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                 <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -85,15 +104,23 @@ const stageColors: Record<ProjectStage, 'default' | 'info' | 'success' | 'warnin
           {{ project.stage }}
         </Badge>
 
-        <button
-          class="text-gray-400 hover:text-gray-600"
-          title="More options"
-          @click.stop
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-            <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
-          </svg>
-        </button>
+        <div @click.stop>
+          <Dropdown
+            :items="actionItems"
+            @select="handleAction"
+          >
+            <template #trigger>
+              <button
+                class="text-planka-text-muted hover:text-planka-text transition-colors p-1 -m-1 rounded-planka hover:bg-planka-bg-light"
+                title="More options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                  <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+                </svg>
+              </button>
+            </template>
+          </Dropdown>
+        </div>
       </div>
     </div>
   </div>

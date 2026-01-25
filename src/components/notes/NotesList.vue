@@ -87,7 +87,7 @@ function formatDate(dateString: string): string {
 <template>
   <div>
     <div class="flex items-center justify-between mb-3">
-      <h3 class="font-medium text-gray-900">Notes</h3>
+      <h3 class="font-medium text-planka-text">Notes</h3>
       <Button size="sm" @click="openCreateModal">
         + Add Note
       </Button>
@@ -96,7 +96,7 @@ function formatDate(dateString: string): string {
     <!-- Empty state -->
     <div
       v-if="notes.length === 0"
-      class="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg border border-dashed border-gray-200"
+      class="text-center py-8 text-planka-text-muted text-sm bg-planka-card rounded-planka border border-dashed border-planka-bg-light"
     >
       No notes yet. Add one to keep track of decisions and context.
     </div>
@@ -106,7 +106,7 @@ function formatDate(dateString: string): string {
       <div
         v-for="note in notes"
         :key="note.id"
-        class="p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+        class="p-3 bg-planka-card rounded-planka hover:bg-planka-card/80 transition-colors"
       >
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
@@ -114,15 +114,15 @@ function formatDate(dateString: string): string {
               <Badge :variant="typeVariants[note.type]">
                 {{ typeLabels[note.type] }}
               </Badge>
-              <span class="text-xs text-gray-400">
+              <span class="text-xs text-planka-text-muted">
                 {{ formatDate(note.updatedAt) }}
               </span>
             </div>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ note.content }}</p>
+            <p class="text-sm text-planka-text whitespace-pre-wrap">{{ note.content }}</p>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
             <button
-              class="p-1 text-gray-400 hover:text-gray-600 rounded"
+              class="p-1 text-planka-text-muted hover:text-planka-text rounded-planka transition-colors"
               title="Edit"
               @click="openEditModal(note)"
             >
@@ -131,7 +131,7 @@ function formatDate(dateString: string): string {
               </svg>
             </button>
             <button
-              class="p-1 text-gray-400 hover:text-red-600 rounded"
+              class="p-1 text-planka-text-muted hover:text-planka-error rounded-planka transition-colors"
               title="Delete"
               @click="handleDelete(note.id)"
             >
@@ -148,16 +148,16 @@ function formatDate(dateString: string): string {
     <Modal :open="showModal" :title="modalTitle" @close="closeModal">
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <label class="block text-sm font-medium text-planka-text mb-1">Type</label>
           <div class="flex gap-2">
             <button
               v-for="type in (['note', 'decision', 'linkdump'] as NoteType[])"
               :key="type"
               type="button"
-              class="px-3 py-1.5 text-sm rounded-md border transition-colors"
+              class="px-3 py-1.5 text-sm rounded-planka border transition-colors"
               :class="noteType === type
-                ? 'bg-blue-50 border-blue-500 text-blue-700'
-                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'"
+                ? 'bg-planka-accent/20 border-planka-accent text-planka-accent'
+                : 'bg-planka-bg-light border-planka-bg-light text-planka-text hover:bg-planka-card'"
               @click="noteType = type"
             >
               {{ typeLabels[type] }}
@@ -165,14 +165,14 @@ function formatDate(dateString: string): string {
           </div>
         </div>
         <div>
-          <label for="note-content" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="note-content" class="block text-sm font-medium text-planka-text mb-1">
             Content
           </label>
           <textarea
             id="note-content"
             v-model="noteContent"
             rows="5"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Write your note..."
             autofocus
           />

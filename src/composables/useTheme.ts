@@ -5,8 +5,9 @@ export type Theme = 'light' | 'dark' | 'system'
 const THEME_KEY = 'project-tracker-theme'
 
 // Global reactive state (shared across all component instances)
-const theme = ref<Theme>('system')
-const resolvedTheme = ref<'light' | 'dark'>('light')
+// Default to dark theme for Planka-style design
+const theme = ref<Theme>('dark')
+const resolvedTheme = ref<'light' | 'dark'>('dark')
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light'

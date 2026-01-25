@@ -12,23 +12,23 @@ const emit = defineEmits<{
 }>()
 
 const typeClasses = {
-  success: 'bg-green-50 border-green-500 text-green-800 dark:bg-green-900 dark:border-green-400 dark:text-green-200',
-  error: 'bg-red-50 border-red-500 text-red-800 dark:bg-red-900 dark:border-red-400 dark:text-red-200',
-  warning: 'bg-yellow-50 border-yellow-500 text-yellow-800 dark:bg-yellow-900 dark:border-yellow-400 dark:text-yellow-200',
-  info: 'bg-blue-50 border-blue-500 text-blue-800 dark:bg-blue-900 dark:border-blue-400 dark:text-blue-200',
+  success: 'bg-planka-card border-planka-success text-planka-text',
+  error: 'bg-planka-card border-planka-error text-planka-text',
+  warning: 'bg-planka-card border-planka-warning text-planka-text',
+  info: 'bg-planka-card border-planka-accent text-planka-text',
 }
 </script>
 
 <template>
   <div
     :class="[
-      'flex items-center justify-between p-4 rounded-lg border-l-4 shadow-md',
+      'flex items-center justify-between p-4 rounded-planka border-l-4 shadow-lg',
       typeClasses[toast.type],
     ]"
   >
     <span>{{ toast.message }}</span>
     <button
-      class="ml-4 text-current opacity-50 hover:opacity-100"
+      class="ml-4 text-planka-text-muted hover:text-planka-text transition-colors"
       @click="emit('close')"
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

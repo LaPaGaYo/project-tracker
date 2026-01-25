@@ -83,7 +83,7 @@ function formatDate(dateString: string): string {
 <template>
   <div>
     <div class="flex items-center justify-between mb-3">
-      <h3 class="font-medium text-gray-900">Attachments</h3>
+      <h3 class="font-medium text-planka-text">Attachments</h3>
       <Button size="sm" @click="openFilePicker">
         + Add File
       </Button>
@@ -98,8 +98,8 @@ function formatDate(dateString: string): string {
     <!-- Drop zone / Empty state -->
     <div
       v-if="attachments.length === 0"
-      class="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg border-2 border-dashed transition-colors"
-      :class="isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200'"
+      class="text-center py-8 text-planka-text-muted text-sm bg-planka-card rounded-planka-lg border-2 border-dashed transition-colors"
+      :class="isDragging ? 'border-planka-accent bg-planka-accent/10' : 'border-planka-bg-light'"
       @drop="handleDrop"
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
@@ -111,11 +111,11 @@ function formatDate(dateString: string): string {
         stroke-width="1.5"
         stroke="currentColor"
         class="w-8 h-8 mx-auto mb-2"
-        :class="isDragging ? 'text-blue-400' : 'text-gray-300'"
+        :class="isDragging ? 'text-planka-accent' : 'text-planka-text-muted'"
       >
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
       </svg>
-      <p v-if="isDragging" class="text-blue-600">Drop file here</p>
+      <p v-if="isDragging" class="text-planka-accent">Drop file here</p>
       <p v-else>Drag and drop a file here, or click to select</p>
     </div>
 
@@ -130,16 +130,16 @@ function formatDate(dateString: string): string {
       <div
         v-for="attachment in attachments"
         :key="attachment.id"
-        class="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+        class="flex items-center gap-3 p-2 bg-planka-card rounded-planka hover:bg-planka-card/80 transition-colors"
       >
         <!-- File icon -->
-        <div class="w-10 h-10 flex items-center justify-center bg-gray-100 rounded flex-shrink-0">
+        <div class="w-10 h-10 flex items-center justify-center bg-planka-bg-light rounded-planka flex-shrink-0">
           <svg
             v-if="getFileIcon(attachment.mimeType) === 'image'"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            class="w-5 h-5 text-gray-500"
+            class="w-5 h-5 text-planka-text-muted"
           >
             <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0l-2.97 2.97zM12 7a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
           </svg>
@@ -148,7 +148,7 @@ function formatDate(dateString: string): string {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            class="w-5 h-5 text-red-500"
+            class="w-5 h-5 text-planka-error"
           >
             <path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd" />
           </svg>
@@ -157,7 +157,7 @@ function formatDate(dateString: string): string {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            class="w-5 h-5 text-gray-500"
+            class="w-5 h-5 text-planka-text-muted"
           >
             <path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
           </svg>
@@ -165,8 +165,8 @@ function formatDate(dateString: string): string {
 
         <!-- File info -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 truncate">{{ attachment.filename }}</p>
-          <p class="text-xs text-gray-500">
+          <p class="text-sm font-medium text-planka-text truncate">{{ attachment.filename }}</p>
+          <p class="text-xs text-planka-text-muted">
             {{ formatFileSize(attachment.size) }} · {{ formatDate(attachment.createdAt) }}
           </p>
         </div>
@@ -174,7 +174,7 @@ function formatDate(dateString: string): string {
         <!-- Actions -->
         <div class="flex items-center gap-1 flex-shrink-0">
           <button
-            class="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
+            class="p-1.5 text-planka-text-muted hover:text-planka-accent rounded-planka transition-colors"
             title="Download"
             @click="emit('download', attachment)"
           >
@@ -184,7 +184,7 @@ function formatDate(dateString: string): string {
             </svg>
           </button>
           <button
-            class="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
+            class="p-1.5 text-planka-text-muted hover:text-planka-error rounded-planka transition-colors"
             title="Delete"
             @click="handleDelete(attachment.id)"
           >
@@ -198,7 +198,7 @@ function formatDate(dateString: string): string {
       <!-- Drop zone hint when has items -->
       <div
         v-if="isDragging"
-        class="text-center py-4 text-blue-600 text-sm bg-blue-50 rounded-lg border-2 border-dashed border-blue-400"
+        class="text-center py-4 text-planka-accent text-sm bg-planka-accent/10 rounded-planka border-2 border-dashed border-planka-accent"
       >
         Drop file here to add
       </div>

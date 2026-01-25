@@ -8,18 +8,18 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const variantClasses = {
-  default: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-  success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  danger: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  info: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  default: 'bg-planka-card text-planka-text-muted',
+  success: 'bg-planka-success/20 text-planka-success',
+  warning: 'bg-planka-warning/20 text-planka-warning',
+  danger: 'bg-planka-error/20 text-planka-error',
+  info: 'bg-planka-accent/20 text-planka-accent',
 }
 </script>
 
 <template>
   <span
     :class="[
-      'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
+      'inline-flex items-center px-2 py-0.5 rounded-planka text-xs font-medium',
       variantClasses[props.variant],
     ]"
   >

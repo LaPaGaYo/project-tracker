@@ -35,18 +35,20 @@ const wipDisplay = computed(() => {
   return `${props.tasks.length}/${props.wipLimit}`
 })
 
+// Planka-style dark columns
 const statusColors: Record<TaskStatus, string> = {
-  Todo: 'bg-gray-50 border-gray-200',
-  Doing: 'bg-blue-50 border-blue-200',
-  Blocked: 'bg-red-50 border-red-200',
-  Done: 'bg-green-50 border-green-200',
+  Todo: 'bg-planka-bg-light border-planka-card/50',
+  Doing: 'bg-planka-bg-light border-planka-card/50',
+  Blocked: 'bg-planka-bg-light border-planka-card/50',
+  Done: 'bg-planka-bg-light border-planka-card/50',
 }
 
+// Accent colors for status headers
 const headerColors: Record<TaskStatus, string> = {
-  Todo: 'text-gray-700',
-  Doing: 'text-blue-700',
-  Blocked: 'text-red-700',
-  Done: 'text-green-700',
+  Todo: 'text-planka-text-muted',
+  Doing: 'text-planka-accent',
+  Blocked: 'text-planka-error',
+  Done: 'text-planka-success',
 }
 
 // Handle drag end - emit appropriate event based on what changed
@@ -63,26 +65,26 @@ function handleDragChange(event: { added?: { element: Task; newIndex: number }; 
 
 <template>
   <div
-    class="flex-shrink-0 w-64 border rounded-lg flex flex-col max-h-full"
+    class="flex-shrink-0 w-64 border rounded-planka-lg flex flex-col max-h-full"
     :class="statusColors[status]"
   >
-    <div class="p-3 border-b flex items-center justify-between" :class="statusColors[status]">
-      <h3 class="font-semibold text-sm" :class="headerColors[status]">
+    <div class="p-3 border-b border-planka-card/50 flex items-center justify-between">
+      <h3 class="font-semibold text-sm uppercase tracking-wide" :class="headerColors[status]">
         {{ status }}
       </h3>
       <div class="flex items-center gap-2">
         <span
           v-if="wipDisplay"
-          class="text-xs font-medium px-1.5 py-0.5 rounded"
+          class="text-xs font-medium px-1.5 py-0.5 rounded-planka"
           :class="{
-            'bg-red-100 text-red-700': isOverLimit,
-            'bg-yellow-100 text-yellow-700': isAtLimit && !isOverLimit,
-            'bg-gray-100 text-gray-600': !isAtLimit,
+            'bg-planka-error/20 text-planka-error': isOverLimit,
+            'bg-planka-warning/20 text-planka-warning': isAtLimit && !isOverLimit,
+            'bg-planka-card text-planka-text-muted': !isAtLimit,
           }"
         >
           {{ wipDisplay }}
         </span>
-        <span class="text-xs text-gray-500">
+        <span class="text-xs text-planka-text-muted">
           {{ tasks.length }}
         </span>
       </div>
@@ -110,14 +112,14 @@ function handleDragChange(event: { added?: { element: Task; newIndex: number }; 
 
     <div
       v-if="tasks.length === 0"
-      class="text-center py-6 text-gray-400 text-sm"
+      class="text-center py-6 text-planka-text-muted text-sm"
     >
       No tasks
     </div>
 
-    <div v-if="status === 'Todo'" class="p-2 border-t" :class="statusColors[status]">
+    <div v-if="status === 'Todo'" class="p-2 border-t border-planka-card/50">
       <button
-        class="w-full py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+        class="w-full py-1.5 text-sm text-planka-text-muted hover:text-planka-text hover:bg-planka-card rounded-planka transition-colors"
         @click="emit('createTask')"
       >
         + Add task

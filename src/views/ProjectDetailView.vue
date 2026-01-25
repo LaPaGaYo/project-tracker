@@ -216,10 +216,10 @@ function toggleSidebar() {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b bg-white flex items-center justify-between">
+    <header class="px-4 py-3 border-b border-planka-card/50 bg-planka-bg-light flex items-center justify-between">
       <div class="flex items-center gap-4">
         <button
-          class="text-gray-500 hover:text-gray-700"
+          class="text-planka-text-muted hover:text-planka-text transition-colors"
           @click="goBack"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
@@ -227,12 +227,12 @@ function toggleSidebar() {
           </svg>
         </button>
         <div v-if="project">
-          <h1 class="text-xl font-semibold text-gray-900">{{ project.title }}</h1>
-          <p v-if="project.description" class="text-sm text-gray-500 mt-0.5">
+          <h1 class="text-xl font-semibold text-planka-text">{{ project.title }}</h1>
+          <p v-if="project.description" class="text-sm text-planka-text-muted mt-0.5">
             {{ project.description }}
           </p>
         </div>
-        <div v-else class="text-gray-500">
+        <div v-else class="text-planka-text-muted">
           Project not found
         </div>
       </div>
@@ -248,7 +248,7 @@ function toggleSidebar() {
       </Button>
     </header>
 
-    <div v-if="project" class="flex-1 flex overflow-hidden">
+    <div v-if="project" class="flex-1 flex overflow-hidden bg-planka-bg">
       <!-- Task Board -->
       <div class="flex-1 overflow-hidden p-4">
         <TaskBoard
@@ -266,15 +266,15 @@ function toggleSidebar() {
       <!-- Sidebar -->
       <div
         v-if="showSidebar"
-        class="w-80 border-l bg-gray-50 flex flex-col overflow-hidden"
+        class="w-80 border-l border-planka-card/50 bg-planka-bg-light flex flex-col overflow-hidden"
       >
         <!-- Tabs -->
-        <div class="flex border-b bg-white">
+        <div class="flex border-b border-planka-card/50 bg-planka-bg-light">
           <button
             class="flex-1 px-4 py-2 text-sm font-medium transition-colors"
             :class="activeTab === 'notes'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'"
+              ? 'text-planka-accent border-b-2 border-planka-accent'
+              : 'text-planka-text-muted hover:text-planka-text'"
             @click="activeTab = 'notes'"
           >
             Notes ({{ sortedNotes.length }})
@@ -282,8 +282,8 @@ function toggleSidebar() {
           <button
             class="flex-1 px-4 py-2 text-sm font-medium transition-colors"
             :class="activeTab === 'attachments'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'"
+              ? 'text-planka-accent border-b-2 border-planka-accent'
+              : 'text-planka-text-muted hover:text-planka-text'"
             @click="activeTab = 'attachments'"
           >
             Files ({{ attachments.length }})
@@ -314,27 +314,27 @@ function toggleSidebar() {
     <Modal :open="showCreateModal" title="New Task" @close="showCreateModal = false">
       <form @submit.prevent="handleCreateTask" class="space-y-4">
         <div>
-          <label for="task-title" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="task-title" class="block text-sm font-medium text-planka-text mb-1">
             Title
           </label>
           <input
             id="task-title"
             v-model="newTaskTitle"
             type="text"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Task title"
             autofocus
           />
         </div>
         <div>
-          <label for="task-description" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="task-description" class="block text-sm font-medium text-planka-text mb-1">
             Description (optional)
           </label>
           <textarea
             id="task-description"
             v-model="newTaskDescription"
             rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Brief description"
           />
         </div>
@@ -353,14 +353,14 @@ function toggleSidebar() {
     <Modal :open="showBlockedModal" title="Block Task" @close="showBlockedModal = false">
       <form @submit.prevent="handleBlockTask" class="space-y-4">
         <div>
-          <label for="blocked-reason" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="blocked-reason" class="block text-sm font-medium text-planka-text mb-1">
             Why is this task blocked?
           </label>
           <textarea
             id="blocked-reason"
             v-model="blockedReason"
             rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Waiting on API response, need clarification, etc."
             autofocus
           />

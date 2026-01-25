@@ -103,23 +103,23 @@ function closeClearModal() {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Settings</h1>
+    <header class="px-4 py-3 border-b border-planka-card/50 bg-planka-bg-light">
+      <h1 class="text-xl font-semibold text-planka-text">Settings</h1>
     </header>
 
-    <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex-1 overflow-y-auto p-4 bg-planka-bg">
       <div class="max-w-2xl mx-auto space-y-8">
         <!-- Data Management Section -->
         <section>
-          <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Data Management</h2>
+          <h2 class="text-lg font-medium text-planka-text mb-4">Data Management</h2>
 
           <div class="space-y-4">
             <!-- Export -->
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="p-4 bg-planka-card rounded-planka-lg">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium text-gray-900 dark:text-white">Export Data</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <h3 class="font-medium text-planka-text">Export Data</h3>
+                  <p class="text-sm text-planka-text-muted mt-1">
                     Download a backup of all your projects, tasks, and notes as a JSON file.
                   </p>
                 </div>
@@ -133,11 +133,11 @@ function closeClearModal() {
             </div>
 
             <!-- Import -->
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="p-4 bg-planka-card rounded-planka-lg">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium text-gray-900 dark:text-white">Import Data</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <h3 class="font-medium text-planka-text">Import Data</h3>
+                  <p class="text-sm text-planka-text-muted mt-1">
                     Restore data from a previously exported backup file.
                   </p>
                 </div>
@@ -158,11 +158,11 @@ function closeClearModal() {
             </div>
 
             <!-- Clear Data -->
-            <div class="p-4 bg-white rounded-lg border border-red-200">
+            <div class="p-4 bg-planka-card rounded-planka-lg ring-1 ring-planka-error/30">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium text-red-700">Clear All Data</h3>
-                  <p class="text-sm text-red-600 mt-1">
+                  <h3 class="font-medium text-planka-error">Clear All Data</h3>
+                  <p class="text-sm text-planka-error/80 mt-1">
                     Permanently delete all projects, tasks, notes, and attachments. This cannot be undone.
                   </p>
                 </div>
@@ -179,14 +179,14 @@ function closeClearModal() {
 
         <!-- About Section -->
         <section>
-          <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">About</h2>
+          <h2 class="text-lg font-medium text-planka-text mb-4">About</h2>
 
-          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <h3 class="font-medium text-gray-900 dark:text-white">Project Tracker</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <div class="p-4 bg-planka-card rounded-planka-lg">
+            <h3 class="font-medium text-planka-text">Project Tracker</h3>
+            <p class="text-sm text-planka-text-muted mt-1">
               A personal kanban-style project and task management application.
             </p>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-sm text-planka-text-muted mt-2">
               All data is stored locally in your browser using IndexedDB.
               No account required, no data sent to any server.
             </p>
@@ -198,9 +198,9 @@ function closeClearModal() {
     <!-- Import Modal -->
     <Modal :open="showImportModal" title="Import Data" @close="closeImportModal">
       <div class="space-y-4">
-        <div class="p-3 bg-gray-50 rounded-lg">
-          <p class="text-sm font-medium text-gray-700">Selected file:</p>
-          <p class="text-sm text-gray-600">{{ importFile?.name }}</p>
+        <div class="p-3 bg-planka-bg-light rounded-planka">
+          <p class="text-sm font-medium text-planka-text">Selected file:</p>
+          <p class="text-sm text-planka-text-muted">{{ importFile?.name }}</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -208,14 +208,14 @@ function closeClearModal() {
             id="clear-before-import"
             v-model="clearBeforeImport"
             type="checkbox"
-            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            class="rounded border-planka-text-muted bg-planka-bg-light text-planka-accent focus:ring-planka-accent"
           />
-          <label for="clear-before-import" class="text-sm text-gray-700">
+          <label for="clear-before-import" class="text-sm text-planka-text">
             Clear existing data before import
           </label>
         </div>
 
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-planka-text-muted">
           {{ clearBeforeImport
             ? 'Warning: This will replace all existing data with the imported data.'
             : 'Imported data will be merged with existing data. Conflicts will overwrite existing items.'
@@ -236,22 +236,22 @@ function closeClearModal() {
     <!-- Clear Data Modal -->
     <Modal :open="showClearModal" title="Clear All Data" @close="closeClearModal">
       <div class="space-y-4">
-        <div class="p-3 bg-red-50 rounded-lg border border-red-200">
-          <p class="text-sm text-red-700">
+        <div class="p-3 bg-planka-error/10 rounded-planka border border-planka-error/30">
+          <p class="text-sm text-planka-error">
             This will permanently delete all your projects, tasks, notes, and attachments.
             This action cannot be undone.
           </p>
         </div>
 
         <div>
-          <label for="confirm-delete" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="confirm-delete" class="block text-sm font-medium text-planka-text mb-1">
             Type DELETE to confirm:
           </label>
           <input
             id="confirm-delete"
             v-model="clearConfirmText"
             type="text"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-error focus:border-planka-error"
             placeholder="DELETE"
           />
         </div>

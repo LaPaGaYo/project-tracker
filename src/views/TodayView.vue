@@ -75,18 +75,18 @@ function getTaskReasons(task: Task): string[] {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Today</h1>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+    <header class="px-4 py-3 border-b border-planka-card/50 bg-planka-bg-light">
+      <h1 class="text-xl font-semibold text-planka-text">Today</h1>
+      <p class="text-sm text-planka-text-muted mt-0.5">
         {{ todayTasks.length }} {{ todayTasks.length === 1 ? 'task' : 'tasks' }} for today
       </p>
     </header>
 
-    <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex-1 overflow-y-auto p-4 bg-planka-bg">
       <!-- Empty state -->
       <div
         v-if="todayTasks.length === 0"
-        class="text-center py-12 text-gray-500"
+        class="text-center py-12 text-planka-text-muted"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -94,7 +94,7 @@ function getTaskReasons(task: Task): string[] {
           viewBox="0 0 24 24"
           stroke-width="1.5"
           stroke="currentColor"
-          class="w-12 h-12 mx-auto text-gray-300 mb-4"
+          class="w-12 h-12 mx-auto text-planka-card mb-4"
         >
           <path
             stroke-linecap="round"
@@ -102,7 +102,7 @@ function getTaskReasons(task: Task): string[] {
             d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p class="text-lg font-medium">All clear!</p>
+        <p class="text-lg font-medium text-planka-text">All clear!</p>
         <p class="text-sm mt-1">No tasks due, in progress, or pinned for today.</p>
       </div>
 
@@ -111,38 +111,38 @@ function getTaskReasons(task: Task): string[] {
         <div
           v-for="projectId in sortedProjectIds"
           :key="projectId"
-          class="bg-white rounded-lg border border-gray-200 overflow-hidden"
+          class="bg-planka-card rounded-planka-lg overflow-hidden"
         >
           <!-- Project header -->
           <div
-            class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-100"
+            class="px-4 py-2 bg-planka-bg-light border-b border-planka-card/50 flex items-center justify-between cursor-pointer hover:bg-planka-card/50 transition-colors"
             @click="openProject(projectId)"
           >
-            <h2 class="font-medium text-gray-900">
+            <h2 class="font-medium text-planka-text">
               {{ getProjectName(projectId) }}
             </h2>
-            <span class="text-sm text-gray-500">
+            <span class="text-sm text-planka-text-muted">
               {{ tasksByProject[projectId]?.length ?? 0 }} {{ (tasksByProject[projectId]?.length ?? 0) === 1 ? 'task' : 'tasks' }}
             </span>
           </div>
 
           <!-- Tasks list -->
-          <div class="divide-y divide-gray-100">
+          <div class="divide-y divide-planka-bg-light">
             <div
               v-for="task in tasksByProject[projectId]"
               :key="task.id"
-              class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+              class="px-4 py-3 flex items-center gap-3 hover:bg-planka-bg-light/50 transition-colors"
             >
               <!-- Quick complete button -->
               <button
                 v-if="task.status !== 'Done'"
-                class="flex-shrink-0 w-5 h-5 rounded border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 transition-colors"
+                class="flex-shrink-0 w-5 h-5 rounded border-2 border-planka-text-muted hover:border-planka-success hover:bg-planka-success/10 transition-colors"
                 title="Mark as Done"
                 @click="handleMarkDone(task)"
               />
               <div
                 v-else
-                class="flex-shrink-0 w-5 h-5 rounded bg-green-500 flex items-center justify-center"
+                class="flex-shrink-0 w-5 h-5 rounded bg-planka-success flex items-center justify-center"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -162,8 +162,8 @@ function getTaskReasons(task: Task): string[] {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span
-                    class="font-medium text-gray-900 text-sm truncate"
-                    :class="{ 'line-through text-gray-500': task.status === 'Done' }"
+                    class="font-medium text-planka-text text-sm truncate"
+                    :class="{ 'line-through text-planka-text-muted': task.status === 'Done' }"
                   >
                     {{ task.title }}
                   </span>
@@ -171,7 +171,7 @@ function getTaskReasons(task: Task): string[] {
                     {{ task.status }}
                   </Badge>
                 </div>
-                <div class="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                <div class="flex items-center gap-2 mt-0.5 text-xs text-planka-text-muted">
                   <span
                     v-for="reason in getTaskReasons(task)"
                     :key="reason"
@@ -179,20 +179,20 @@ function getTaskReasons(task: Task): string[] {
                   >
                     <span
                       v-if="reason === 'Due'"
-                      class="text-red-600"
+                      class="text-planka-error"
                     >
                       Due {{ task.dueDate }}
                     </span>
                     <span
                       v-else-if="reason === 'Pinned'"
-                      class="text-yellow-600 flex items-center gap-0.5"
+                      class="text-planka-warning flex items-center gap-0.5"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
                         <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" />
                       </svg>
                       Pinned
                     </span>
-                    <span v-else class="text-blue-600">
+                    <span v-else class="text-planka-accent">
                       {{ reason }}
                     </span>
                   </span>
@@ -204,7 +204,7 @@ function getTaskReasons(task: Task): string[] {
                 <!-- Unpin button -->
                 <button
                   v-if="task.pinnedDate"
-                  class="p-1.5 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                  class="p-1.5 text-planka-warning hover:text-yellow-400 hover:bg-planka-warning/10 rounded-planka transition-colors"
                   title="Unpin"
                   @click="handleUnpin(task)"
                 >

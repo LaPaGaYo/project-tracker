@@ -17,7 +17,7 @@ describe('Button', () => {
       props: { variant: 'danger' },
       slots: { default: 'Delete' },
     })
-    expect(wrapper.classes()).toContain('bg-red-600')
+    expect(wrapper.classes()).toContain('bg-planka-error')
   })
 
   it('disables when disabled prop is true', () => {

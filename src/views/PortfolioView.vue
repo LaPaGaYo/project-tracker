@@ -114,14 +114,14 @@ async function handleReorderProject(projectId: string, newIndex: number) {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between transition-colors">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Portfolio</h1>
+    <header class="px-4 py-3 border-b border-planka-card/50 bg-planka-bg-light flex items-center justify-between">
+      <h1 class="text-xl font-semibold text-planka-text">Portfolio</h1>
       <Button @click="showCreateModal = true">
         + New Project
       </Button>
     </header>
 
-    <div class="flex-1 overflow-x-auto p-4">
+    <div class="flex-1 overflow-x-auto p-4 bg-planka-bg">
       <div class="flex gap-4 h-full">
         <StageColumn
           v-for="stage in stages"
@@ -142,27 +142,27 @@ async function handleReorderProject(projectId: string, newIndex: number) {
     <Modal :open="showCreateModal" title="New Project" @close="showCreateModal = false">
       <form @submit.prevent="handleCreateProject" class="space-y-4">
         <div>
-          <label for="title" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="title" class="block text-sm font-medium text-planka-text mb-1">
             Title
           </label>
           <input
             id="title"
             v-model="newProjectTitle"
             type="text"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Project title"
             autofocus
           />
         </div>
         <div>
-          <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="description" class="block text-sm font-medium text-planka-text mb-1">
             Description (optional)
           </label>
           <textarea
             id="description"
             v-model="newProjectDescription"
             rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-planka-bg-light border border-planka-bg-light text-planka-text rounded-planka focus:outline-none focus:ring-2 focus:ring-planka-accent focus:border-planka-accent"
             placeholder="Brief description"
           />
         </div>
