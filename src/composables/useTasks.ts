@@ -142,7 +142,7 @@ export function useTodayTasks(wipLimits: WipLimits = DEFAULT_WIP_LIMITS) {
       if (!groups[task.projectId]) {
         groups[task.projectId] = []
       }
-      groups[task.projectId].push(task)
+      groups[task.projectId]!.push(task)
     }
     return groups
   })

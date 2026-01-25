@@ -1,10 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { useProjects } from '@/composables/useProjects'
-import { ProjectTrackerDB } from '@/db/schema'
-import { db } from '@/db'
-
-// Note: We need to mock the db singleton for tests, but for now we'll test
-// the composable's structure. Integration tests would require a test db setup.
 
 describe('useProjects', () => {
   // Skip integration tests for now since they require proper db mocking
