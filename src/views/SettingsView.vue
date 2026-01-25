@@ -103,23 +103,23 @@ function closeClearModal() {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b bg-white">
-      <h1 class="text-xl font-semibold text-gray-900">Settings</h1>
+    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
+      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Settings</h1>
     </header>
 
     <div class="flex-1 overflow-y-auto p-4">
       <div class="max-w-2xl mx-auto space-y-8">
         <!-- Data Management Section -->
         <section>
-          <h2 class="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Data Management</h2>
 
           <div class="space-y-4">
             <!-- Export -->
-            <div class="p-4 bg-white rounded-lg border border-gray-200">
+            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium text-gray-900">Export Data</h3>
-                  <p class="text-sm text-gray-500 mt-1">
+                  <h3 class="font-medium text-gray-900 dark:text-white">Export Data</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Download a backup of all your projects, tasks, and notes as a JSON file.
                   </p>
                 </div>
@@ -133,11 +133,11 @@ function closeClearModal() {
             </div>
 
             <!-- Import -->
-            <div class="p-4 bg-white rounded-lg border border-gray-200">
+            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium text-gray-900">Import Data</h3>
-                  <p class="text-sm text-gray-500 mt-1">
+                  <h3 class="font-medium text-gray-900 dark:text-white">Import Data</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Restore data from a previously exported backup file.
                   </p>
                 </div>
@@ -179,14 +179,14 @@ function closeClearModal() {
 
         <!-- About Section -->
         <section>
-          <h2 class="text-lg font-medium text-gray-900 mb-4">About</h2>
+          <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">About</h2>
 
-          <div class="p-4 bg-white rounded-lg border border-gray-200">
-            <h3 class="font-medium text-gray-900">Project Tracker</h3>
-            <p class="text-sm text-gray-500 mt-1">
+          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 class="font-medium text-gray-900 dark:text-white">Project Tracker</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
               A personal kanban-style project and task management application.
             </p>
-            <p class="text-sm text-gray-500 mt-2">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
               All data is stored locally in your browser using IndexedDB.
               No account required, no data sent to any server.
             </p>

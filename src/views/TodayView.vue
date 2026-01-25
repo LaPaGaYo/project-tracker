@@ -75,9 +75,9 @@ function getTaskReasons(task: Task): string[] {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b bg-white">
-      <h1 class="text-xl font-semibold text-gray-900">Today</h1>
-      <p class="text-sm text-gray-500 mt-0.5">
+    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
+      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Today</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
         {{ todayTasks.length }} {{ todayTasks.length === 1 ? 'task' : 'tasks' }} for today
       </p>
     </header>

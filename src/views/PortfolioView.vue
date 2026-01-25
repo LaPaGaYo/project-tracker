@@ -114,8 +114,8 @@ async function handleReorderProject(projectId: string, newIndex: number) {
 
 <template>
   <div class="h-full flex flex-col">
-    <header class="px-4 py-3 border-b bg-white flex items-center justify-between">
-      <h1 class="text-xl font-semibold text-gray-900">Portfolio</h1>
+    <header class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between transition-colors">
+      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Portfolio</h1>
       <Button @click="showCreateModal = true">
         + New Project
       </Button>
