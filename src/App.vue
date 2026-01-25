@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterView, RouterLink } from 'vue-router'
+import ToastHost from '@/components/ui/ToastHost.vue'
 </script>
 
 <template>
@@ -9,5 +10,6 @@ import { RouterView, RouterLink } from 'vue-router'
       <RouterLink to="/today" class="text-blue-600 hover:underline">Today</RouterLink>
     </nav>
     <RouterView />
+    <ToastHost />
   </div>
 </template>
