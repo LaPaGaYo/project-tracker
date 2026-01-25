@@ -1,5 +1,4 @@
-import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { activityService } from '@/services/activityService'
 import { ProjectTrackerDB } from '@/db/schema'
 
@@ -10,6 +9,10 @@ describe('activityService', () => {
     db = new ProjectTrackerDB()
     await db.delete()
     db = new ProjectTrackerDB()
+  })
+
+  afterEach(async () => {
+    await db.close()
   })
 
   it('logs a project created event', async () => {

@@ -1,5 +1,4 @@
-import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { projectService } from '@/services/projectService'
 import { ProjectTrackerDB } from '@/db/schema'
 import { DEFAULT_WIP_LIMITS } from '@/types/policy'
@@ -11,6 +10,10 @@ describe('projectService', () => {
     db = new ProjectTrackerDB()
     await db.delete()
     db = new ProjectTrackerDB()
+  })
+
+  afterEach(async () => {
+    await db.close()
   })
 
   describe('createProject', () => {

@@ -16,8 +16,8 @@ export class ProjectTrackerDB extends Dexie {
   activity!: Table<ActivityEvent>
   tags!: Table<Tag>
 
-  constructor() {
-    super('ProjectTrackerDB')
+  constructor(name?: string) {
+    super(name ?? 'ProjectTrackerDB')
     this.version(1).stores({
       projects: 'id, stage, sortOrder, pinnedDate, dueDate',
       tasks: 'id, projectId, [projectId+status], status, dueDate, pinnedDate, completedAt',

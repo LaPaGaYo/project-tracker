@@ -1,5 +1,4 @@
-import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ProjectTrackerDB } from '@/db/schema'
 import { useLiveQuery } from '@/db/live'
 
@@ -10,6 +9,10 @@ describe('useLiveQuery', () => {
     db = new ProjectTrackerDB()
     await db.delete()
     db = new ProjectTrackerDB()
+  })
+
+  afterEach(async () => {
+    await db.close()
   })
 
   it('should return reactive data from query', async () => {

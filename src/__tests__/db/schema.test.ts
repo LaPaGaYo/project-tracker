@@ -1,5 +1,4 @@
-import 'fake-indexeddb/auto'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ProjectTrackerDB } from '@/db/schema'
 
 describe('ProjectTrackerDB', () => {
@@ -9,6 +8,10 @@ describe('ProjectTrackerDB', () => {
     db = new ProjectTrackerDB()
     await db.delete()
     db = new ProjectTrackerDB()
+  })
+
+  afterEach(async () => {
+    await db.close()
   })
 
   it('should create all tables', async () => {
