@@ -10,6 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.next
+.turbo
+.vercel
+.ccb
+.worktrees
+coverage
+*.tsbuildinfo
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.local
 
 # Editor directories and files

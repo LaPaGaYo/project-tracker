@@ -1,0 +1,20 @@
+{
+  "name": "@the-platform/worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src --max-warnings=0",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@the-platform/db": "file:../../packages/db",
+    "@the-platform/shared": "file:../../packages/shared"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4"
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "discipline": {
+    "adapter_id": "superpowers",
+    "outcome": "success",
+    "raw_output": {
+      "discipline_summary": "Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.; run dual audits through Nexus-owned review completion; verify implementation and audit provenance consistency; synthesize the audit set and record the gate decision; Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority."
+    },
+    "requested_route": null,
+    "actual_route": null,
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "superpowers-review-discipline",
+      "source_map": [
+        "upstream/superpowers/skills/verification-before-completion/SKILL.md"
+      ]
+    }
+  },
+  "audit_a": {
+    "adapter_id": "ccb",
+    "outcome": "success",
+    "raw_output": {
+      "markdown": "Reviewing the repo-visible artifacts for the bounded fix-cycle audit. I’m checking the plan packet and the specific files cited in the blocking items to decide pass/fail only on those items.\nReviewing the repo-visible artifacts for the bounded fix-cycle audit. I’m checking the plan packet and the specific files cited in the blocking items to decide pass/fail only on those items.\nI found repo-visible evidence that materially changes two of the cited blockers: the repo now includes a checked-in seed entrypoint and a worker deployment workflow. I’m validating those exact artifacts and the remaining web shell exit criterion before issuing the audit result.\nI found repo-visible evidence that materially changes two of the cited blockers: the repo now includes a checked-in seed entrypoint and a worker deployment workflow. I’m validating those exact artifacts and the remaining web shell exit criterion before issuing the audit result.\nThe remaining question is whether there are any bounded-scope blockers left. I’m checking for a couple of repo-visible edge cases that don’t change pass/fail on the listed items but may warrant advisory notes.\nThe remaining question is whether there are any bounded-scope blockers left. I’m checking for a couple of repo-visible edge cases that don’t change pass/fail on the listed items but may warrant advisory notes.\nI’m doing one last repo-visible check on the app shell around the blank-page criterion. The page component is empty, and I want to make sure the layout doesn’t add visible shell content that would keep that blocker open.\nI’m doing one last repo-visible check on the app shell around the blank-page criterion. The page component is empty, and I want to make sure the layout doesn’t add visible shell content that would keep that blocker open.\n# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
+      "receipt": "ccb-review-codex-2026-04-13T08-56-35.130Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 900"
+    },
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "actual_route": {
+      "provider": "codex",
+      "route": "codex-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "receipt_path": ".planning/current/review/adapter-output.json"
+    },
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "ccb-review-codex",
+      "source_map": [
+        "upstream/claude-code-bridge/lib/codex_comm.py"
+      ]
+    }
+  },
+  "audit_b": {
+    "adapter_id": "ccb",
+    "outcome": "success",
+    "raw_output": {
+      "markdown": "I have performed the governed Nexus `/review` audit for the Gemini path, evaluating the current repository state against the `Review scope` and `blocking_items`.\n\nMy investigation confirmed the following:\n- **Phase 1 task `1.2` (Seed Script):** The root `package.json` and `packages/db/package.json` both contain `db:seed` scripts. A functional `packages/db/src/seed.ts` file exists and contains development data seeding logic for projects and tasks.\n- **Phase 1 task `1.5` (Worker Deployment):** A dedicated worker deployment pipeline is present in `.github/workflows/worker-deploy.yml`, using `flyctl` to deploy the `@the-platform/worker` package. This is separate from the `vercel.json` configuration which manages the web application build.\n- **Web Shell Exit Criterion:** `apps/web/src/app/page.tsx` has been reduced to a blank shell (rendering only a `<main>` tag), satisfying the Phase 1 requirement to show a blank page.\n\nThe `tests/phase1-foundation-contract.test.mjs` contract tests also pass, confirming these findings.\n\n# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
+      "receipt": "ccb-review-gemini-2026-04-13T08-57-25.444Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap --timeout 900"
+    },
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "actual_route": {
+      "provider": "gemini",
+      "route": "gemini-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "receipt_path": ".planning/current/review/adapter-output.json"
+    },
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "ccb-review-gemini",
+      "source_map": [
+        "upstream/claude-code-bridge/lib/gemini_comm.py"
+      ]
+    }
+  }
+}

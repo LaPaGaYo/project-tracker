@@ -1,0 +1,27 @@
+{
+  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "inputs": [
+    ".planning/current/handoff/status.json",
+    ".planning/current/review/status.json"
+  ],
+  "adapter_chain": [
+    "superpowers",
+    "ccb"
+  ],
+  "requested_route": {
+    "command": "build",
+    "governed": true,
+    "execution_mode": "governed_ccb",
+    "primary_provider": "codex",
+    "provider_topology": "multi_session",
+    "planner": "claude+pm-gsd",
+    "generator": "codex-via-ccb",
+    "evaluator_a": "codex-via-ccb",
+    "evaluator_b": "gemini-via-ccb",
+    "synthesizer": "claude",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "fallback_policy": "disabled"
+  },
+  "discipline_required": true
+}

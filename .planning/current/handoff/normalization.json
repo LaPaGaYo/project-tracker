@@ -1,0 +1,37 @@
+{
+  "outcome": "success",
+  "route_validation": {
+    "transport": "ccb",
+    "available": true,
+    "approved": true,
+    "reason": "Nexus approved the requested governed route",
+    "mounted_providers": [
+      "codex",
+      "gemini",
+      "claude"
+    ],
+    "provider_checks": [
+      {
+        "provider": "codex",
+        "available": true,
+        "mounted": true,
+        "reason": "CCB codex route check passed"
+      },
+      {
+        "provider": "gemini",
+        "available": true,
+        "mounted": true,
+        "reason": "CCB gemini route check passed"
+      }
+    ]
+  },
+  "canonical_paths": [
+    ".planning/current/handoff/governed-execution-routing.md",
+    ".planning/current/handoff/governed-handoff.md"
+  ],
+  "status": {
+    "state": "completed",
+    "decision": "route_recorded",
+    "ready": true
+  }
+}

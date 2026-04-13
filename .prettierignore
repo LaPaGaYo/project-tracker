@@ -1,0 +1,9 @@
+.ccb
+.git
+.next
+.planning
+.turbo
+.worktrees
+coverage
+dist
+node_modules

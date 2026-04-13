@@ -1,0 +1,71 @@
+{
+  "adapter_id": "ccb",
+  "outcome": "success",
+  "raw_output": {
+    "available": true,
+    "provider": "codex",
+    "providers": [
+      "codex",
+      "gemini"
+    ],
+    "mounted": [
+      "codex",
+      "gemini",
+      "claude"
+    ],
+    "verification_command": "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart",
+    "verification_output": "✅ Codex connection OK (Session healthy)\n✅ Gemini connection OK (Session OK)\n{\"cwd\":\"/Users/henry/Documents/project-tracker\",\"mounted\":[\"codex\",\"gemini\",\"claude\"]}",
+    "verification_commands": [
+      "/Users/henry/.local/share/codex-dual/bin/ccb-ping codex",
+      "/Users/henry/.local/share/codex-dual/bin/ccb-ping gemini",
+      "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart"
+    ],
+    "provider_checks": [
+      {
+        "provider": "codex",
+        "ping_command": "/Users/henry/.local/share/codex-dual/bin/ccb-ping codex",
+        "ping_output": "✅ Codex connection OK (Session healthy)"
+      },
+      {
+        "provider": "gemini",
+        "ping_command": "/Users/henry/.local/share/codex-dual/bin/ccb-ping gemini",
+        "ping_output": "✅ Gemini connection OK (Session OK)"
+      }
+    ],
+    "ping_command": "/Users/henry/.local/share/codex-dual/bin/ccb-ping codex",
+    "ping_output": "✅ Codex connection OK (Session healthy)",
+    "mounted_command": "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart",
+    "mounted_output": "{\"cwd\":\"/Users/henry/Documents/project-tracker\",\"mounted\":[\"codex\",\"gemini\",\"claude\"]}"
+  },
+  "requested_route": {
+    "command": "build",
+    "governed": true,
+    "execution_mode": "governed_ccb",
+    "primary_provider": "codex",
+    "provider_topology": "multi_session",
+    "planner": "claude+pm-gsd",
+    "generator": "codex-via-ccb",
+    "evaluator_a": "codex-via-ccb",
+    "evaluator_b": "gemini-via-ccb",
+    "synthesizer": "claude",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "fallback_policy": "disabled"
+  },
+  "actual_route": {
+    "provider": "codex",
+    "route": "codex-via-ccb",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "receipt_path": ".planning/current/handoff/adapter-output.json"
+  },
+  "notices": [],
+  "conflict_candidates": [],
+  "traceability": {
+    "nexus_stage_pack": "nexus-handoff-pack",
+    "absorbed_capability": "ccb-routing",
+    "source_map": [
+      "upstream/claude-code-bridge/lib/providers.py"
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+:root {
+  --planka-bg: #22252a;
+  --planka-bg-light: #2a2e33;
+  --planka-card: #373b40;
+  --planka-accent: #2185d0;
+  --planka-accent-hover: #1e70bf;
+  --planka-text: #e8e9ea;
+  --planka-text-muted: #9ca3af;
+  --planka-error: #9f3a38;
+  --planka-success: #21ba45;
+  --planka-warning: #fbbd08;
+  --planka-selected: #216ba5;
+}
+
+@theme inline {
+  --color-planka-bg: var(--planka-bg);
+  --color-planka-bg-light: var(--planka-bg-light);
+  --color-planka-card: var(--planka-card);
+  --color-planka-accent: var(--planka-accent);
+  --color-planka-accent-hover: var(--planka-accent-hover);
+  --color-planka-text: var(--planka-text);
+  --color-planka-text-muted: var(--planka-text-muted);
+  --color-planka-error: var(--planka-error);
+  --color-planka-success: var(--planka-success);
+  --color-planka-warning: var(--planka-warning);
+  --color-planka-selected: var(--planka-selected);
+  --font-sans: "Nunito", "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--planka-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgb(33 133 208 / 0.24), transparent 28%),
+    linear-gradient(180deg, rgb(42 46 51 / 0.98), var(--planka-bg));
+  color: var(--planka-text);
+  font-family: "Nunito", "Helvetica Neue", Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

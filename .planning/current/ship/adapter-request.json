@@ -1,0 +1,10 @@
+{
+  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "inputs": [
+    ".planning/current/review/status.json",
+    ".planning/current/qa/status.json"
+  ],
+  "adapter_chain": [
+    "superpowers"
+  ]
+}
