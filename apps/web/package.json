@@ -1,0 +1,25 @@
+{
+  "name": "@the-platform/web",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "eslint src next.config.ts --max-warnings=0",
+    "start": "next start",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo 'No tests configured yet' && exit 0"
+  },
+  "dependencies": {
+    "@the-platform/shared": "file:../../packages/shared",
+    "next": "^15.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.4",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "tailwindcss": "^4.1.4"
+  }
+}

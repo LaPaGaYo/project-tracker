@@ -1,0 +1,18 @@
+{
+  "adapter_id": "pm",
+  "outcome": "success",
+  "raw_output": {
+    "idea_brief_markdown": "# Idea Brief\n\n## Overview\n\nNexus-owned discovery guidance for clarifying the problem before framing.\n\n## Nexus Execution Context\n\n- Run ID: run-2026-04-12T06-33-14-637Z\n- Command: discover\n- Stage: discover\n- Execution mode: governed_ccb\n- Primary provider: codex\n- Provider topology: multi_session\n\n## Discovery Checklist\n\n- capture goals\n- capture constraints\n- record open questions\n\n## Canonical Artifact Contract\n\nWrites `docs/product/idea-brief.md` and `.planning/current/discover/status.json`.\n\n## Transition Rule\n\nAdvance to `/frame` only after Nexus writes the discovery artifacts.\n"
+  },
+  "requested_route": null,
+  "actual_route": null,
+  "notices": [],
+  "conflict_candidates": [],
+  "traceability": {
+    "nexus_stage_pack": "nexus-discover-pack",
+    "absorbed_capability": "pm-discover",
+    "source_map": [
+      "upstream/pm-skills/commands/discover.md"
+    ]
+  }
+}

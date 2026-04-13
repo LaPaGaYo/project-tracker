@@ -1,0 +1,48 @@
+name: Worker Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/worker-deploy.yml"
+      - "apps/worker/**"
+      - "packages/db/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  deploy-worker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint worker
+        run: npm run lint --workspace @the-platform/worker
+
+      - name: Typecheck worker
+        run: npm run typecheck --workspace @the-platform/worker
+
+      - name: Build worker package
+        run: npm run build --workspace @the-platform/worker
+
+      - name: Set up Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy worker
+        run: flyctl deploy --config apps/worker/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

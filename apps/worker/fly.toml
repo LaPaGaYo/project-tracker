@@ -1,0 +1,8 @@
+app = "the-platform-worker"
+primary_region = "den"
+
+[build]
+  dockerfile = "apps/worker/Dockerfile"
+
+[env]
+  NODE_ENV = "production"

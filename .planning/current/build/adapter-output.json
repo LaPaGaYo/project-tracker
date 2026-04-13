@@ -1,0 +1,64 @@
+{
+  "discipline": {
+    "adapter_id": "superpowers",
+    "outcome": "success",
+    "raw_output": {
+      "verification_summary": "Nexus-owned build guidance for disciplined implementation under governed routing.; run build discipline before transport; preserve requested route; record actual route separately; Advance to `/review` only after Nexus records a bounded build result with requested and actual route provenance kept distinct."
+    },
+    "requested_route": null,
+    "actual_route": null,
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-build-pack",
+      "absorbed_capability": "superpowers-build-discipline",
+      "source_map": [
+        "upstream/superpowers/skills/test-driven-development/SKILL.md",
+        "upstream/superpowers/skills/verification-before-completion/SKILL.md",
+        "upstream/claude-code-bridge/lib/codex_comm.py"
+      ]
+    }
+  },
+  "transport": {
+    "adapter_id": "ccb",
+    "outcome": "success",
+    "raw_output": {
+      "receipt": "ccb-build-codex-2026-04-13T08-54-03.021Z",
+      "summary_markdown": "Using `using-superpowers`, `receiving-code-review`, `test-driven-development`, and `verification-before-completion` in that order. I’m first re-reading the repo-visible contract and current files, then I’ll make only the bounded fixes for the three cited blockers.\nUsing `using-superpowers`, `receiving-code-review`, `test-driven-development`, and `verification-before-completion` in that order. I’m first re-reading the repo-visible contract and current files, then I’ll make only the bounded fixes for the three cited blockers.\nThe contract is clear enough to implement directly: add a real seed entrypoint, add a separate worker deployment pipeline artifact, and reduce the web shell to a blank page. Before editing, I’m checking the existing test/build wiring so I can add the smallest failing tests first instead of guessing at the repo’s verification surface.\nThe contract is clear enough to implement directly: add a real seed entrypoint, add a separate worker deployment pipeline artifact, and reduce the web shell to a blank page. Before editing, I’m checking the existing test/build wiring so I can add the smallest failing tests first instead of guessing at the repo’s verification surface.\nI’ve narrowed the implementation surface. The least risky path is: add a small repo-level contract test that fails on the three blockers, then implement a real `db:seed` entrypoint, add a dedicated worker deploy workflow plus minimal worker runtime/deploy config, and replace the landing page with a blank shell.\nI’ve narrowed the implementation surface. The least risky path is: add a small repo-level contract test that fails on the three blockers, then implement a real `db:seed` entrypoint, add a dedicated worker deploy workflow plus minimal worker runtime/deploy config, and replace the landing page with a blank shell.\nI’m adding a single repo-level contract test first so the three blockers fail in one place before any implementation changes land. After that I’ll patch the seed path, deploy workflow, and web page until the contract and the repo’s normal checks go green.\nI’m adding a single repo-level contract test first so the three blockers fail in one place before any implementation changes land. After that I’ll patch the seed path, deploy workflow, and web page until the contract and the repo’s normal checks go green.\nI have the failing contract output. I’m patching only the files needed to satisfy those failures now: `packages/db` for seeding, `apps/worker` plus a dedicated workflow for deployment, and the web page component for the blank-shell exit criterion.\nI have the failing contract output. I’m patching only the files needed to satisfy those failures now: `packages/db` for seeding, `apps/worker` plus a dedicated workflow for deployment, and the web page component for the blank-shell exit criterion.\nThe main fixes are in place. I’m running the new contract test immediately to catch any gaps before I spend time on broader verification, then I’ll clean up any type issues from the new seed/runtime files.\nThe main fixes are in place. I’m running the new contract test immediately to catch any gaps before I spend time on broader verification, then I’ll clean up any type issues from the new seed/runtime files.\nThe contract test is already green. The only issue surfaced by fresh typechecking is inside the new seed script, so I’m tightening the inserted data types and the returned-project handling before I run the full repo verification set.\nThe contract test is already green. The only issue surfaced by fresh typechecking is inside the new seed script, so I’m tightening the inserted data types and the returned-project handling before I run the full repo verification set.\nThe code-side blockers are addressed. I’m in the verification phase now: fresh contract test, workspace lint/typecheck/test/build, then a live `db:migrate`/`db:seed` plus a quick localhost check so the summary is based on current outputs, not inference.\nThe code-side blockers are addressed. I’m in the verification phase now: fresh contract test, workspace lint/typecheck/test/build, then a live `db:migrate`/`db:seed` plus a quick localhost check so the summary is based on current outputs, not inference.\n`db:migrate` succeeded inside the sandbox, but the new `db:seed` entrypoint hit a localhost connection `EPERM` that looks sandbox-related rather than application logic. I’m rerunning the seed verification with escalation, and I’ll do the same for the live localhost page check if the dev server is similarly blocked.\n`db:migrate` succeeded inside the sandbox, but the new `db:seed` entrypoint hit a localhost connection `EPERM` that looks sandbox-related rather than application logic. I’m rerunning the seed verification with escalation, and I’ll do the same for the live localhost page check if the dev server is similarly blocked.\nThe dev server is up, but sandboxed `curl` cannot hit the local port. I’m verifying the rendered homepage outside the sandbox so the blank-page exit criterion is based on the actual served HTML, not just the source file.\nThe dev server is up, but sandboxed `curl` cannot hit the local port. I’m verifying the rendered homepage outside the sandbox so the blank-page exit criterion is based on the actual served HTML, not just the source file.\n# Build Execution Summary\n\n- Status: completed\n- Actions: Implemented only the bounded review fixes from the governed contract. Added a real `db:seed` path at the root and in `packages/db` with `packages/db/src/seed.ts`, added a separate worker deployment pipeline via `.github/workflows/worker-deploy.yml` plus `apps/worker/fly.toml` and `apps/worker/Dockerfile` and a worker `start` script, and replaced `apps/web/src/app/page.tsx` with a blank shell page. Added a repo-level contract test in `tests/phase1-foundation-contract.test.mjs` and wired it into the root `test` script. No contract inconsistency was found in the predecessor artifacts.\n- Files touched: `package.json`, `tests/phase1-foundation-contract.test.mjs`, `packages/db/package.json`, `packages/db/src/seed.ts`, `apps/worker/package.json`, `apps/worker/Dockerfile`, `apps/worker/fly.toml`, `.github/workflows/worker-deploy.yml`, `apps/web/src/app/page.tsx`\n- Verification: `node --test tests/phase1-foundation-contract.test.mjs` passed; `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` passed; `docker compose up -d postgres redis` succeeded; `npm run db:migrate` succeeded; `npm run db:seed` succeeded when rerun outside the sandbox after a sandbox localhost `EPERM`; `npm run dev` started web and worker, and an escalated `curl -s http://127.0.0.1:3001` confirmed the served homepage is an empty `<main class=\"min-h-screen\" aria-label=\"Application shell\"></main>`. `next build` emitted a non-blocking Next.js ESLint plugin detection warning.",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 1800"
+    },
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "actual_route": {
+      "provider": "codex",
+      "route": "codex-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "receipt_path": ".planning/current/build/adapter-output.json"
+    },
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-build-pack",
+      "absorbed_capability": "ccb-execution",
+      "source_map": [
+        "upstream/superpowers/skills/test-driven-development/SKILL.md",
+        "upstream/superpowers/skills/verification-before-completion/SKILL.md",
+        "upstream/claude-code-bridge/lib/codex_comm.py"
+      ]
+    }
+  }
+}

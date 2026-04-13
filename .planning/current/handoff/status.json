@@ -1,0 +1,75 @@
+{
+  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "stage": "handoff",
+  "execution_mode": "governed_ccb",
+  "primary_provider": "codex",
+  "provider_topology": "multi_session",
+  "requested_execution_path": "codex-via-ccb",
+  "actual_execution_path": "codex-via-ccb",
+  "state": "completed",
+  "decision": "route_recorded",
+  "ready": true,
+  "inputs": [
+    {
+      "kind": "json",
+      "path": ".planning/current/plan/status.json"
+    }
+  ],
+  "outputs": [
+    {
+      "kind": "markdown",
+      "path": ".planning/current/handoff/governed-execution-routing.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/current/handoff/governed-handoff.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/handoff/status.json"
+    }
+  ],
+  "started_at": "2026-04-13T06:40:26.702Z",
+  "completed_at": "2026-04-13T06:40:26.702Z",
+  "errors": [],
+  "requested_route": {
+    "command": "build",
+    "governed": true,
+    "execution_mode": "governed_ccb",
+    "primary_provider": "codex",
+    "provider_topology": "multi_session",
+    "planner": "claude+pm-gsd",
+    "generator": "codex-via-ccb",
+    "evaluator_a": "codex-via-ccb",
+    "evaluator_b": "gemini-via-ccb",
+    "synthesizer": "claude",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "fallback_policy": "disabled"
+  },
+  "route_validation": {
+    "transport": "ccb",
+    "available": true,
+    "approved": true,
+    "reason": "Nexus approved the requested governed route",
+    "mounted_providers": [
+      "codex",
+      "gemini",
+      "claude"
+    ],
+    "provider_checks": [
+      {
+        "provider": "codex",
+        "available": true,
+        "mounted": true,
+        "reason": "CCB codex route check passed"
+      },
+      {
+        "provider": "gemini",
+        "available": true,
+        "mounted": true,
+        "reason": "CCB gemini route check passed"
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "stage": "discover",
+  "execution_mode": "governed_ccb",
+  "primary_provider": "codex",
+  "provider_topology": "multi_session",
+  "requested_execution_path": "codex-via-ccb",
+  "actual_execution_path": null,
+  "state": "completed",
+  "decision": "ready",
+  "ready": true,
+  "inputs": [],
+  "outputs": [
+    {
+      "kind": "markdown",
+      "path": "docs/product/idea-brief.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/discover/status.json"
+    }
+  ],
+  "started_at": "2026-04-12T06:33:14.637Z",
+  "completed_at": "2026-04-12T06:33:14.637Z",
+  "errors": []
+}

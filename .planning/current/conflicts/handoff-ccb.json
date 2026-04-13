@@ -1,0 +1,30 @@
+{
+  "stage": "handoff",
+  "adapter": "ccb",
+  "kind": "backend_conflict_resolved",
+  "message": "Previous CCB codex dispatch failure superseded by successful manual route availability check",
+  "resolved_at": "2026-04-12T07:30:31Z",
+  "canonical_paths": [
+    ".planning/current/handoff/governed-handoff.md",
+    ".planning/current/handoff/governed-execution-routing.md",
+    ".planning/current/handoff/normalization.json",
+    ".planning/current/handoff/status.json"
+  ],
+  "trace_paths": [
+    ".planning/current/handoff/adapter-request.json",
+    ".planning/current/handoff/adapter-output.json",
+    ".planning/current/handoff/normalization.json"
+  ],
+  "evidence": [
+    {
+      "command": "ccb-ping codex",
+      "exit_code": 0,
+      "result": "healthy"
+    },
+    {
+      "command": "ccb-mounted --autostart",
+      "exit_code": 0,
+      "result": "mounted"
+    }
+  ]
+}
