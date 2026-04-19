@@ -8,8 +8,8 @@ import type {
   WorkItemType
 } from "@the-platform/shared";
 
-import { hasMinimumRole, requireWorkspaceMembership, WorkspaceError } from "../workspaces/core.ts";
-import type { AppSession } from "../workspaces/types.ts";
+import { hasMinimumRole, requireWorkspaceMembership, WorkspaceError } from "../workspaces/core";
+import type { AppSession } from "../workspaces/types";
 
 export interface WorkspaceAccessRepository {
   findWorkspaceBySlug(slug: string): Promise<WorkspaceRecord | null>;

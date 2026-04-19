@@ -1,18 +1,18 @@
-import { WorkspaceError } from "../workspaces/core.ts";
+import { WorkspaceError } from "../workspaces/core";
 import {
   normalizeOptionalString,
   requireRoleAtLeast,
   requireWorkflowStateCategory,
   requireNonEmptyString,
   resolveWorkspaceContext
-} from "../work-management/utils.ts";
+} from "../work-management/utils";
 
-import type { AppSession } from "../workspaces/types.ts";
+import type { AppSession } from "../workspaces/types";
 import type {
   CreateWorkflowStateInput,
   UpdateWorkflowStateInput,
   WorkflowStateRepository
-} from "./types.ts";
+} from "./types";
 
 async function resolveProjectContext(
   repository: WorkflowStateRepository,

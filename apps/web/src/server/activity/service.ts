@@ -1,8 +1,8 @@
-import { WorkspaceError } from "../workspaces/core.ts";
-import { resolveWorkspaceContext } from "../work-management/utils.ts";
+import { WorkspaceError } from "../workspaces/core";
+import { resolveWorkspaceContext } from "../work-management/utils";
 
-import type { ActivityFeedOptions, ActivityRepository } from "./types.ts";
-import type { AppSession } from "../workspaces/types.ts";
+import type { ActivityFeedOptions, ActivityRepository } from "./types";
+import type { AppSession } from "../workspaces/types";
 
 async function resolveProjectContext(
   repository: ActivityRepository,

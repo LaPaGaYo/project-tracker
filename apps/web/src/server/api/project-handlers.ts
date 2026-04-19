@@ -1,33 +1,33 @@
 import {
   getItemActivityForUser,
   getProjectActivityForUser
-} from "../activity/service.ts";
-import type { ActivityRepository } from "../activity/types.ts";
+} from "../activity/service";
+import type { ActivityRepository } from "../activity/types";
 import {
   createProjectForUser,
   deleteProjectForUser,
   getProjectForUser,
   listProjectsForUser,
   updateProjectForUser
-} from "../projects/service.ts";
-import type { ProjectRepository } from "../projects/types.ts";
-import type { AppSession } from "../workspaces/types.ts";
-import { WorkspaceError } from "../workspaces/core.ts";
+} from "../projects/service";
+import type { ProjectRepository } from "../projects/types";
+import type { AppSession } from "../workspaces/types";
+import { WorkspaceError } from "../workspaces/core";
 import {
   createWorkItemForUser,
   deleteWorkItemForUser,
   getWorkItemForUser,
   listWorkItemsForUser,
   updateWorkItemForUser
-} from "../work-items/service.ts";
-import type { WorkItemRepository } from "../work-items/types.ts";
+} from "../work-items/service";
+import type { WorkItemRepository } from "../work-items/types";
 import {
   createWorkflowStateForUser,
   deleteWorkflowStateForUser,
   listWorkflowStatesForUser,
   updateWorkflowStateForUser
-} from "../workflow-states/service.ts";
-import type { WorkflowStateRepository } from "../workflow-states/types.ts";
+} from "../workflow-states/service";
+import type { WorkflowStateRepository } from "../workflow-states/types";
 
 export interface ProjectHandlerDependencies {
   getSession: () => Promise<AppSession | null>;

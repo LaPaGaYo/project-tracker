@@ -3,10 +3,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { db, projects, tasks, workflowStates } from "@the-platform/db";
 import type { ProjectRecord, WorkflowStateRecord } from "@the-platform/shared";
 
-import { insertActivityLogEntry } from "../activity/repository.ts";
-import { createWorkspaceRepository } from "../workspaces/repository.ts";
+import { insertActivityLogEntry } from "../activity/repository";
+import { createWorkspaceRepository } from "../workspaces/repository";
 
-import type { ProjectRepository, ProjectWithCounts } from "./types.ts";
+import type { ProjectRepository, ProjectWithCounts } from "./types";
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;

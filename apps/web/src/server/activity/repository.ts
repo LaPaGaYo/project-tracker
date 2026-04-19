@@ -3,9 +3,9 @@ import { and, desc, eq } from "drizzle-orm";
 import { activityLog, db, projects, tasks } from "@the-platform/db";
 import type { ActivityLogRecord, ProjectRecord, WorkItemRecord } from "@the-platform/shared";
 
-import { createWorkspaceRepository } from "../workspaces/repository.ts";
+import { createWorkspaceRepository } from "../workspaces/repository";
 
-import type { ActivityFeedOptions, ActivityRepository } from "./types.ts";
+import type { ActivityFeedOptions, ActivityRepository } from "./types";
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;

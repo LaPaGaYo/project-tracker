@@ -1,6 +1,6 @@
 import type { ProjectRecord, ProjectStage, WorkflowStateRecord } from "@the-platform/shared";
 
-import type { WorkspaceRepository } from "../workspaces/types.ts";
+import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateProjectInput {
   name?: unknown;

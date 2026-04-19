@@ -1,4 +1,4 @@
-import { hasMinimumRole, WorkspaceError } from "../workspaces/core.ts";
+import { hasMinimumRole, WorkspaceError } from "../workspaces/core";
 import {
   normalizeLabels,
   normalizeOptionalDate,
@@ -9,15 +9,15 @@ import {
   requireWorkItemType,
   resolveWorkspaceContext,
   taskStatusFromWorkflowCategory
-} from "../work-management/utils.ts";
+} from "../work-management/utils";
 
-import type { AppSession } from "../workspaces/types.ts";
+import type { AppSession } from "../workspaces/types";
 import type {
   CreateWorkItemInput,
   ListWorkItemFilters,
   UpdateWorkItemInput,
   WorkItemRepository
-} from "./types.ts";
+} from "./types";
 
 async function resolveProjectContext(
   repository: WorkItemRepository,

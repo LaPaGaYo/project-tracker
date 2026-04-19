@@ -1,6 +1,6 @@
 import type { WorkspaceRole } from "@the-platform/shared";
 
-import type { AppSession, WorkspaceRepository } from "./types.ts";
+import type { AppSession, WorkspaceRepository } from "./types";
 
 const roleRank: Record<WorkspaceRole, number> = {
   owner: 4,

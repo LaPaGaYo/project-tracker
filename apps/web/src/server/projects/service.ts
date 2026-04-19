@@ -1,6 +1,6 @@
 import type { ProjectStage } from "@the-platform/shared";
 
-import { WorkspaceError } from "../workspaces/core.ts";
+import { WorkspaceError } from "../workspaces/core";
 import {
   normalizeOptionalDate,
   normalizeOptionalString,
@@ -8,10 +8,10 @@ import {
   requireRoleAtLeast,
   requireNonEmptyString,
   resolveWorkspaceContext
-} from "../work-management/utils.ts";
+} from "../work-management/utils";
 
-import type { AppSession } from "../workspaces/types.ts";
-import type { CreateProjectInput, ProjectRepository, UpdateProjectInput } from "./types.ts";
+import type { AppSession } from "../workspaces/types";
+import type { CreateProjectInput, ProjectRepository, UpdateProjectInput } from "./types";
 
 function requireProjectStage(value: unknown): ProjectStage {
   if (

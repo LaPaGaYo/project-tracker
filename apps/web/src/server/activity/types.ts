@@ -1,6 +1,6 @@
 import type { ActivityLogRecord, ProjectRecord, WorkItemRecord } from "@the-platform/shared";
 
-import type { AppSession, WorkspaceRepository } from "../workspaces/types.ts";
+import type { AppSession, WorkspaceRepository } from "../workspaces/types";
 
 export interface ActivityFeedOptions {
   limit?: number;

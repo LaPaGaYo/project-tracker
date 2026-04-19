@@ -1,6 +1,6 @@
 import type { ProjectRecord, WorkflowStateRecord, WorkItemRecord } from "@the-platform/shared";
 
-import type { WorkspaceRepository } from "../workspaces/types.ts";
+import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateWorkItemInput {
   title?: unknown;

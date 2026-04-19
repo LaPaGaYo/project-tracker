@@ -7,9 +7,9 @@ import type {
 } from "@the-platform/shared";
 
 import type { AppSession, WorkspaceRepository } from "./types";
-import { WorkspaceError } from "./core.ts";
+import { WorkspaceError } from "./core";
 
-export { WorkspaceError } from "./core.ts";
+export { WorkspaceError } from "./core";
 
 const roleRank: Record<WorkspaceRole, number> = {
   owner: 4,
