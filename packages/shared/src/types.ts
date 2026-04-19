@@ -6,7 +6,7 @@ import type {
   WorkspaceRole,
   WorkItemPriority,
   WorkItemType
-} from "./constants.ts";
+} from "./constants";
 
 export interface ProjectRecord {
   id: string;

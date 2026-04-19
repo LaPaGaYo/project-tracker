@@ -4,8 +4,8 @@ import { pathToFileURL } from "node:url";
 
 import type { ProjectStage, TaskStatus } from "@the-platform/shared";
 
-import { db, sql } from "./client.ts";
-import { projects, tasks, workspaces } from "./schema.ts";
+import { db, sql } from "./client";
+import { projects, tasks, workspaces } from "./schema";
 
 const developmentProject = {
   title: "Platform foundation rollout",
