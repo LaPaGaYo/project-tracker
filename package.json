@@ -12,7 +12,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "npm run test:contracts && turbo run test",
-    "test:contracts": "node --test tests/*.test.mjs",
+    "test:contracts": "node --import tsx --test tests/*.test.mjs",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "db:generate": "npm run db:generate --workspace @the-platform/db",
@@ -27,6 +27,7 @@
     "eslint-config-prettier": "^10.1.2",
     "globals": "^16.0.0",
     "prettier": "^3.5.3",
+    "tsx": "^4.21.0",
     "turbo": "^2.5.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.30.1"
