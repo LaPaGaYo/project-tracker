@@ -1,8 +1,14 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["apps/web/src/*"],
+      "@the-platform/shared": ["packages/shared/src/index.ts"],
+      "@the-platform/db": ["packages/db/src/index.ts"]
+    },
     "types": ["node"]
   },
   "include": [
