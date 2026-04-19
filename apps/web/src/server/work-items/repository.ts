@@ -1,0 +1,422 @@
+import { and, desc, eq } from "drizzle-orm";
+
+import { activityLog, db, projects, tasks, workflowStates } from "@the-platform/db";
+import type { ProjectRecord, WorkflowStateRecord, WorkItemRecord } from "@the-platform/shared";
+
+import { insertActivityLogEntry } from "../activity/repository.ts";
+import { createWorkspaceRepository } from "../workspaces/repository.ts";
+
+import type { WorkItemRepository } from "./types.ts";
+
+function toIso(value: Date | null) {
+  return value ? value.toISOString() : null;
+}
+
+function serializeProject(row: typeof projects.$inferSelect): ProjectRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    key: row.key,
+    itemCounter: row.itemCounter,
+    title: row.title,
+    description: row.description,
+    stage: row.stage,
+    dueDate: toIso(row.dueDate),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkflowState(row: typeof workflowStates.$inferSelect): WorkflowStateRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    name: row.name,
+    category: row.category,
+    position: row.position,
+    color: row.color,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string): WorkItemRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    workspaceId,
+    identifier: row.identifier,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    type: row.type,
+    parentId: row.parentId,
+    assigneeId: row.assigneeId,
+    priority: row.priority,
+    labels: row.labels,
+    workflowStateId: row.workflowStateId,
+    position: row.position,
+    blockedReason: row.blockedReason,
+    dueDate: toIso(row.dueDate),
+    completedAt: toIso(row.completedAt),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function createWorkItemRepository(): WorkItemRepository {
+  const workspaceRepository = createWorkspaceRepository();
+
+  return {
+    ...workspaceRepository,
+
+    async getProjectByKey(workspaceId, projectKey) {
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.workspaceId, workspaceId), eq(projects.key, projectKey)))
+        .limit(1);
+
+      return project ? serializeProject(project) : null;
+    },
+
+    async listWorkflowStates(projectId) {
+      const rows = await db
+        .select()
+        .from(workflowStates)
+        .where(eq(workflowStates.projectId, projectId))
+        .orderBy(workflowStates.position, workflowStates.createdAt);
+
+      return rows.map(serializeWorkflowState);
+    },
+
+    async getWorkflowState(projectId, stateId) {
+      const [state] = await db
+        .select()
+        .from(workflowStates)
+        .where(and(eq(workflowStates.projectId, projectId), eq(workflowStates.id, stateId)))
+        .limit(1);
+
+      return state ? serializeWorkflowState(state) : null;
+    },
+
+    async getWorkItemById(projectId, workItemId) {
+      const [row] = await db
+        .select({
+          task: tasks,
+          workspaceId: projects.workspaceId
+        })
+        .from(tasks)
+        .innerJoin(projects, eq(tasks.projectId, projects.id))
+        .where(and(eq(tasks.projectId, projectId), eq(tasks.id, workItemId)))
+        .limit(1);
+
+      return row ? serializeWorkItem(row.task, row.workspaceId) : null;
+    },
+
+    async getWorkItemByIdentifier(projectId, identifier) {
+      const [row] = await db
+        .select({
+          task: tasks,
+          workspaceId: projects.workspaceId
+        })
+        .from(tasks)
+        .innerJoin(projects, eq(tasks.projectId, projects.id))
+        .where(and(eq(tasks.projectId, projectId), eq(tasks.identifier, identifier)))
+        .limit(1);
+
+      return row ? serializeWorkItem(row.task, row.workspaceId) : null;
+    },
+
+    async createWorkItem(input) {
+      return db.transaction(async (tx) => {
+        const [project] = await tx
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1)
+          .for("update");
+
+        if (!project) {
+          throw new Error("Project not found.");
+        }
+
+        const nextCounter = project.itemCounter + 1;
+        const identifier = `${project.key}-${nextCounter}`;
+
+        const [item] = await tx
+          .insert(tasks)
+          .values({
+            projectId: input.projectId,
+            title: input.title,
+            description: input.description,
+            status: input.status,
+            type: input.type,
+            parentId: input.parentId,
+            assigneeId: input.assigneeId,
+            identifier,
+            priority: input.priority,
+            labels: input.labels,
+            workflowStateId: input.workflowStateId,
+            position: input.position,
+            blockedReason: input.blockedReason,
+            dueDate: input.dueDate ? new Date(input.dueDate) : null,
+            updatedAt: new Date()
+          })
+          .returning();
+
+        if (!item) {
+          throw new Error("Failed to create work item.");
+        }
+
+        await tx
+          .update(projects)
+          .set({
+            itemCounter: nextCounter,
+            updatedAt: new Date()
+          })
+          .where(eq(projects.id, input.projectId));
+
+        await insertActivityLogEntry(tx, {
+          workspaceId: input.workspaceId,
+          entityType: "work_item",
+          entityId: item.id,
+          action: "created",
+          actorId: input.actorId,
+          metadata: {
+            projectId: input.projectId,
+            identifier,
+            title: item.title
+          }
+        });
+
+        return serializeWorkItem(item, project.workspaceId);
+      });
+    },
+
+    async listWorkItems(projectId, filters) {
+      const rows = await db
+        .select({
+          task: tasks,
+          workspaceId: projects.workspaceId
+        })
+        .from(tasks)
+        .innerJoin(projects, eq(tasks.projectId, projects.id))
+        .where(eq(tasks.projectId, projectId))
+        .orderBy(tasks.position, desc(tasks.createdAt));
+
+      return rows
+        .map((row) => serializeWorkItem(row.task, row.workspaceId))
+        .filter((item) => {
+          if (filters?.type && item.type !== filters.type) {
+            return false;
+          }
+
+          if (filters?.workflowStateId && item.workflowStateId !== filters.workflowStateId) {
+            return false;
+          }
+
+          if (filters?.assigneeId && item.assigneeId !== filters.assigneeId) {
+            return false;
+          }
+
+          return true;
+        });
+    },
+
+    async updateWorkItem(projectId, identifier, input) {
+      return db.transaction(async (tx) => {
+        const [currentRow] = await tx
+          .select({
+            task: tasks,
+            workspaceId: projects.workspaceId
+          })
+          .from(tasks)
+          .innerJoin(projects, eq(tasks.projectId, projects.id))
+          .where(and(eq(tasks.projectId, projectId), eq(tasks.identifier, identifier)))
+          .limit(1);
+
+        if (!currentRow) {
+          return null;
+        }
+
+        const current = currentRow.task;
+
+        const [updated] = await tx
+          .update(tasks)
+          .set({
+            ...(input.title !== undefined ? { title: input.title } : {}),
+            ...(input.description !== undefined ? { description: input.description } : {}),
+            ...(input.type !== undefined ? { type: input.type } : {}),
+            ...(input.parentId !== undefined ? { parentId: input.parentId } : {}),
+            ...(input.assigneeId !== undefined ? { assigneeId: input.assigneeId } : {}),
+            ...(input.priority !== undefined ? { priority: input.priority } : {}),
+            ...(input.labels !== undefined ? { labels: input.labels } : {}),
+            ...(input.workflowStateId !== undefined ? { workflowStateId: input.workflowStateId } : {}),
+            ...(input.dueDate !== undefined ? { dueDate: input.dueDate ? new Date(input.dueDate) : null } : {}),
+            ...(input.blockedReason !== undefined ? { blockedReason: input.blockedReason } : {}),
+            ...(input.position !== undefined ? { position: input.position } : {}),
+            ...(input.status !== undefined ? { status: input.status } : {}),
+            updatedAt: new Date()
+          })
+          .where(eq(tasks.id, current.id))
+          .returning();
+
+        if (!updated) {
+          return null;
+        }
+
+        await tx
+          .update(projects)
+          .set({
+            updatedAt: new Date()
+          })
+          .where(eq(projects.id, projectId));
+
+        if (input.assigneeId !== undefined && input.assigneeId !== current.assigneeId) {
+          await insertActivityLogEntry(tx, {
+            workspaceId: input.workspaceId,
+            entityType: "work_item",
+            entityId: current.id,
+            action: "assigned",
+            actorId: input.actorId,
+            metadata: {
+              projectId,
+              before: current.assigneeId,
+              after: input.assigneeId
+            }
+          });
+        }
+
+        if (input.workflowStateId !== undefined && input.workflowStateId !== current.workflowStateId) {
+          await insertActivityLogEntry(tx, {
+            workspaceId: input.workspaceId,
+            entityType: "work_item",
+            entityId: current.id,
+            action: "state_changed",
+            actorId: input.actorId,
+            metadata: {
+              projectId,
+              before: current.workflowStateId,
+              after: input.workflowStateId
+            }
+          });
+        }
+
+        if (input.position !== undefined && input.position !== current.position) {
+          await insertActivityLogEntry(tx, {
+            workspaceId: input.workspaceId,
+            entityType: "work_item",
+            entityId: current.id,
+            action: "moved",
+            actorId: input.actorId,
+            metadata: {
+              projectId,
+              before: current.position,
+              after: input.position
+            }
+          });
+        }
+
+        const needsUpdatedLog =
+          input.title !== undefined ||
+          input.description !== undefined ||
+          input.type !== undefined ||
+          input.parentId !== undefined ||
+          input.priority !== undefined ||
+          input.labels !== undefined ||
+          input.dueDate !== undefined ||
+          input.blockedReason !== undefined;
+
+        if (needsUpdatedLog) {
+          await insertActivityLogEntry(tx, {
+            workspaceId: input.workspaceId,
+            entityType: "work_item",
+            entityId: current.id,
+            action: "updated",
+            actorId: input.actorId,
+            metadata: {
+              projectId,
+              identifier,
+              before: {
+                title: current.title,
+                description: current.description,
+                type: current.type,
+                parentId: current.parentId,
+                priority: current.priority,
+                labels: current.labels,
+                dueDate: toIso(current.dueDate),
+                blockedReason: current.blockedReason
+              },
+              after: {
+                title: updated.title,
+                description: updated.description,
+                type: updated.type,
+                parentId: updated.parentId,
+                priority: updated.priority,
+                labels: updated.labels,
+                dueDate: toIso(updated.dueDate),
+                blockedReason: updated.blockedReason
+              }
+            }
+          });
+        }
+
+        return serializeWorkItem(updated, currentRow.workspaceId);
+      });
+    },
+
+    async deleteWorkItem(projectId, identifier, workspaceId, actorId) {
+      return db.transaction(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(tasks)
+          .where(and(eq(tasks.projectId, projectId), eq(tasks.identifier, identifier)))
+          .limit(1);
+
+        if (!current) {
+          return false;
+        }
+
+        await insertActivityLogEntry(tx, {
+          workspaceId,
+          entityType: "work_item",
+          entityId: current.id,
+          action: "deleted",
+          actorId,
+          metadata: {
+            projectId,
+            identifier,
+            title: current.title
+          }
+        });
+
+        const deleted = await tx.delete(tasks).where(eq(tasks.id, current.id)).returning({
+          id: tasks.id
+        });
+
+        await tx
+          .update(projects)
+          .set({
+            updatedAt: new Date()
+          })
+          .where(eq(projects.id, projectId));
+
+        return deleted.length > 0;
+      });
+    },
+
+    async getWorkItemCreatorId(workItemId) {
+      const [entry] = await db
+        .select({
+          actorId: activityLog.actorId
+        })
+        .from(activityLog)
+        .where(and(eq(activityLog.entityId, workItemId), eq(activityLog.action, "created")))
+        .orderBy(activityLog.createdAt)
+        .limit(1);
+
+      return entry?.actorId ?? null;
+    }
+  };
+}

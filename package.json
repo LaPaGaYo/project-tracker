@@ -8,11 +8,11 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "docker compose up -d postgres redis && turbo run dev --parallel",
+    "dev": "node scripts/ensure-dev-services.mjs && turbo run dev --parallel",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "npm run test:contracts && turbo run test",
-    "test:contracts": "node --test tests/phase1-foundation-contract.test.mjs",
+    "test:contracts": "node --test tests/*.test.mjs",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "db:generate": "npm run db:generate --workspace @the-platform/db",

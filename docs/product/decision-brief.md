@@ -1,57 +1,80 @@
-# Decision Brief: The Platform V1
+# Decision Brief: Phase 3 - Projects & Work Items
 
-## Summary
+## Executive Summary
 
-Build a GitHub-native project execution platform for software teams. Next.js + Postgres + Clerk. Greenfield build using existing Vue prototype as design reference. Ship a product that can replace GitHub Projects + spreadsheets + Slack for a small engineering team's daily execution.
+Phase 3 turns The Platform from an authenticated workspace shell into a functional project management tool. Users will create projects within workspaces, track work items with hierarchy and human-readable IDs, assign work to teammates, and see an activity log of changes.
 
-## Key Decisions
+## Decisions Made
 
-### 1. Greenfield Build (not brownfield)
-**Decision:** New Next.js/React/Postgres codebase. Existing Vue 3 prototype serves as UX reference only.
-**Why:** Framework mismatch (Vue vs React) makes code reuse impractical. Patterns and data model shape carry forward, components do not.
-**Trade-off:** Slower initial velocity vs. clean architecture from day one. Worth it for a product that needs multi-tenancy, auth, and real-time baked in from the start.
+### D1: Workspace-scoped projects via FK migration
 
-### 2. Clerk for Auth (not Auth0, not custom)
-**Decision:** Clerk handles identity and sessions. Workspace membership, project roles, and authorization live in our database.
-**Why:** Fastest path to working auth with Next.js. Good invite flows out of the box.
-**Trade-off:** Clerk dependency for identity. Mitigated by auth abstraction layer from day one. Swap to Auth0 if enterprise SSO becomes a near-term requirement.
+Add `workspace_id` FK to the existing `projects` table. Existing rows get a default workspace assignment during migration. All project queries filter by workspace membership.
 
-### 3. Medium-Depth GitHub Integration
-**Decision:** One-way dominant sync from GitHub into the platform via GitHub App + webhooks. No bidirectional sync in V1.
-**Why:** Deep write-back creates conflict resolution complexity that delays shipping. Medium depth (PR/commit/CI visibility, activity timelines) delivers the core differentiator without the risk.
-**Trade-off:** Users cannot create GitHub issues from work items in V1. Acceptable because the product is the planning layer, GitHub is the execution layer.
+**Why:** Projects without workspace scoping break multi-tenant isolation. Adding the FK is simpler than creating a new table and migrating.
 
-### 4. SSE Before WebSockets
-**Decision:** Server-sent events for real-time updates. WebSockets deferred.
-**Why:** V1 real-time needs are server-to-client (board updates, GitHub events, notifications). SSE handles this with less infrastructure complexity.
-**Trade-off:** No live presence or collaborative editing in V1. These features are not in V1 scope anyway.
+### D2: Work items replace tasks
 
-### 5. Vercel + Separate Workers
-**Decision:** Next.js app on Vercel. GitHub webhook processing and background jobs on separate worker infrastructure.
-**Why:** Webhook processing must be durable, retryable, and decoupled from UI request lifecycles. Vercel Functions are not the right home for the core sync pipeline.
-**Trade-off:** Two deployment targets instead of one. Worth it for reliability of the GitHub integration, which is the product's primary differentiator.
+Rename the concept from "tasks" to "work items" at the application layer. Add fields: `type` (epic/task/subtask), `parentId` (self-referencing FK for hierarchy), `assigneeId` (workspace member), `identifier` (human-readable ID like PROJ-42), `priority`, and `labels`.
 
-### 6. Application-Enforced Multi-Tenancy
-**Decision:** Shared database, shared schema, workspace_id on every tenant-bound table. Application-layer enforcement, not Postgres RLS.
-**Why:** Simpler to develop and debug. RLS can be added later for defense-in-depth without changing the application logic.
-**Trade-off:** Tenant isolation depends on correct service-layer scoping. Mitigated by consistent patterns and testing.
+**Why:** "Task" is too flat for a PM tool. Hierarchy enables epics with child tasks. The existing `tasks` table schema gets extended, not replaced.
 
-### 7. Light Hierarchy for V1
-**Decision:** Epic > Task/Story > Subtask > Bug. No Initiative or Portfolio layer.
-**Why:** Full portfolio hierarchy adds schema complexity and UI surface without proving the core thesis. The V1 question is whether teams will use this for daily execution, not strategic planning.
-**Trade-off:** PMs who want roadmap-level views will find V1 limited. Acceptable for proving the concept.
+### D3: Per-project workflow states
 
-### 8. Postgres Search (not dedicated search engine)
-**Decision:** Full-text search + structured filters + trigram/fuzzy for V1.
-**Why:** Search is not a V1 differentiator. Postgres handles V1 volume. Dedicated search adds operational cost with no user-facing payoff yet.
-**Trade-off:** Search UX will be "good enough" not "great." Revisit when scale or UX expectations justify Typesense/Meilisearch.
+Create a `workflow_states` table linked to projects. Each project gets default states (Backlog, Todo, In Progress, Done) on creation. States have a position for column ordering.
 
-## Risk Register
+**Why:** Per-project gives teams flexibility. Linear does this. A global enum (current approach) is too rigid for different project types.
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| GitHub webhook reliability at scale | Medium | High | Durable queue between receiver and processor, dead letter queue, retry with backoff |
-| Clerk vendor lock-in | Low | Medium | Auth abstraction layer from day one |
-| Multi-tenancy bugs leaking data | Medium | Critical | Tenant scoping in base query layer, integration tests per endpoint |
-| V1 scope creep beyond what's shippable | High | High | This document. Non-goals are explicit. Cut features, not quality. |
-| Worker infrastructure complexity | Medium | Medium | Start simple (single worker process), scale horizontally when needed |
+### D4: Human-readable IDs scoped to projects
+
+Each project gets a `key` (e.g., "PROJ", max 8 chars). Work items get sequential numbers within the project: PROJ-1, PROJ-2. The `identifier` is stored as a varchar, and a sequence counter lives on the project row.
+
+**Why:** Project-scoped sequences are simpler than workspace-scoped. Users think in project context ("PROJ-42"), not workspace context.
+
+### D5: Activity log as append-only table
+
+Create an `activity_log` table with: entity type, entity ID, action, actor, diff/payload, timestamp. No updates or deletes on this table. Used for audit trail and feeds future comment/notification phases.
+
+**Why:** Append-only is simple, correct, and feeds downstream features without schema changes.
+
+### D6: RBAC enforcement per workspace role
+
+- Owner/Admin: full CRUD on projects and work items
+- Member: create/edit work items, view projects, limited project settings
+- Viewer: read-only on everything
+
+**Why:** Consistent with Phase 2 role hierarchy. Viewers should not create work.
+
+## Non-Goals (Phase 3)
+
+- **Custom work item types** - Only epic/task/subtask. Custom types are Phase 5+ complexity.
+- **Comments** - Phase 5 (Detail & Comments).
+- **GitHub integration** - Phase 6.
+- **Real-time updates** - Phase 7.
+- **Views (board, list, timeline)** - Phase 4. Phase 3 delivers API and basic list UI only.
+- **Drag-and-drop** - Phase 4.
+- **File attachments** - Phase 5.
+- **Search** - Phase 8.
+
+## Success Criteria
+
+1. Create a project within a workspace and see it scoped to that workspace only
+2. Create work items (epic, task, subtask) with hierarchy and human-readable IDs
+3. Assign work items to workspace members
+4. Move work items through workflow states
+5. Activity log records all create/update/delete/assign/move actions
+6. Workspace role enforcement: viewer cannot create, member cannot delete projects
+7. Cross-tenant isolation: user in workspace A cannot see workspace B projects
+8. Contract tests cover all CRUD operations and permission boundaries
+9. Migration from existing schema is non-destructive
+
+## Risk
+
+- **Schema migration complexity** - Adding `workspaceId` to existing projects table requires handling existing rows. Mitigated by migration script with default workspace.
+- **Performance on activity log** - Append-only tables grow fast. Mitigated by indexing on entity_id + created_at and pagination.
+
+## Nexus Execution Context
+
+- Run ID: run-2026-04-17T00-21-05-864Z
+- Command: frame
+- Stage: frame
+- Predecessor: docs/product/idea-brief.md

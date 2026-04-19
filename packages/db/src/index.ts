@@ -1,3 +1,3 @@
-export * from "./client";
-export * from "./redis";
-export * from "./schema";
+export * from "./client.ts";
+export * from "./redis.ts";
+export * from "./schema.ts";
