@@ -12,6 +12,24 @@ jobs:
   foundation:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: the_platform
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5433/the_platform
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,6 +48,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Run migrations
+        run: npm run db:migrate
 
       - name: Test
         run: npm run test
