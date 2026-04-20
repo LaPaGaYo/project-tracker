@@ -1,116 +1,55 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
-  "status": "active",
-  "current_command": "ship",
-  "current_stage": "ship",
-  "previous_stage": "qa",
-  "allowed_next_stages": [
-    "closeout"
-  ],
+  "run_id": "run-2026-04-19T08-27-58-235Z",
+  "continuation_mode": "phase",
+  "status": "blocked",
+  "current_command": "build",
+  "current_stage": "build",
+  "previous_stage": "handoff",
+  "allowed_next_stages": [],
   "command_history": [
     {
       "command": "discover",
-      "at": "2026-04-12T06:33:14.637Z",
+      "at": "2026-04-19T08:27:58.375Z",
       "via": null
     },
     {
       "command": "frame",
-      "at": "2026-04-12T07:16:36.303Z",
+      "at": "2026-04-20T05:08:33.760Z",
       "via": null
     },
     {
       "command": "plan",
-      "at": "2026-04-12T07:22:35.810Z",
+      "at": "2026-04-20T05:10:47.239Z",
       "via": null
     },
     {
       "command": "handoff",
-      "at": "2026-04-12T07:28:17.593Z",
+      "at": "2026-04-20T05:18:54.003Z",
       "via": null
     },
     {
       "command": "build",
-      "at": "2026-04-12T21:28:23.380Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T06:11:01.096Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T06:11:01.096Z",
-      "via": "fix-cycle",
-      "gate_decision": "fail"
-    },
-    {
-      "command": "handoff",
-      "at": "2026-04-13T06:40:26.702Z",
-      "via": null
-    },
-    {
-      "command": "build",
-      "at": "2026-04-13T06:40:35.331Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T06:57:00.176Z",
-      "via": null
-    },
-    {
-      "command": "build",
-      "at": "2026-04-13T07:00:07.123Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:01:30.602Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:20:59.107Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:30:17.498Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:10:33.572Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:36:43.447Z",
-      "via": null
-    },
-    {
-      "command": "build",
-      "at": "2026-04-13T08:43:45.252Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:54:48.925Z",
-      "via": null
-    },
-    {
-      "command": "qa",
-      "at": "2026-04-13T08:57:58.261Z",
-      "via": null
-    },
-    {
-      "command": "ship",
-      "at": "2026-04-13T08:59:46.070Z",
+      "at": "2026-04-20T05:25:50.340Z",
       "via": null
     }
   ],
   "artifact_index": {
+    ".planning/current/discover/next-run-bootstrap.json": {
+      "kind": "json",
+      "path": ".planning/current/discover/next-run-bootstrap.json"
+    },
+    ".planning/current/discover/NEXT-RUN.md": {
+      "kind": "markdown",
+      "path": ".planning/current/discover/NEXT-RUN.md"
+    },
+    ".planning/current/discover/session-continuation-advice.json": {
+      "kind": "json",
+      "path": ".planning/current/discover/session-continuation-advice.json"
+    },
+    ".planning/current/discover/SESSION-CONTINUATION.md": {
+      "kind": "markdown",
+      "path": ".planning/current/discover/SESSION-CONTINUATION.md"
+    },
     "docs/product/idea-brief.md": {
       "kind": "markdown",
       "path": "docs/product/idea-brief.md"
@@ -127,6 +66,10 @@
       "kind": "markdown",
       "path": "docs/product/prd.md"
     },
+    ".planning/current/frame/design-intent.json": {
+      "kind": "json",
+      "path": ".planning/current/frame/design-intent.json"
+    },
     ".planning/current/frame/status.json": {
       "kind": "json",
       "path": ".planning/current/frame/status.json"
@@ -138,6 +81,10 @@
     ".planning/current/plan/sprint-contract.md": {
       "kind": "markdown",
       "path": ".planning/current/plan/sprint-contract.md"
+    },
+    ".planning/current/plan/verification-matrix.json": {
+      "kind": "json",
+      "path": ".planning/current/plan/verification-matrix.json"
     },
     ".planning/current/plan/status.json": {
       "kind": "json",
@@ -159,81 +106,30 @@
       "kind": "json",
       "path": ".planning/current/build/build-request.json"
     },
-    ".planning/current/build/build-result.md": {
-      "kind": "markdown",
-      "path": ".planning/current/build/build-result.md"
-    },
     ".planning/current/build/status.json": {
       "kind": "json",
       "path": ".planning/current/build/status.json"
-    },
-    ".planning/audits/current/codex.md": {
-      "kind": "markdown",
-      "path": ".planning/audits/current/codex.md"
-    },
-    ".planning/audits/current/gemini.md": {
-      "kind": "markdown",
-      "path": ".planning/audits/current/gemini.md"
-    },
-    ".planning/audits/current/synthesis.md": {
-      "kind": "markdown",
-      "path": ".planning/audits/current/synthesis.md"
-    },
-    ".planning/audits/current/gate-decision.md": {
-      "kind": "markdown",
-      "path": ".planning/audits/current/gate-decision.md"
-    },
-    ".planning/audits/current/meta.json": {
-      "kind": "json",
-      "path": ".planning/audits/current/meta.json"
-    },
-    ".planning/current/review/status.json": {
-      "kind": "json",
-      "path": ".planning/current/review/status.json"
-    },
-    ".planning/current/qa/qa-report.md": {
-      "kind": "markdown",
-      "path": ".planning/current/qa/qa-report.md"
-    },
-    ".planning/current/qa/status.json": {
-      "kind": "json",
-      "path": ".planning/current/qa/status.json"
-    },
-    ".planning/current/ship/release-gate-record.md": {
-      "kind": "markdown",
-      "path": ".planning/current/ship/release-gate-record.md"
-    },
-    ".planning/current/ship/checklist.json": {
-      "kind": "json",
-      "path": ".planning/current/ship/checklist.json"
-    },
-    ".planning/current/ship/status.json": {
-      "kind": "json",
-      "path": ".planning/current/ship/status.json"
     }
   },
   "execution": {
     "mode": "governed_ccb",
     "primary_provider": "codex",
     "provider_topology": "multi_session",
+    "workspace": {
+      "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+      "kind": "worktree",
+      "branch": "codex/run-2026-04-19T08-27-58-235Z",
+      "source": "allocated:fresh_run",
+      "run_id": "run-2026-04-19T08-27-58-235Z",
+      "retirement_state": "active"
+    },
+    "session_root": {
+      "path": "/Users/henry/Documents/project-tracker",
+      "kind": "repo_root",
+      "source": "ccb_root"
+    },
     "requested_path": "codex-via-ccb",
     "actual_path": "codex-via-ccb"
-  },
-  "route_check": {
-    "provider": "codex",
-    "checked_at": "2026-04-12T07:30:31Z",
-    "commands": [
-      {
-        "command": "ccb-ping codex",
-        "exit_code": 0,
-        "result": "healthy"
-      },
-      {
-        "command": "ccb-mounted --autostart",
-        "exit_code": 0,
-        "result": "mounted"
-      }
-    ]
   },
   "route_intent": {
     "planner": "claude+pm-gsd",
@@ -243,5 +139,48 @@
     "synthesizer": "claude",
     "substrate": "superpowers-core",
     "fallback_policy": "disabled"
+  },
+  "route_check": {
+    "checked_at": "2026-04-20T05:18:54.003Z",
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "route_validation": {
+      "transport": "ccb",
+      "available": true,
+      "approved": true,
+      "reason": "Nexus approved the requested governed route",
+      "mounted_providers": [
+        "codex",
+        "gemini",
+        "claude"
+      ],
+      "provider_checks": [
+        {
+          "provider": "codex",
+          "available": true,
+          "mounted": true,
+          "reason": "CCB codex route check passed"
+        },
+        {
+          "provider": "gemini",
+          "available": true,
+          "mounted": true,
+          "reason": "CCB gemini route check passed"
+        }
+      ]
+    }
   }
 }

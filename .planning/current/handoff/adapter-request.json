@@ -1,5 +1,5 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-19T08-27-58-235Z",
   "inputs": [
     ".planning/current/plan/status.json"
   ],
@@ -19,5 +19,13 @@
     "substrate": "superpowers-core",
     "transport": "ccb",
     "fallback_policy": "disabled"
+  },
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-19T08-27-58-235Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-19T08-27-58-235Z",
+    "retirement_state": "active"
   }
 }

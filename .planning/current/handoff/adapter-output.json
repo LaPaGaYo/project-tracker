@@ -14,11 +14,11 @@
       "claude"
     ],
     "verification_command": "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart",
-    "verification_output": "✅ Codex connection OK (Session healthy)\n✅ Gemini connection OK (Session OK)\n{\"cwd\":\"/Users/henry/Documents/project-tracker\",\"mounted\":[\"codex\",\"gemini\",\"claude\"]}",
+    "verification_output": "{\"cwd\":\"/Users/henry/Documents/project-tracker\",\"mounted\":[\"codex\",\"gemini\",\"claude\"]}\n✅ Codex connection OK (Session healthy)\n✅ Gemini connection OK (Session OK)",
     "verification_commands": [
+      "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart",
       "/Users/henry/.local/share/codex-dual/bin/ccb-ping codex",
-      "/Users/henry/.local/share/codex-dual/bin/ccb-ping gemini",
-      "/Users/henry/.local/share/codex-dual/bin/ccb-mounted --autostart"
+      "/Users/henry/.local/share/codex-dual/bin/ccb-ping gemini"
     ],
     "provider_checks": [
       {

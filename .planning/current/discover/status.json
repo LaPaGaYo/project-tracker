@@ -1,15 +1,37 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-19T08-27-58-235Z",
   "stage": "discover",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-19T08-27-58-235Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-19T08-27-58-235Z",
+    "retirement_state": "active"
+  },
+  "session_root": {
+    "path": "/Users/henry/Documents/project-tracker",
+    "kind": "repo_root",
+    "source": "ccb_root"
+  },
   "requested_execution_path": "codex-via-ccb",
   "actual_execution_path": null,
   "state": "completed",
   "decision": "ready",
   "ready": true,
-  "inputs": [],
+  "inputs": [
+    {
+      "kind": "json",
+      "path": ".planning/current/discover/next-run-bootstrap.json"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/current/discover/NEXT-RUN.md"
+    }
+  ],
   "outputs": [
     {
       "kind": "markdown",
@@ -20,7 +42,7 @@
       "path": ".planning/current/discover/status.json"
     }
   ],
-  "started_at": "2026-04-12T06:33:14.637Z",
-  "completed_at": "2026-04-12T06:33:14.637Z",
+  "started_at": "2026-04-19T08:27:58.375Z",
+  "completed_at": "2026-04-19T08:27:58.375Z",
   "errors": []
 }
