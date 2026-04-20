@@ -30,10 +30,23 @@ export interface UpdateWorkItemInput {
   position?: unknown;
 }
 
+export interface MoveWorkItemInput {
+  position?: unknown;
+  workflowStateId?: unknown;
+  affectedItems?: unknown;
+}
+
+export interface WorkItemSort {
+  field?: "position" | "identifier" | "priority" | "created_at";
+  order?: "asc" | "desc";
+}
+
 export interface ListWorkItemFilters {
-  type?: string;
-  workflowStateId?: string;
+  types?: WorkItemRecord["type"][];
+  priorities?: WorkItemRecord["priority"][];
   assigneeId?: string;
+  workflowStateIds?: string[];
+  sort?: WorkItemSort;
 }
 
 export interface WorkItemRepository
@@ -77,6 +90,31 @@ export interface WorkItemRepository
       blockedReason?: string | null;
       position?: number;
       status?: WorkItemRecord["status"];
+      workspaceId: string;
+      actorId: string;
+    }
+  ): Promise<WorkItemRecord | null>;
+  moveWorkItem(
+    projectId: string,
+    identifier: string,
+    input: {
+      position: number;
+      workflowStateId?: string | null;
+      status?: WorkItemRecord["status"];
+      workspaceId: string;
+      actorId: string;
+    }
+  ): Promise<WorkItemRecord | null>;
+  moveWorkItems(
+    projectId: string,
+    identifier: string,
+    input: {
+      updates: Array<{
+        identifier: string;
+        position: number;
+        workflowStateId?: string | null;
+        status?: WorkItemRecord["status"];
+      }>;
       workspaceId: string;
       actorId: string;
     }

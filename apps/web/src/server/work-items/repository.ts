@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { activityLog, db, projects, tasks, workflowStates } from "@the-platform/db";
 import type { ProjectRecord, WorkflowStateRecord, WorkItemRecord } from "@the-platform/shared";
@@ -7,6 +7,14 @@ import { insertActivityLogEntry } from "../activity/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
 
 import type { WorkItemRepository } from "./types";
+
+const priorityRank: Record<WorkItemRecord["priority"], number> = {
+  none: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+  urgent: 4
+};
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;
@@ -62,6 +70,37 @@ function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string):
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
   };
+}
+
+function compareWorkItems(
+  left: WorkItemRecord,
+  right: WorkItemRecord,
+  field: "position" | "identifier" | "priority" | "created_at",
+  order: "asc" | "desc"
+) {
+  const direction = order === "desc" ? -1 : 1;
+
+  if (field === "identifier") {
+    return left.identifier!.localeCompare(right.identifier!, undefined, {
+      numeric: true,
+      sensitivity: "base"
+    }) * direction;
+  }
+
+  if (field === "priority") {
+    return (priorityRank[left.priority] - priorityRank[right.priority]) * direction;
+  }
+
+  if (field === "created_at") {
+    return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * direction;
+  }
+
+  const positionDelta = left.position - right.position;
+  if (positionDelta !== 0) {
+    return positionDelta * direction;
+  }
+
+  return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
 }
 
 export function createWorkItemRepository(): WorkItemRepository {
@@ -205,14 +244,18 @@ export function createWorkItemRepository(): WorkItemRepository {
         .where(eq(tasks.projectId, projectId))
         .orderBy(tasks.position, desc(tasks.createdAt));
 
-      return rows
+      const items = rows
         .map((row) => serializeWorkItem(row.task, row.workspaceId))
         .filter((item) => {
-          if (filters?.type && item.type !== filters.type) {
+          if (filters?.types?.length && !filters.types.includes(item.type)) {
             return false;
           }
 
-          if (filters?.workflowStateId && item.workflowStateId !== filters.workflowStateId) {
+          if (filters?.priorities?.length && !filters.priorities.includes(item.priority)) {
+            return false;
+          }
+
+          if (filters?.workflowStateIds?.length && !filters.workflowStateIds.includes(item.workflowStateId ?? "")) {
             return false;
           }
 
@@ -222,6 +265,11 @@ export function createWorkItemRepository(): WorkItemRepository {
 
           return true;
         });
+
+      const field = filters?.sort?.field ?? "position";
+      const order = filters?.sort?.order ?? "asc";
+
+      return items.sort((left, right) => compareWorkItems(left, right, field, order));
     },
 
     async updateWorkItem(projectId, identifier, input) {
@@ -363,6 +411,116 @@ export function createWorkItemRepository(): WorkItemRepository {
         }
 
         return serializeWorkItem(updated, currentRow.workspaceId);
+      });
+    },
+
+    async moveWorkItem(projectId, identifier, input) {
+      return this.moveWorkItems(projectId, identifier, {
+        updates: [
+          {
+            identifier,
+            position: input.position,
+            ...(input.workflowStateId !== undefined ? { workflowStateId: input.workflowStateId } : {}),
+            ...(input.status !== undefined ? { status: input.status } : {})
+          }
+        ],
+        workspaceId: input.workspaceId,
+        actorId: input.actorId
+      });
+    },
+
+    async moveWorkItems(projectId, identifier, input) {
+      return db.transaction(async (tx) => {
+        const rows = await tx
+          .select({
+            task: tasks,
+            workspaceId: projects.workspaceId
+          })
+          .from(tasks)
+          .innerJoin(projects, eq(tasks.projectId, projects.id))
+          .where(and(eq(tasks.projectId, projectId), inArray(tasks.identifier, input.updates.map((update) => update.identifier))))
+          .for("update");
+
+        if (rows.length !== input.updates.length) {
+          return null;
+        }
+
+        const rowsByIdentifier = new Map(rows.map((row) => [row.task.identifier, row]));
+        const updatedByIdentifier = new Map<string, typeof tasks.$inferSelect>();
+
+        for (const update of input.updates) {
+          const currentRow = rowsByIdentifier.get(update.identifier);
+          if (!currentRow) {
+            return null;
+          }
+
+          const current = currentRow.task;
+          const nextWorkflowStateId =
+            update.workflowStateId !== undefined ? update.workflowStateId : current.workflowStateId;
+          const nextStatus = update.status ?? current.status;
+
+          const [updated] = await tx
+            .update(tasks)
+            .set({
+              position: update.position,
+              workflowStateId: nextWorkflowStateId,
+              status: nextStatus,
+              updatedAt: new Date()
+            })
+            .where(eq(tasks.id, current.id))
+            .returning();
+
+          if (!updated) {
+            return null;
+          }
+
+          updatedByIdentifier.set(update.identifier, updated);
+
+          if (nextWorkflowStateId !== current.workflowStateId) {
+            await insertActivityLogEntry(tx, {
+              workspaceId: input.workspaceId,
+              entityType: "work_item",
+              entityId: current.id,
+              action: "state_changed",
+              actorId: input.actorId,
+              metadata: {
+                projectId,
+                before: current.workflowStateId,
+                after: nextWorkflowStateId
+              }
+            });
+          }
+
+          if (update.position !== current.position) {
+            await insertActivityLogEntry(tx, {
+              workspaceId: input.workspaceId,
+              entityType: "work_item",
+              entityId: current.id,
+              action: "moved",
+              actorId: input.actorId,
+              metadata: {
+                projectId,
+                before: current.position,
+                after: update.position
+              }
+            });
+          }
+        }
+
+        await tx
+          .update(projects)
+          .set({
+            updatedAt: new Date()
+          })
+          .where(eq(projects.id, projectId));
+
+        const primaryRow = rowsByIdentifier.get(identifier);
+        const primaryUpdated = updatedByIdentifier.get(identifier);
+        if (!primaryRow || !primaryUpdated) {
+          return null;
+        }
+
+        return serializeWorkItem(primaryUpdated, primaryRow.workspaceId);
       });
     },
 

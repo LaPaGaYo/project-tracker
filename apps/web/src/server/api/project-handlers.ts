@@ -1,3 +1,5 @@
+import { workItemPriorities, workItemTypes } from "@the-platform/shared";
+
 import {
   getItemActivityForUser,
   getProjectActivityForUser
@@ -18,6 +20,8 @@ import {
   deleteWorkItemForUser,
   getWorkItemForUser,
   listWorkItemsForUser,
+  moveWorkItemForUser,
+  moveWorkItemsForUser,
   updateWorkItemForUser
 } from "../work-items/service";
 import type { WorkItemRepository } from "../work-items/types";
@@ -39,6 +43,40 @@ export interface ProjectHandlerDependencies {
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status });
+}
+
+function parseListParam(url: URL, key: string) {
+  return url.searchParams
+    .get(key)
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseTypeFilters(url: URL) {
+  return parseListParam(url, "type")?.filter((value): value is (typeof workItemTypes)[number] =>
+    workItemTypes.includes(value as (typeof workItemTypes)[number])
+  );
+}
+
+function parsePriorityFilters(url: URL) {
+  return parseListParam(url, "priority")?.filter((value): value is (typeof workItemPriorities)[number] =>
+    workItemPriorities.includes(value as (typeof workItemPriorities)[number])
+  );
+}
+
+function parseSortField(url: URL): "identifier" | "priority" | "created_at" | "position" | undefined {
+  const value = url.searchParams.get("sort");
+  if (value === "identifier" || value === "priority" || value === "created_at" || value === "position") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parseSortOrder(url: URL): "asc" | "desc" | undefined {
+  const value = url.searchParams.get("order");
+  return value === "asc" || value === "desc" ? value : undefined;
 }
 
 async function requireSession(dependencies: ProjectHandlerDependencies) {
@@ -189,13 +227,18 @@ export async function handleListWorkItems(
 
   try {
     const url = new URL(request.url);
-    const type = url.searchParams.get("type");
-    const workflowStateId = url.searchParams.get("workflowStateId");
-    const assigneeId = url.searchParams.get("assigneeId");
+    const types = parseTypeFilters(url);
+    const priorities = parsePriorityFilters(url);
+    const workflowStateIds = parseListParam(url, "state") ?? parseListParam(url, "workflowStateId");
+    const assigneeId = url.searchParams.get("assignee") ?? url.searchParams.get("assigneeId");
+    const sort = parseSortField(url);
+    const order = parseSortOrder(url);
     const filters = {
-      ...(type ? { type } : {}),
-      ...(workflowStateId ? { workflowStateId } : {}),
-      ...(assigneeId ? { assigneeId } : {})
+      ...(types?.length ? { types } : {}),
+      ...(priorities?.length ? { priorities } : {}),
+      ...(workflowStateIds?.length ? { workflowStateIds } : {}),
+      ...(assigneeId ? { assigneeId } : {}),
+      ...(sort ? { sort: { field: sort, ...(order ? { order } : {}) } } : {})
     };
     const workItems = await listWorkItemsForUser(
       dependencies.workItemRepository,
@@ -206,6 +249,42 @@ export async function handleListWorkItems(
     );
 
     return json({ workItems });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+export async function handlePatchWorkItemPosition(
+  request: Request,
+  params: { slug: string; key: string; identifier: string },
+  dependencies: ProjectHandlerDependencies
+) {
+  const session = await requireSession(dependencies);
+  if (!session) {
+    return json({ error: "authentication required." }, 401);
+  }
+
+  try {
+    const body = await parseJsonBody(request);
+    const workItem = Array.isArray(body.affectedItems)
+      ? await moveWorkItemsForUser(
+          dependencies.workItemRepository,
+          session,
+          params.slug,
+          params.key,
+          params.identifier,
+          body
+        )
+      : await moveWorkItemForUser(
+          dependencies.workItemRepository,
+          session,
+          params.slug,
+          params.key,
+          params.identifier,
+          body
+        );
+
+    return json({ workItem });
   } catch (error) {
     return handleError(error);
   }

@@ -1,5 +1,5 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-19T08-27-58-235Z",
   "inputs": [
     "docs/product/idea-brief.md"
   ],
@@ -8,6 +8,7 @@
   "contract_outputs": [
     "docs/product/decision-brief.md",
     "docs/product/prd.md",
+    ".planning/current/frame/design-intent.json",
     ".planning/current/frame/status.json"
   ]
 }

@@ -1,80 +1,79 @@
-# Decision Brief: Phase 3 - Projects & Work Items
+# Decision Brief: Phase 4 - Views
 
 ## Executive Summary
 
-Phase 3 turns The Platform from an authenticated workspace shell into a functional project management tool. Users will create projects within workspaces, track work items with hierarchy and human-readable IDs, assign work to teammates, and see an activity log of changes.
+Phase 4 adds the visual layer that makes The Platform feel like a real PM tool. Board/kanban view with drag-and-drop, list view with sorting/filtering, and view switching per project. This is where users stop looking at flat lists and start managing work visually.
 
 ## Decisions Made
 
-### D1: Workspace-scoped projects via FK migration
+### D1: Board view as primary, list as secondary
 
-Add `workspace_id` FK to the existing `projects` table. Existing rows get a default workspace assignment during migration. All project queries filter by workspace membership.
+Board view (kanban columns per workflow state) is the default project view. List view (sortable table) is the alternative. Users toggle between them with a persisted preference stored in localStorage.
 
-**Why:** Projects without workspace scoping break multi-tenant isolation. Adding the FK is simpler than creating a new table and migrating.
+**Why:** Every PM tool leads with a board. It's the fastest way to see work distribution across states. List view is for power users who want density and sorting.
 
-### D2: Work items replace tasks
+### D2: @dnd-kit for drag-and-drop
 
-Rename the concept from "tasks" to "work items" at the application layer. Add fields: `type` (epic/task/subtask), `parentId` (self-referencing FK for hierarchy), `assigneeId` (workspace member), `identifier` (human-readable ID like PROJ-42), `priority`, and `labels`.
+Use `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop. It's React-native, accessible, supports keyboard DnD, and handles both cross-container moves (state changes) and within-container reordering (position changes).
 
-**Why:** "Task" is too flat for a PM tool. Hierarchy enables epics with child tasks. The existing `tasks` table schema gets extended, not replaced.
+**Why:** `react-beautiful-dnd` is unmaintained. `@dnd-kit` is the active standard for React DnD. Smaller bundle, better a11y, works with React 19.
 
-### D3: Per-project workflow states
+### D3: Optimistic UI updates with server reconciliation
 
-Create a `workflow_states` table linked to projects. Each project gets default states (Backlog, Todo, In Progress, Done) on creation. States have a position for column ordering.
+Drag-and-drop updates the UI immediately (optimistic), then sends the API request. If the request fails, revert to the previous state. Activity log entries are created server-side in the same transaction as the state/position change.
 
-**Why:** Per-project gives teams flexibility. Linear does this. A global enum (current approach) is too rigid for different project types.
+**Why:** DnD feels broken with network latency. Optimistic updates make it feel instant. Server reconciliation catches conflicts.
 
-### D4: Human-readable IDs scoped to projects
+### D4: Filter and sort as URL query params
 
-Each project gets a `key` (e.g., "PROJ", max 8 chars). Work items get sequential numbers within the project: PROJ-1, PROJ-2. The `identifier` is stored as a varchar, and a sequence counter lives on the project row.
+Filters (type, priority, assignee, state) and sort order are stored in URL query params. This makes filtered views shareable and bookmarkable.
 
-**Why:** Project-scoped sequences are simpler than workspace-scoped. Users think in project context ("PROJ-42"), not workspace context.
+**Why:** URL-based state is the simplest approach. No need for a saved views table in Phase 4. Saved/named views can be added in Phase 8 by persisting the query params.
 
-### D5: Activity log as append-only table
+### D5: Subtasks shown inline under parent in list view, collapsed in board
 
-Create an `activity_log` table with: entity type, entity ID, action, actor, diff/payload, timestamp. No updates or deletes on this table. Used for audit trail and feeds future comment/notification phases.
+In list view, subtasks appear indented under their parent task with a collapse toggle. In board view, only top-level items (epics and tasks) appear as cards. Subtask count is shown as a badge on the card.
 
-**Why:** Append-only is simple, correct, and feeds downstream features without schema changes.
+**Why:** Board cards need to be scannable. Showing every subtask clutters the board. List view has room for hierarchy.
 
-### D6: RBAC enforcement per workspace role
+### D6: Empty state columns shown in board
 
-- Owner/Admin: full CRUD on projects and work items
-- Member: create/edit work items, view projects, limited project settings
-- Viewer: read-only on everything
+Board columns for workflow states with zero items are still rendered (with a "No items" placeholder). Users can drag items into empty columns.
 
-**Why:** Consistent with Phase 2 role hierarchy. Viewers should not create work.
+**Why:** Hiding empty columns is confusing. Users need to see all available states as drop targets.
 
-## Non-Goals (Phase 3)
+## Non-Goals (Phase 4)
 
-- **Custom work item types** - Only epic/task/subtask. Custom types are Phase 5+ complexity.
-- **Comments** - Phase 5 (Detail & Comments).
-- **GitHub integration** - Phase 6.
-- **Real-time updates** - Phase 7.
-- **Views (board, list, timeline)** - Phase 4. Phase 3 delivers API and basic list UI only.
-- **Drag-and-drop** - Phase 4.
-- **File attachments** - Phase 5.
-- **Search** - Phase 8.
+- **Timeline/Gantt view** - Phase 8 or later. Requires date range UI complexity.
+- **Saved/named views** - Phase 8. URL params are sufficient for now.
+- **Swimlanes** - Grouping by assignee/priority within the board. Future work.
+- **Bulk operations** - Select multiple items and move/assign. Future work.
+- **Card preview/hover** - Showing description on hover. Keep cards simple.
+- **Custom card fields** - What shows on the card is fixed: identifier, title, type badge, priority, assignee avatar.
 
 ## Success Criteria
 
-1. Create a project within a workspace and see it scoped to that workspace only
-2. Create work items (epic, task, subtask) with hierarchy and human-readable IDs
-3. Assign work items to workspace members
-4. Move work items through workflow states
-5. Activity log records all create/update/delete/assign/move actions
-6. Workspace role enforcement: viewer cannot create, member cannot delete projects
-7. Cross-tenant isolation: user in workspace A cannot see workspace B projects
-8. Contract tests cover all CRUD operations and permission boundaries
-9. Migration from existing schema is non-destructive
+1. Board view renders columns per workflow state with work item cards
+2. Drag card between columns changes workflow state and logs activity
+3. Drag card within column reorders position
+4. List view shows sortable table with identifier, title, type, priority, assignee, state
+5. Filter by type, priority, assignee, state works in both views
+6. Sort by created date, priority, identifier works in list view
+7. View toggle (board/list) persists preference in localStorage
+8. Subtasks shown inline in list view, badge count in board view
+9. Empty state columns rendered as valid drop targets
+10. Optimistic DnD with server reconciliation on failure
+11. Mobile-responsive: board columns stack vertically on small screens
+12. Contract tests cover DnD state change, position update, and filter/sort API
 
 ## Risk
 
-- **Schema migration complexity** - Adding `workspaceId` to existing projects table requires handling existing rows. Mitigated by migration script with default workspace.
-- **Performance on activity log** - Append-only tables grow fast. Mitigated by indexing on entity_id + created_at and pagination.
+- **DnD performance with many items** - Mitigated by virtualizing the card list if >100 items per column. Can defer virtualization to Phase 8 if not needed.
+- **Optimistic update conflicts** - Two users drag the same item simultaneously. Mitigated by last-write-wins with server timestamp, same as existing activity log pattern.
 
 ## Nexus Execution Context
 
-- Run ID: run-2026-04-17T00-21-05-864Z
+- Run ID: run-2026-04-19T08-27-58-235Z
 - Command: frame
 - Stage: frame
 - Predecessor: docs/product/idea-brief.md
