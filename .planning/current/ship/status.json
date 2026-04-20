@@ -1,11 +1,30 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
   "stage": "ship",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
+    "retirement_state": "active"
+  },
+  "session_root": {
+    "path": "/Users/henry/Documents/project-tracker",
+    "kind": "repo_root",
+    "source": "ccb_root"
+  },
   "requested_execution_path": "codex-via-ccb",
   "actual_execution_path": "codex-via-ccb",
+  "design_impact": "none",
+  "design_contract_path": null,
+  "design_verified": null,
+  "deploy_configured": false,
+  "deploy_config_source": "none",
+  "deploy_contract_path": null,
   "state": "completed",
   "decision": "ship_recorded",
   "ready": true,
@@ -13,6 +32,10 @@
     {
       "kind": "json",
       "path": ".planning/current/review/status.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/plan/verification-matrix.json"
     },
     {
       "kind": "json",
@@ -30,10 +53,35 @@
     },
     {
       "kind": "json",
+      "path": ".planning/current/ship/deploy-readiness.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/ship/pull-request.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/ship/completion-advisor.json"
+    },
+    {
+      "kind": "json",
       "path": ".planning/current/ship/status.json"
     }
   ],
-  "started_at": "2026-04-13T08:59:46.070Z",
-  "completed_at": "2026-04-13T08:59:46.070Z",
-  "errors": []
+  "started_at": "2026-04-20T15:20:12.042Z",
+  "completed_at": "2026-04-20T15:20:12.042Z",
+  "errors": [],
+  "pull_request": {
+    "provider": "github",
+    "status": "unavailable",
+    "number": null,
+    "url": null,
+    "state": null,
+    "head_branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "head_sha": null,
+    "base_branch": null,
+    "reason": "could not compute title or body defaults: could not find any commits between origin/feature/implement and codex/run-2026-04-20T13-45-58-613Z"
+  },
+  "learning_candidates_path": null,
+  "learnings_recorded": false
 }

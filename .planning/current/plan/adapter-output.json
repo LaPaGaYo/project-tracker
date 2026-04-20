@@ -2,8 +2,9 @@
   "adapter_id": "gsd",
   "outcome": "success",
   "raw_output": {
-    "execution_readiness_packet": "# Execution Readiness Packet\n\n## Overview\n\nNexus-owned planning guidance for execution readiness and bounded scope.\n\n## Nexus Execution Context\n\n- Run ID: run-2026-04-12T06-33-14-637Z\n- Command: plan\n- Stage: plan\n- Execution mode: governed_ccb\n- Primary provider: codex\n- Provider topology: multi_session\n\n## Readiness Checklist\n\n- verify framing inputs\n- produce readiness packet\n- produce sprint contract\n\n## Canonical Artifact Contract\n\nWrites `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, and `.planning/current/plan/status.json`.\n",
+    "execution_readiness_packet": "# Execution Readiness Packet\n\n## Overview\n\nNexus-owned planning guidance for execution readiness and bounded scope.\n\n## Nexus Execution Context\n\n- Run ID: run-2026-04-20T13-45-58-613Z\n- Command: plan\n- Stage: plan\n- Continuation mode: phase\n- Execution mode: governed_ccb\n- Primary provider: codex\n- Provider topology: multi_session\n\n### Predecessor Artifacts\n\n- .planning/current/frame/status.json\n\n## Readiness Checklist\n\n- verify framing inputs\n- produce readiness packet\n- produce sprint contract\n\n## Canonical Artifact Contract\n\nWrites `.planning/current/plan/execution-readiness-packet.md`, `.planning/current/plan/sprint-contract.md`, `.planning/current/plan/verification-matrix.json`, `.planning/current/plan/design-contract.md` when present, and `.planning/current/plan/status.json`.\n",
     "sprint_contract": "# Sprint Contract\n\n## Bounded Scope\n\nNexus-owned planning guidance for execution readiness and bounded scope.\n\n## Execution Commitments\n\n- verify framing inputs\n- produce readiness packet\n- produce sprint contract\n\n## Transition Rule\n\nAdvance to `/handoff` only after Nexus declares execution ready.\n",
+    "design_contract": null,
     "ready": true
   },
   "requested_route": null,

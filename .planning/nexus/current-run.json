@@ -1,5 +1,6 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "continuation_mode": "phase",
   "status": "active",
   "current_command": "ship",
   "current_stage": "ship",
@@ -10,107 +11,82 @@
   "command_history": [
     {
       "command": "discover",
-      "at": "2026-04-12T06:33:14.637Z",
+      "at": "2026-04-20T13:45:58.752Z",
       "via": null
     },
     {
       "command": "frame",
-      "at": "2026-04-12T07:16:36.303Z",
+      "at": "2026-04-20T13:48:45.778Z",
       "via": null
     },
     {
       "command": "plan",
-      "at": "2026-04-12T07:22:35.810Z",
+      "at": "2026-04-20T13:50:49.827Z",
       "via": null
     },
     {
       "command": "handoff",
-      "at": "2026-04-12T07:28:17.593Z",
+      "at": "2026-04-20T13:53:02.100Z",
       "via": null
     },
     {
       "command": "build",
-      "at": "2026-04-12T21:28:23.380Z",
+      "at": "2026-04-20T13:54:23.649Z",
       "via": null
     },
     {
       "command": "review",
-      "at": "2026-04-13T06:11:01.096Z",
+      "at": "2026-04-20T14:28:12.289Z",
       "via": null
     },
     {
       "command": "review",
-      "at": "2026-04-13T06:11:01.096Z",
-      "via": "fix-cycle",
-      "gate_decision": "fail"
-    },
-    {
-      "command": "handoff",
-      "at": "2026-04-13T06:40:26.702Z",
-      "via": null
+      "at": "2026-04-20T14:33:12.158Z",
+      "via": "retry"
     },
     {
       "command": "build",
-      "at": "2026-04-13T06:40:35.331Z",
+      "at": "2026-04-20T14:39:29.408Z",
+      "via": "fix-cycle"
+    },
+    {
+      "command": "review",
+      "at": "2026-04-20T14:47:51.399Z",
       "via": null
     },
     {
       "command": "review",
-      "at": "2026-04-13T06:57:00.176Z",
-      "via": null
-    },
-    {
-      "command": "build",
-      "at": "2026-04-13T07:00:07.123Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:01:30.602Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:20:59.107Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T07:30:17.498Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:10:33.572Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:36:43.447Z",
-      "via": null
-    },
-    {
-      "command": "build",
-      "at": "2026-04-13T08:43:45.252Z",
-      "via": null
-    },
-    {
-      "command": "review",
-      "at": "2026-04-13T08:54:48.925Z",
-      "via": null
+      "at": "2026-04-20T14:52:36.783Z",
+      "via": "retry"
     },
     {
       "command": "qa",
-      "at": "2026-04-13T08:57:58.261Z",
+      "at": "2026-04-20T15:13:26.746Z",
       "via": null
     },
     {
       "command": "ship",
-      "at": "2026-04-13T08:59:46.070Z",
+      "at": "2026-04-20T15:20:12.042Z",
       "via": null
     }
   ],
   "artifact_index": {
+    ".planning/current/discover/next-run-bootstrap.json": {
+      "kind": "json",
+      "path": ".planning/current/discover/next-run-bootstrap.json"
+    },
+    ".planning/current/discover/NEXT-RUN.md": {
+      "kind": "markdown",
+      "path": ".planning/current/discover/NEXT-RUN.md"
+    },
+    ".planning/current/discover/session-continuation-advice.json": {
+      "kind": "json",
+      "path": ".planning/current/discover/session-continuation-advice.json"
+    },
+    ".planning/current/discover/SESSION-CONTINUATION.md": {
+      "kind": "markdown",
+      "path": ".planning/current/discover/SESSION-CONTINUATION.md"
+    },
     "docs/product/idea-brief.md": {
       "kind": "markdown",
       "path": "docs/product/idea-brief.md"
@@ -127,6 +103,14 @@
       "kind": "markdown",
       "path": "docs/product/prd.md"
     },
+    ".planning/current/frame/design-intent.json": {
+      "kind": "json",
+      "path": ".planning/current/frame/design-intent.json"
+    },
+    ".planning/current/frame/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/frame/completion-advisor.json"
+    },
     ".planning/current/frame/status.json": {
       "kind": "json",
       "path": ".planning/current/frame/status.json"
@@ -138,6 +122,14 @@
     ".planning/current/plan/sprint-contract.md": {
       "kind": "markdown",
       "path": ".planning/current/plan/sprint-contract.md"
+    },
+    ".planning/current/plan/verification-matrix.json": {
+      "kind": "json",
+      "path": ".planning/current/plan/verification-matrix.json"
+    },
+    ".planning/current/plan/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/plan/completion-advisor.json"
     },
     ".planning/current/plan/status.json": {
       "kind": "json",
@@ -151,6 +143,10 @@
       "kind": "markdown",
       "path": ".planning/current/handoff/governed-handoff.md"
     },
+    ".planning/current/handoff/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/handoff/completion-advisor.json"
+    },
     ".planning/current/handoff/status.json": {
       "kind": "json",
       "path": ".planning/current/handoff/status.json"
@@ -163,9 +159,21 @@
       "kind": "markdown",
       "path": ".planning/current/build/build-result.md"
     },
+    ".planning/current/build/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/build/completion-advisor.json"
+    },
     ".planning/current/build/status.json": {
       "kind": "json",
       "path": ".planning/current/build/status.json"
+    },
+    ".planning/current/review/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/review/completion-advisor.json"
+    },
+    ".planning/current/review/status.json": {
+      "kind": "json",
+      "path": ".planning/current/review/status.json"
     },
     ".planning/audits/current/codex.md": {
       "kind": "markdown",
@@ -187,13 +195,21 @@
       "kind": "json",
       "path": ".planning/audits/current/meta.json"
     },
-    ".planning/current/review/status.json": {
+    ".planning/current/review/advisories.json": {
       "kind": "json",
-      "path": ".planning/current/review/status.json"
+      "path": ".planning/current/review/advisories.json"
+    },
+    ".planning/current/review/advisory-disposition.json": {
+      "kind": "json",
+      "path": ".planning/current/review/advisory-disposition.json"
     },
     ".planning/current/qa/qa-report.md": {
       "kind": "markdown",
       "path": ".planning/current/qa/qa-report.md"
+    },
+    ".planning/current/qa/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/qa/completion-advisor.json"
     },
     ".planning/current/qa/status.json": {
       "kind": "json",
@@ -207,6 +223,18 @@
       "kind": "json",
       "path": ".planning/current/ship/checklist.json"
     },
+    ".planning/current/ship/deploy-readiness.json": {
+      "kind": "json",
+      "path": ".planning/current/ship/deploy-readiness.json"
+    },
+    ".planning/current/ship/pull-request.json": {
+      "kind": "json",
+      "path": ".planning/current/ship/pull-request.json"
+    },
+    ".planning/current/ship/completion-advisor.json": {
+      "kind": "json",
+      "path": ".planning/current/ship/completion-advisor.json"
+    },
     ".planning/current/ship/status.json": {
       "kind": "json",
       "path": ".planning/current/ship/status.json"
@@ -216,24 +244,21 @@
     "mode": "governed_ccb",
     "primary_provider": "codex",
     "provider_topology": "multi_session",
+    "workspace": {
+      "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
+      "kind": "worktree",
+      "branch": "codex/run-2026-04-20T13-45-58-613Z",
+      "source": "allocated:fresh_run",
+      "run_id": "run-2026-04-20T13-45-58-613Z",
+      "retirement_state": "active"
+    },
+    "session_root": {
+      "path": "/Users/henry/Documents/project-tracker",
+      "kind": "repo_root",
+      "source": "ccb_root"
+    },
     "requested_path": "codex-via-ccb",
     "actual_path": "codex-via-ccb"
-  },
-  "route_check": {
-    "provider": "codex",
-    "checked_at": "2026-04-12T07:30:31Z",
-    "commands": [
-      {
-        "command": "ccb-ping codex",
-        "exit_code": 0,
-        "result": "healthy"
-      },
-      {
-        "command": "ccb-mounted --autostart",
-        "exit_code": 0,
-        "result": "mounted"
-      }
-    ]
   },
   "route_intent": {
     "planner": "claude+pm-gsd",
@@ -243,5 +268,48 @@
     "synthesizer": "claude",
     "substrate": "superpowers-core",
     "fallback_policy": "disabled"
+  },
+  "route_check": {
+    "checked_at": "2026-04-20T13:53:02.100Z",
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "route_validation": {
+      "transport": "ccb",
+      "available": true,
+      "approved": true,
+      "reason": "Nexus approved the requested governed route",
+      "mounted_providers": [
+        "codex",
+        "gemini",
+        "claude"
+      ],
+      "provider_checks": [
+        {
+          "provider": "codex",
+          "available": true,
+          "mounted": true,
+          "reason": "CCB codex route check passed"
+        },
+        {
+          "provider": "gemini",
+          "available": true,
+          "mounted": true,
+          "reason": "CCB gemini route check passed"
+        }
+      ]
+    }
   }
 }

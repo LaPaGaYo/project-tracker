@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "advisory_count": 2,
+  "selected": "continue_to_qa",
+  "selected_at": "2026-04-20T15:13:26.746Z",
+  "available_options": [
+    "continue_to_qa",
+    "fix_before_qa",
+    "defer_to_follow_on"
+  ]
+}

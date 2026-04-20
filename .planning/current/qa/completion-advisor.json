@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "qa",
+  "generated_at": "2026-04-20T15:13:26.746Z",
+  "stage_outcome": "ready",
+  "summary": "QA is complete. Ship is the next governed step.",
+  "requires_user_choice": false,
+  "choice_reason": null,
+  "default_action_id": "run_ship",
+  "primary_next_actions": [
+    {
+      "id": "run_ship",
+      "kind": "canonical_stage",
+      "surface": "/ship",
+      "invocation": "/ship",
+      "label": "Run `/ship`",
+      "description": "Record the release-gate decision and PR/deploy handoff.",
+      "recommended": true
+    }
+  ],
+  "alternative_next_actions": [],
+  "recommended_side_skills": [
+    {
+      "id": "run_benchmark",
+      "kind": "support_skill",
+      "surface": "/benchmark",
+      "invocation": "/benchmark",
+      "label": "Run `/benchmark`",
+      "description": "Attach performance evidence before the release gate.",
+      "recommended": false
+    }
+  ],
+  "hidden_compat_aliases": [
+    "/office-hours",
+    "/autoplan",
+    "/plan-ceo-review",
+    "/plan-eng-review"
+  ],
+  "hidden_utility_skills": [
+    "/careful",
+    "/freeze",
+    "/guard",
+    "/unfreeze",
+    "/nexus-upgrade"
+  ]
+}

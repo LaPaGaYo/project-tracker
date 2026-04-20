@@ -13,6 +13,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@the-platform/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@the-platform/db": [
+        "../../packages/db/src/index.ts"
       ]
     },
     "plugins": [
@@ -24,6 +30,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "middleware.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.d.ts",

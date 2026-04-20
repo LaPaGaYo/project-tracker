@@ -21,9 +21,21 @@
     "adapter_id": "ccb",
     "outcome": "success",
     "raw_output": {
-      "markdown": "Reviewing the repo-visible artifacts for the bounded fix-cycle audit. I’m checking the plan packet and the specific files cited in the blocking items to decide pass/fail only on those items.\nReviewing the repo-visible artifacts for the bounded fix-cycle audit. I’m checking the plan packet and the specific files cited in the blocking items to decide pass/fail only on those items.\nI found repo-visible evidence that materially changes two of the cited blockers: the repo now includes a checked-in seed entrypoint and a worker deployment workflow. I’m validating those exact artifacts and the remaining web shell exit criterion before issuing the audit result.\nI found repo-visible evidence that materially changes two of the cited blockers: the repo now includes a checked-in seed entrypoint and a worker deployment workflow. I’m validating those exact artifacts and the remaining web shell exit criterion before issuing the audit result.\nThe remaining question is whether there are any bounded-scope blockers left. I’m checking for a couple of repo-visible edge cases that don’t change pass/fail on the listed items but may warrant advisory notes.\nThe remaining question is whether there are any bounded-scope blockers left. I’m checking for a couple of repo-visible edge cases that don’t change pass/fail on the listed items but may warrant advisory notes.\nI’m doing one last repo-visible check on the app shell around the blank-page criterion. The page component is empty, and I want to make sure the layout doesn’t add visible shell content that would keep that blocker open.\nI’m doing one last repo-visible check on the app shell around the blank-page criterion. The page component is empty, and I want to make sure the layout doesn’t add visible shell content that would keep that blocker open.\n# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
-      "receipt": "ccb-review-codex-2026-04-13T08-56-35.130Z",
-      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 900"
+      "markdown": "# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
+      "receipt": "ccb-review-codex-2026-04-20T14-54-11.627Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 180",
+      "exit_code": 0,
+      "stdout": "Using `using-superpowers` and the repo’s review discipline for this bounded audit. I’m reading the cited artifacts and the targeted `detail-panel` code in the governed worktree, then I’ll decide pass/fail only on the two listed blocking items.\nUsing `using-superpowers` and the repo’s review discipline for this bounded audit. I’m reading the cited artifacts and the targeted `detail-panel` code in the governed worktree, then I’ll decide pass/fail only on the two listed blocking items.\nI have the contract language and the updated build artifact. Next I’m checking whether the close-path implementation actually satisfies the “pop back to project view” requirement, and whether the repo-visible verification evidence is concrete enough to clear the second blocker.\nI have the contract language and the updated build artifact. Next I’m checking whether the close-path implementation actually satisfies the “pop back to project view” requirement, and whether the repo-visible verification evidence is concrete enough to clear the second blocker.\nThe close helper is present; I’m now checking the actual call sites in `detail-panel.tsx` and whether the origin-tracking design avoids false `history.back()` on direct item URLs.\nThe close helper is present; I’m now checking the actual call sites in `detail-panel.tsx` and whether the origin-tracking design avoids false `history.back()` on direct item URLs.\nI’ve confirmed the build-stage artifacts also carry a transport receipt, not just the markdown summary. I’m doing one final targeted read of the review skill flow to keep the verdict format aligned, then I’ll close the audit.\nI’ve confirmed the build-stage artifacts also carry a transport receipt, not just the markdown summary. I’m doing one final targeted read of the review skill flow to keep the verdict format aligned, then I’ll close the audit.\nI need one targeted follow-up read to interpret the quality-gate evidence correctly: whether the recorded `npm run` commands are just the repo’s wrappers around the required `turbo` gates and contract suite. After that the verdict is mechanically determined.\nI need one targeted follow-up read to interpret the quality-gate evidence correctly: whether the recorded `npm run` commands are just the repo’s wrappers around the required `turbo` gates and contract suite. After that the verdict is mechanically determined.\n# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n",
+      "stderr": "",
+      "request_id": null,
+      "latency_summary": {
+        "path": "foreground",
+        "likely_cause": "normal",
+        "foreground_exit": "success",
+        "finalize_nudge_issued": false,
+        "pend_attempts": 0,
+        "recovered_via": "ask"
+      }
     },
     "requested_route": {
       "command": "build",
@@ -61,9 +73,21 @@
     "adapter_id": "ccb",
     "outcome": "success",
     "raw_output": {
-      "markdown": "I have performed the governed Nexus `/review` audit for the Gemini path, evaluating the current repository state against the `Review scope` and `blocking_items`.\n\nMy investigation confirmed the following:\n- **Phase 1 task `1.2` (Seed Script):** The root `package.json` and `packages/db/package.json` both contain `db:seed` scripts. A functional `packages/db/src/seed.ts` file exists and contains development data seeding logic for projects and tasks.\n- **Phase 1 task `1.5` (Worker Deployment):** A dedicated worker deployment pipeline is present in `.github/workflows/worker-deploy.yml`, using `flyctl` to deploy the `@the-platform/worker` package. This is separate from the `vercel.json` configuration which manages the web application build.\n- **Web Shell Exit Criterion:** `apps/web/src/app/page.tsx` has been reduced to a blank shell (rendering only a `<main>` tag), satisfying the Phase 1 requirement to show a blank page.\n\nThe `tests/phase1-foundation-contract.test.mjs` contract tests also pass, confirming these findings.\n\n# Gemini Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
-      "receipt": "ccb-review-gemini-2026-04-13T08-57-25.444Z",
-      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap --timeout 900"
+      "markdown": "# Gemini Audit\n\nResult: fail\n\nFindings:\n- The claim that `apps/web/src/components/detail-panel.tsx` uses `router.push()` for closing the panel is **not supported** by the repo-visible evidence. The `closePanel` function correctly utilizes `router.back()` or `router.replace(expectedOrigin)` based on session state, ensuring no additional history entries are created when closing.\n- Confirmed: `.planning/current/build/build-result.md` fails to meet the quality gate requirements. It records only route provenance and a \"ready for review\" status, but lacks the necessary repo-visible evidence that `turbo build`, `turbo lint`, `turbo typecheck`, or the Phase 5 contract tests actually passed as required by `.planning/current/plan/sprint-contract.md:30-37`.\n\nAdvisories:\n- The navigation integration in `view-toggle.tsx` correctly uses `router.push()` for opening items while storing the origin in `sessionStorage`, allowing `detail-panel.tsx` to \"pop\" the URL accurately via `router.back()` upon closure.\n- While the behavioral defect regarding history bloat appears to be already resolved in the implementation, the review fails due to the total absence of verification logs in the build artifact.\n\nCCB_DONE: 20260420-085052-845-33007-93",
+      "receipt": "ccb-review-gemini-2026-04-20T14-55-39.249Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap --timeout 180",
+      "exit_code": 0,
+      "stdout": "# Gemini Audit\n\nResult: fail\n\nFindings:\n- The claim that `apps/web/src/components/detail-panel.tsx` uses `router.push()` for closing the panel is **not supported** by the repo-visible evidence. The `closePanel` function correctly utilizes `router.back()` or `router.replace(expectedOrigin)` based on session state, ensuring no additional history entries are created when closing.\n- Confirmed: `.planning/current/build/build-result.md` fails to meet the quality gate requirements. It records only route provenance and a \"ready for review\" status, but lacks the necessary repo-visible evidence that `turbo build`, `turbo lint`, `turbo typecheck`, or the Phase 5 contract tests actually passed as required by `.planning/current/plan/sprint-contract.md:30-37`.\n\nAdvisories:\n- The navigation integration in `view-toggle.tsx` correctly uses `router.push()` for opening items while storing the origin in `sessionStorage`, allowing `detail-panel.tsx` to \"pop\" the URL accurately via `router.back()` upon closure.\n- While the behavioral defect regarding history bloat appears to be already resolved in the implementation, the review fails due to the total absence of verification logs in the build artifact.\n\nCCB_DONE: 20260420-085052-845-33007-93\n",
+      "stderr": "",
+      "request_id": null,
+      "latency_summary": {
+        "path": "foreground",
+        "likely_cause": "normal",
+        "foreground_exit": "success",
+        "finalize_nudge_issued": false,
+        "pend_attempts": 0,
+        "recovered_via": "ask"
+      }
     },
     "requested_route": {
       "command": "build",
@@ -96,5 +120,9 @@
         "upstream/claude-code-bridge/lib/gemini_comm.py"
       ]
     }
+  },
+  "latency_diagnostics": {
+    "audit_a": "path=foreground; cause=normal foreground completion; foreground_exit=success; recovered_via=ask",
+    "audit_b": "path=foreground; cause=normal foreground completion; foreground_exit=success; recovered_via=ask"
   }
 }

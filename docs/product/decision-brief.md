@@ -1,57 +1,80 @@
-# Decision Brief: The Platform V1
+# Decision Brief: Phase 5 — Detail & Comments
 
-## Summary
+## Context
 
-Build a GitHub-native project execution platform for software teams. Next.js + Postgres + Clerk. Greenfield build using existing Vue prototype as design reference. Ship a product that can replace GitHub Projects + spreadsheets + Slack for a small engineering team's daily execution.
+Phase 4 shipped board and list views. Users can see and organize work items but cannot open them to read descriptions, leave comments, or edit fields. Phase 5 adds the detail experience that makes work items usable.
 
 ## Key Decisions
 
-### 1. Greenfield Build (not brownfield)
-**Decision:** New Next.js/React/Postgres codebase. Existing Vue 3 prototype serves as UX reference only.
-**Why:** Framework mismatch (Vue vs React) makes code reuse impractical. Patterns and data model shape carry forward, components do not.
-**Trade-off:** Slower initial velocity vs. clean architecture from day one. Worth it for a product that needs multi-tenancy, auth, and real-time baked in from the start.
+### 1. Slide-over Panel (not full-page navigation)
 
-### 2. Clerk for Auth (not Auth0, not custom)
-**Decision:** Clerk handles identity and sessions. Workspace membership, project roles, and authorization live in our database.
-**Why:** Fastest path to working auth with Next.js. Good invite flows out of the box.
-**Trade-off:** Clerk dependency for identity. Mitigated by auth abstraction layer from day one. Swap to Auth0 if enterprise SSO becomes a near-term requirement.
+Work item detail opens as a right-side panel overlaying the current view (board or list). The URL updates for deep linking. Closing the panel returns to the underlying view without a page reload.
 
-### 3. Medium-Depth GitHub Integration
-**Decision:** One-way dominant sync from GitHub into the platform via GitHub App + webhooks. No bidirectional sync in V1.
-**Why:** Deep write-back creates conflict resolution complexity that delays shipping. Medium depth (PR/commit/CI visibility, activity timelines) delivers the core differentiator without the risk.
-**Trade-off:** Users cannot create GitHub issues from work items in V1. Acceptable because the product is the planning layer, GitHub is the execution layer.
+**Why:** Linear proved this pattern. Users stay oriented in their board/list context while working on individual items. No back-button confusion.
 
-### 4. SSE Before WebSockets
-**Decision:** Server-sent events for real-time updates. WebSockets deferred.
-**Why:** V1 real-time needs are server-to-client (board updates, GitHub events, notifications). SSE handles this with less infrastructure complexity.
-**Trade-off:** No live presence or collaborative editing in V1. These features are not in V1 scope anyway.
+**Implementation:** Next.js parallel routes or intercepting routes pattern. Panel component renders over current page content.
 
-### 5. Vercel + Separate Workers
-**Decision:** Next.js app on Vercel. GitHub webhook processing and background jobs on separate worker infrastructure.
-**Why:** Webhook processing must be durable, retryable, and decoupled from UI request lifecycles. Vercel Functions are not the right home for the core sync pipeline.
-**Trade-off:** Two deployment targets instead of one. Worth it for reliability of the GitHub integration, which is the product's primary differentiator.
+### 2. Markdown for Descriptions and Comments
 
-### 6. Application-Enforced Multi-Tenancy
-**Decision:** Shared database, shared schema, workspace_id on every tenant-bound table. Application-layer enforcement, not Postgres RLS.
-**Why:** Simpler to develop and debug. RLS can be added later for defense-in-depth without changing the application logic.
-**Trade-off:** Tenant isolation depends on correct service-layer scoping. Mitigated by consistent patterns and testing.
+Both descriptions and comments support GitHub-flavored markdown. Rendered with react-markdown or similar.
 
-### 7. Light Hierarchy for V1
-**Decision:** Epic > Task/Story > Subtask > Bug. No Initiative or Portfolio layer.
-**Why:** Full portfolio hierarchy adds schema complexity and UI surface without proving the core thesis. The V1 question is whether teams will use this for daily execution, not strategic planning.
-**Trade-off:** PMs who want roadmap-level views will find V1 limited. Acceptable for proving the concept.
+**Why:** Developers expect markdown. Code blocks, links, lists are table stakes for a project management tool targeting engineering teams.
 
-### 8. Postgres Search (not dedicated search engine)
-**Decision:** Full-text search + structured filters + trigram/fuzzy for V1.
-**Why:** Search is not a V1 differentiator. Postgres handles V1 volume. Dedicated search adds operational cost with no user-facing payoff yet.
-**Trade-off:** Search UX will be "good enough" not "great." Revisit when scale or UX expectations justify Typesense/Meilisearch.
+### 3. @mentions Stubbed (visual only)
 
-## Risk Register
+`@username` text renders with visual styling (highlight color, distinct font weight) but no autocomplete dropdown, no user lookup, no notification dispatch.
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| GitHub webhook reliability at scale | Medium | High | Durable queue between receiver and processor, dead letter queue, retry with backoff |
-| Clerk vendor lock-in | Low | Medium | Auth abstraction layer from day one |
-| Multi-tenancy bugs leaking data | Medium | Critical | Tenant scoping in base query layer, integration tests per endpoint |
-| V1 scope creep beyond what's shippable | High | High | This document. Non-goals are explicit. Cut features, not quality. |
-| Worker infrastructure complexity | Medium | Medium | Start simple (single worker process), scale horizontally when needed |
+**Why:** Full @mentions requires notification infrastructure (Phase 7). Stubbing the visual treatment now means we don't have to redesign comments later.
+
+### 4. Description Edit History with Diffs
+
+Store previous description versions. Show what changed between edits (added/removed lines).
+
+**Why:** Accountability and context. When someone changes a spec, the team needs to see what moved.
+
+**Implementation:** `description_versions` table storing previous content + timestamp + author. Diff computed client-side with a lightweight diff library.
+
+### 5. Comments Table (not activity log entries)
+
+Comments are a first-class entity with their own table, not just a type of activity log entry. Activity log records "comment added/edited/deleted" events separately.
+
+**Why:** Comments need edit/delete, markdown content, and potentially threading later. Mixing them into the activity log makes queries and permissions awkward.
+
+### 6. Unified Timeline
+
+The detail page shows one chronological timeline mixing activity log entries and comments. Comments are visually distinct (full content rendered) vs. activity entries (one-line summaries).
+
+**Why:** Users want one place to see "what happened on this item" without switching tabs.
+
+## Non-Goals (Phase 5)
+
+- File/image attachments
+- Real-time collaborative editing or live updates
+- @mention autocomplete or notifications
+- Emoji reactions on comments
+- Nested comment threads (replies to replies)
+- Bulk editing from detail view
+- Rich text WYSIWYG editor (markdown textarea + preview is sufficient)
+
+## RBAC Rules
+
+| Role | Read Detail | Edit Fields | Add Comments | Edit Own Comments | Delete Own Comments |
+|------|-------------|-------------|--------------|-------------------|---------------------|
+| Viewer | Yes | No | No | No | No |
+| Member | Yes | Yes | Yes | Yes | Yes |
+| Admin | Yes | Yes | Yes | Yes | Yes (+ delete any) |
+| Owner | Yes | Yes | Yes | Yes | Yes (+ delete any) |
+
+## Success Criteria
+
+1. Click any work item from board or list -> slide-over panel opens with full detail
+2. URL updates to `/workspaces/[slug]/projects/[key]/items/[identifier]` when panel opens
+3. Direct URL navigation renders the detail panel over the default view
+4. Edit title, description, type, priority, assignee, state inline with optimistic UI
+5. Description supports markdown with live preview
+6. Description edit history shows diffs between versions
+7. Add/edit/delete comments with markdown support
+8. Unified timeline shows activity + comments chronologically
+9. RBAC enforced on all mutations
+10. All changes create activity log entries
+11. Contract tests cover comment CRUD, permission boundaries, description versioning

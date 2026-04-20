@@ -1,11 +1,27 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
   "stage": "qa",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
+    "retirement_state": "active"
+  },
+  "session_root": {
+    "path": "/Users/henry/Documents/project-tracker",
+    "kind": "repo_root",
+    "source": "ccb_root"
+  },
   "requested_execution_path": "codex-via-ccb",
   "actual_execution_path": "gemini-via-ccb",
+  "design_impact": "none",
+  "design_contract_path": null,
+  "design_verified": null,
   "state": "completed",
   "decision": "qa_recorded",
   "ready": true,
@@ -13,6 +29,10 @@
     {
       "kind": "json",
       "path": ".planning/current/review/status.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/plan/verification-matrix.json"
     }
   ],
   "outputs": [
@@ -22,11 +42,15 @@
     },
     {
       "kind": "json",
+      "path": ".planning/current/qa/completion-advisor.json"
+    },
+    {
+      "kind": "json",
       "path": ".planning/current/qa/status.json"
     }
   ],
-  "started_at": "2026-04-13T08:57:58.261Z",
-  "completed_at": "2026-04-13T08:57:58.261Z",
+  "started_at": "2026-04-20T15:13:26.746Z",
+  "completed_at": "2026-04-20T15:13:26.746Z",
   "errors": [],
   "requested_route": {
     "command": "qa",
@@ -50,5 +74,10 @@
     "transport": "ccb",
     "receipt_path": ".planning/current/qa/adapter-output.json"
   },
-  "findings_count": 6
+  "review_scope": null,
+  "verification_count": 0,
+  "defect_count": 0,
+  "advisory_count": 3,
+  "learning_candidates_path": null,
+  "learnings_recorded": false
 }

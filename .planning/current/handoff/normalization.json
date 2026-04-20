@@ -27,7 +27,8 @@
   },
   "canonical_paths": [
     ".planning/current/handoff/governed-execution-routing.md",
-    ".planning/current/handoff/governed-handoff.md"
+    ".planning/current/handoff/governed-handoff.md",
+    ".planning/current/handoff/completion-advisor.json"
   ],
   "status": {
     "state": "completed",

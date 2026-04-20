@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "review",
+  "generated_at": "2026-04-20T14:52:36.783Z",
+  "stage_outcome": "requires_choice",
+  "summary": "Review failed. The canonical next step is a bounded fix cycle through `/build`.",
+  "requires_user_choice": true,
+  "choice_reason": "review failed",
+  "default_action_id": "run_build_fix_cycle",
+  "primary_next_actions": [
+    {
+      "id": "run_build_fix_cycle",
+      "kind": "canonical_stage",
+      "surface": "/build",
+      "invocation": "/build",
+      "label": "Run `/build`",
+      "description": "The review failed. A bounded fix cycle is required before QA.",
+      "recommended": true
+    }
+  ],
+  "alternative_next_actions": [],
+  "recommended_side_skills": [],
+  "hidden_compat_aliases": [
+    "/office-hours",
+    "/autoplan",
+    "/plan-ceo-review",
+    "/plan-eng-review"
+  ],
+  "hidden_utility_skills": [
+    "/careful",
+    "/freeze",
+    "/guard",
+    "/unfreeze",
+    "/nexus-upgrade"
+  ]
+}

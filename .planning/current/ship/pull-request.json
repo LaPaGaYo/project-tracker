@@ -1,0 +1,11 @@
+{
+  "provider": "github",
+  "status": "unavailable",
+  "number": null,
+  "url": null,
+  "state": null,
+  "head_branch": "codex/run-2026-04-20T13-45-58-613Z",
+  "head_sha": null,
+  "base_branch": null,
+  "reason": "could not compute title or body defaults: could not find any commits between origin/feature/implement and codex/run-2026-04-20T13-45-58-613Z"
+}

@@ -38,10 +38,12 @@ test("worker deployment has a dedicated workflow and runtime entrypoint", async 
   assert.match(workflow, /apps\/worker/);
 });
 
-test("web home page is reduced to the blank shell required by Phase 1", async () => {
+test("web home page exposes Phase 2 auth and workspace entry surfaces", async () => {
   const page = await readFile(new URL("apps/web/src/app/page.tsx", repoRoot), "utf8");
 
   assert.doesNotMatch(page, /FoundationCard|foundationPackages|projectStages|taskStatuses/);
   assert.doesNotMatch(page, /Phase 1 foundation|Foundation complete|Ready next/);
-  assert.match(page, /return\s*<main[\s\S]*\/>/);
+  assert.match(page, /ClerkGuestButtons/);
+  assert.match(page, /createWorkspaceAction/);
+  assert.match(page, /AppShell/);
 });

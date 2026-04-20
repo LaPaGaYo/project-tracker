@@ -2,11 +2,76 @@
   "outcome": "success",
   "canonical_paths": [
     ".planning/current/ship/release-gate-record.md",
-    ".planning/current/ship/checklist.json"
+    ".planning/current/ship/checklist.json",
+    ".planning/current/ship/deploy-readiness.json",
+    ".planning/current/ship/pull-request.json",
+    ".planning/current/ship/completion-advisor.json"
   ],
+  "learning_candidates_path": null,
+  "learnings_recorded": false,
+  "deploy_readiness_path": ".planning/current/ship/deploy-readiness.json",
+  "deploy_readiness": {
+    "schema_version": 1,
+    "run_id": "run-2026-04-20T13-45-58-613Z",
+    "generated_at": "2026-04-20T15:20:12.042Z",
+    "configured": false,
+    "source": "none",
+    "contract_path": null,
+    "primary_surface_label": null,
+    "platform": null,
+    "project_type": null,
+    "production_url": null,
+    "health_check": null,
+    "deploy_status_kind": "none",
+    "deploy_status_command": null,
+    "deploy_workflow": null,
+    "staging_detected": false,
+    "secondary_surfaces": [],
+    "notes": []
+  },
   "status": {
     "state": "completed",
     "decision": "ship_recorded",
-    "ready": true
+    "ready": true,
+    "design_impact": "none",
+    "design_contract_path": null,
+    "design_verified": null,
+    "deploy_configured": false,
+    "deploy_config_source": "none",
+    "deploy_contract_path": null,
+    "learning_candidates_path": null,
+    "learnings_recorded": false,
+    "pull_request": {
+      "provider": "github",
+      "status": "unavailable",
+      "number": null,
+      "url": null,
+      "state": null,
+      "head_branch": "codex/run-2026-04-20T13-45-58-613Z",
+      "head_sha": null,
+      "base_branch": null,
+      "reason": "could not compute title or body defaults: could not find any commits between origin/feature/implement and codex/run-2026-04-20T13-45-58-613Z"
+    }
+  },
+  "pull_request": {
+    "provider": "github",
+    "status": "unavailable",
+    "number": null,
+    "url": null,
+    "state": null,
+    "head_branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "head_sha": null,
+    "base_branch": null,
+    "reason": "could not compute title or body defaults: could not find any commits between origin/feature/implement and codex/run-2026-04-20T13-45-58-613Z"
+  },
+  "checklist": {
+    "review_complete": true,
+    "qa_ready": true,
+    "merge_ready": true,
+    "design_impact": "none",
+    "design_contract_path": null,
+    "design_verified": null,
+    "design_verification_path": null,
+    "qa_perf_verification_path": null
   }
 }

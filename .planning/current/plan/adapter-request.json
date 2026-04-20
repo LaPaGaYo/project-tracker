@@ -1,11 +1,14 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
-  "inputs": [],
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "inputs": [
+    ".planning/current/frame/status.json"
+  ],
   "adapter": "gsd",
   "stage": "plan",
   "contract_outputs": [
     ".planning/current/plan/execution-readiness-packet.md",
     ".planning/current/plan/sprint-contract.md",
+    ".planning/current/plan/verification-matrix.json",
     ".planning/current/plan/status.json"
   ]
 }

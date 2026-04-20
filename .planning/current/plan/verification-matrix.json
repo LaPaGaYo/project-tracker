@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "generated_at": "2026-04-20T13:50:49.827Z",
+  "design_impact": "none",
+  "verification_required": false,
+  "obligations": {
+    "build": {
+      "owner_stage": "build",
+      "required": true,
+      "gate_affecting": true,
+      "expected_artifacts": [
+        ".planning/current/build/build-result.md",
+        ".planning/current/build/status.json"
+      ]
+    },
+    "review": {
+      "owner_stage": "review",
+      "required": true,
+      "gate_affecting": true,
+      "mode": "full_acceptance",
+      "expected_artifacts": [
+        ".planning/audits/current/codex.md",
+        ".planning/audits/current/gemini.md",
+        ".planning/audits/current/synthesis.md",
+        ".planning/audits/current/gate-decision.md",
+        ".planning/audits/current/meta.json",
+        ".planning/current/review/status.json"
+      ]
+    },
+    "qa": {
+      "owner_stage": "qa",
+      "required": false,
+      "gate_affecting": false,
+      "design_verification_required": false,
+      "expected_artifacts": [
+        ".planning/current/qa/qa-report.md",
+        ".planning/current/qa/status.json"
+      ]
+    },
+    "ship": {
+      "owner_stage": "ship",
+      "required": true,
+      "gate_affecting": true,
+      "deploy_readiness_required": true,
+      "expected_artifacts": [
+        ".planning/current/ship/release-gate-record.md",
+        ".planning/current/ship/checklist.json",
+        ".planning/current/ship/deploy-readiness.json",
+        ".planning/current/ship/pull-request.json",
+        ".planning/current/ship/status.json"
+      ]
+    }
+  },
+  "attached_evidence": {
+    "benchmark": {
+      "supported": true,
+      "required": false
+    },
+    "canary": {
+      "supported": true,
+      "required": false
+    },
+    "qa_only": {
+      "supported": true,
+      "required": false
+    }
+  }
+}

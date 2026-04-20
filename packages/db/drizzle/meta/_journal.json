@@ -8,6 +8,27 @@
       "when": 1776062532969,
       "tag": "0000_strong_sway",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776132386353,
+      "tag": "0001_misty_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776579859844,
+      "tag": "0002_wonderful_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776693965948,
+      "tag": "0003_stormy_supernaut",
+      "breakpoints": true
     }
   ]
 }

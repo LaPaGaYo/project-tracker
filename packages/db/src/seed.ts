@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import type { ProjectStage, TaskStatus } from "@the-platform/shared";
 
 import { db, sql } from "./client";
-import { projects, tasks } from "./schema";
+import { projects, tasks, workspaces } from "./schema";
 
 const developmentProject = {
   title: "Platform foundation rollout",
@@ -40,13 +40,36 @@ const developmentTasks: Array<{
 ] as const;
 
 export async function seedDevelopmentData() {
-  await db.delete(tasks);
-  await db.delete(projects);
+  await db.delete(workspaces);
 
-  const seededProjects = await db.insert(projects).values(developmentProject).returning({
-    id: projects.id,
-    title: projects.title
-  });
+  const seededWorkspaces = await db
+    .insert(workspaces)
+    .values({
+      name: "Development Workspace",
+      slug: "development-workspace"
+    })
+    .returning({
+      id: workspaces.id,
+      name: workspaces.name
+    });
+  const workspace = seededWorkspaces[0];
+
+  if (!workspace) {
+    throw new Error("Failed to insert development seed workspace.");
+  }
+
+  const seededProjects = await db
+    .insert(projects)
+    .values({
+      ...developmentProject,
+      workspaceId: workspace.id,
+      key: "FOUND",
+      itemCounter: developmentTasks.length
+    })
+    .returning({
+      id: projects.id,
+      title: projects.title
+    });
   const project = seededProjects[0];
 
   if (!project) {

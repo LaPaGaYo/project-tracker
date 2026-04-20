@@ -2,7 +2,8 @@
   "outcome": "success",
   "canonical_paths": [
     "docs/product/decision-brief.md",
-    "docs/product/prd.md"
+    "docs/product/prd.md",
+    ".planning/current/frame/design-intent.json"
   ],
   "status": {
     "state": "completed",

@@ -1,8 +1,14 @@
 {
-  "run_id": "run-2026-04-12T06-33-14-637Z",
-  "inputs": [],
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "inputs": [
+    ".planning/current/discover/next-run-bootstrap.json",
+    ".planning/current/discover/NEXT-RUN.md"
+  ],
   "adapter": "pm",
   "stage": "discover",
+  "continuation_mode": "phase",
+  "requested_continuation_mode": null,
+  "effective_continuation_mode": "phase",
   "contract_outputs": [
     "docs/product/idea-brief.md",
     ".planning/current/discover/status.json"
