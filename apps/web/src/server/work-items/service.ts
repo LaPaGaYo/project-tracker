@@ -15,6 +15,7 @@ import type { AppSession } from "../workspaces/types";
 import type {
   CreateWorkItemInput,
   ListWorkItemFilters,
+  MoveWorkItemInput,
   UpdateWorkItemInput,
   WorkItemRepository
 } from "./types";
@@ -113,6 +114,30 @@ async function validateParent(
   }
 }
 
+function requirePosition(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new WorkspaceError(400, "position is invalid.");
+  }
+
+  return value;
+}
+
+function requireIdentifier(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkspaceError(400, "identifier is invalid.");
+  }
+
+  return value;
+}
+
+function requireAffectedItems(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new WorkspaceError(400, "affectedItems must be a non-empty array.");
+  }
+
+  return value as Array<Record<string, unknown>>;
+}
+
 export async function createWorkItemForUser(
   repository: WorkItemRepository,
   session: AppSession,
@@ -161,6 +186,112 @@ export async function listWorkItemsForUser(
 ) {
   const { project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
   return repository.listWorkItems(project.id, filters);
+}
+
+export async function moveWorkItemForUser(
+  repository: WorkItemRepository,
+  session: AppSession,
+  workspaceSlug: string,
+  projectKey: string,
+  identifier: string,
+  input: MoveWorkItemInput
+) {
+  const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
+  requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
+
+  const current = await repository.getWorkItemByIdentifier(project.id, identifier);
+  if (!current) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
+  const nextState =
+    input.workflowStateId !== undefined
+      ? await resolveWorkflowState(repository, project.id, input.workflowStateId)
+      : current.workflowStateId
+        ? await repository.getWorkflowState(project.id, current.workflowStateId)
+        : null;
+
+  const updated = await repository.moveWorkItem(project.id, identifier, {
+    position: requirePosition(input.position),
+    ...(input.workflowStateId !== undefined ? { workflowStateId: nextState?.id ?? null } : {}),
+    ...(nextState ? { status: taskStatusFromWorkflowCategory(nextState.category) } : {}),
+    workspaceId: workspace.id,
+    actorId: session.userId
+  });
+
+  if (!updated) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
+  return updated;
+}
+
+export async function moveWorkItemsForUser(
+  repository: WorkItemRepository,
+  session: AppSession,
+  workspaceSlug: string,
+  projectKey: string,
+  identifier: string,
+  input: MoveWorkItemInput
+) {
+  const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
+  requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
+
+  const rawUpdates = requireAffectedItems(input.affectedItems);
+  const uniqueIdentifiers = Array.from(
+    new Set(rawUpdates.map((entry) => requireIdentifier(entry.identifier)))
+  );
+
+  if (!uniqueIdentifiers.includes(identifier)) {
+    throw new WorkspaceError(400, "affectedItems must include the moved work item.");
+  }
+
+  const currentItems = await Promise.all(
+    uniqueIdentifiers.map(async (currentIdentifier) => {
+      const item = await repository.getWorkItemByIdentifier(project.id, currentIdentifier);
+      if (!item) {
+        throw new WorkspaceError(404, "work item not found.");
+      }
+
+      return item;
+    })
+  );
+
+  const currentByIdentifier = new Map(currentItems.map((item) => [item.identifier, item]));
+  const normalizedUpdates = await Promise.all(
+    rawUpdates.map(async (entry) => {
+      const current = currentByIdentifier.get(requireIdentifier(entry.identifier));
+      if (!current) {
+        throw new WorkspaceError(404, "work item not found.");
+      }
+
+      const nextState =
+        entry.workflowStateId !== undefined
+          ? await resolveWorkflowState(repository, project.id, entry.workflowStateId)
+          : current.workflowStateId
+            ? await repository.getWorkflowState(project.id, current.workflowStateId)
+            : null;
+
+      return {
+        identifier: requireIdentifier(current.identifier),
+        position: requirePosition(entry.position),
+        ...(entry.workflowStateId !== undefined ? { workflowStateId: nextState?.id ?? null } : {}),
+        ...(nextState ? { status: taskStatusFromWorkflowCategory(nextState.category) } : {})
+      };
+    })
+  );
+
+  const updated = await repository.moveWorkItems(project.id, identifier, {
+    updates: normalizedUpdates,
+    workspaceId: workspace.id,
+    actorId: session.userId
+  });
+
+  if (!updated) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
+  return updated;
 }
 
 export async function getWorkItemForUser(

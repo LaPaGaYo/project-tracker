@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { workItemPriorities, workItemTypes } from "@the-platform/shared";
 
 import { AppShell } from "@/components/app-shell";
 import { CreateWorkItemDialog } from "@/components/create-work-item-dialog";
-import { WorkItemRow } from "@/components/work-item-row";
+import { ViewToggle } from "@/components/view-toggle";
 import { getAppSession, isClerkConfigured } from "@/server/auth";
 import { createProjectRepository } from "@/server/projects/repository";
 import { getProjectForUser } from "@/server/projects/service";
@@ -17,13 +18,56 @@ import { listWorkflowStatesForUser } from "@/server/workflow-states/service";
 
 export const dynamic = "force-dynamic";
 
+function readSearchList(value: string | string[] | undefined) {
+  const normalized = Array.isArray(value) ? value.join(",") : value ?? "";
+  return normalized
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseTypeFilters(value: string | string[] | undefined) {
+  return readSearchList(value).filter((entry): entry is (typeof workItemTypes)[number] =>
+    workItemTypes.includes(entry as (typeof workItemTypes)[number])
+  );
+}
+
+function parsePriorityFilters(value: string | string[] | undefined) {
+  return readSearchList(value).filter((entry): entry is (typeof workItemPriorities)[number] =>
+    workItemPriorities.includes(entry as (typeof workItemPriorities)[number])
+  );
+}
+
+function parseSortField(
+  value: string | string[] | undefined
+): "identifier" | "priority" | "created_at" | "position" | undefined {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  if (
+    normalized === "identifier" ||
+    normalized === "priority" ||
+    normalized === "created_at" ||
+    normalized === "position"
+  ) {
+    return normalized;
+  }
+
+  return undefined;
+}
+
+function parseSortOrder(value: string | string[] | undefined): "asc" | "desc" | undefined {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  return normalized === "asc" || normalized === "desc" ? normalized : undefined;
+}
+
 export default async function ProjectDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{
     slug: string;
     key: string;
   }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getAppSession();
   if (!session) {
@@ -31,6 +75,7 @@ export default async function ProjectDetailPage({
   }
 
   const { slug, key } = await params;
+  const query = await searchParams;
   const workspaceRepository = createWorkspaceRepository();
   const workspace = await workspaceRepository.findWorkspaceBySlug(slug);
 
@@ -40,22 +85,33 @@ export default async function ProjectDetailPage({
 
   try {
     const membership = await requireWorkspaceMembership(workspaceRepository, session, workspace.id, "viewer");
+    const types = parseTypeFilters(query.type);
+    const priorities = parsePriorityFilters(query.priority);
+    const workflowStateIds = readSearchList(query.state);
+    const sortField = parseSortField(query.sort);
+    const sortOrder = parseSortOrder(query.order);
+    const filters = {
+      ...(types.length > 0 ? { types } : {}),
+      ...(priorities.length > 0 ? { priorities } : {}),
+      ...(workflowStateIds.length > 0 ? { workflowStateIds } : {}),
+      ...(typeof query.assignee === "string" && query.assignee ? { assigneeId: query.assignee } : {}),
+      ...(sortField
+        ? {
+            sort: {
+              field: sortField,
+              ...(sortOrder ? { order: sortOrder } : {})
+            }
+          }
+        : {})
+    };
     const [workspaces, project, states, items] = await Promise.all([
       listWorkspacesForUser(workspaceRepository, session),
       getProjectForUser(createProjectRepository(), session, slug, key),
       listWorkflowStatesForUser(createWorkflowStateRepository(), session, slug, key),
-      listWorkItemsForUser(createWorkItemRepository(), session, slug, key)
+      listWorkItemsForUser(createWorkItemRepository(), session, slug, key, filters)
     ]);
+    const members = await workspaceRepository.listMembers(workspace.id);
 
-    const groupedItems = new Map<string, typeof items>();
-    for (const state of states) {
-      groupedItems.set(
-        state.id,
-        items.filter((item) => item.workflowStateId === state.id)
-      );
-    }
-
-    const unassignedItems = items.filter((item) => !item.workflowStateId);
     const canCreate = membership.role !== "viewer";
 
     return (
@@ -65,58 +121,49 @@ export default async function ProjectDetailPage({
         workspaces={workspaces}
         isClerkEnabled={isClerkConfigured()}
       >
-        <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <article className="rounded-[2rem] border border-white/8 bg-planka-card/75 p-8 shadow-[0_32px_120px_rgba(0,0,0,0.24)] backdrop-blur">
-            <Link href={`/workspaces/${slug}/projects`} className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
-              Back to projects
-            </Link>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-semibold text-planka-text">{project.title}</h1>
-              <span className="rounded-full bg-planka-selected px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
-                {project.key}
-              </span>
-            </div>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-planka-text-muted">
-              {project.description || "No project description yet."}
-            </p>
+        <section className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+          <article className="grid gap-6">
+            <section className="rounded-[2rem] border border-white/8 bg-planka-card/75 p-8 shadow-[0_32px_120px_rgba(0,0,0,0.24)] backdrop-blur">
+              <Link href={`/workspaces/${slug}/projects`} className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
+                Back to projects
+              </Link>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-semibold text-planka-text">{project.title}</h1>
+                <span className="rounded-full bg-planka-selected px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
+                  {project.key}
+                </span>
+              </div>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-planka-text-muted">
+                {project.description || "No project description yet."}
+              </p>
 
-            <div className="mt-8 grid gap-6">
-              {states.map((state) => (
-                <section key={state.id} className="rounded-3xl border border-white/8 bg-black/10 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
-                        {state.category}
-                      </p>
-                      <h2 className="mt-2 text-xl font-semibold text-planka-text">{state.name}</h2>
-                    </div>
-                    <span className="rounded-full border border-white/12 px-3 py-1 text-xs uppercase tracking-[0.2em] text-planka-text-muted">
-                      {(groupedItems.get(state.id) ?? []).length} items
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-3">
-                    {(groupedItems.get(state.id) ?? []).length > 0 ? (
-                      (groupedItems.get(state.id) ?? []).map((item) => <WorkItemRow key={item.id} item={item} />)
-                    ) : (
-                      <div className="rounded-3xl border border-dashed border-white/12 px-4 py-6 text-sm text-planka-text-muted">
-                        No work items in this state yet.
-                      </div>
-                    )}
-                  </div>
-                </section>
-              ))}
+              <div className="mt-6 grid gap-4 md:grid-cols-4">
+                <div className="rounded-3xl border border-white/8 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-text-muted">Role</p>
+                  <p className="mt-3 text-lg font-semibold text-planka-text">{membership.role}</p>
+                </div>
+                <div className="rounded-3xl border border-white/8 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-text-muted">States</p>
+                  <p className="mt-3 text-lg font-semibold text-planka-text">{states.length}</p>
+                </div>
+                <div className="rounded-3xl border border-white/8 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-text-muted">Members</p>
+                  <p className="mt-3 text-lg font-semibold text-planka-text">{members.length}</p>
+                </div>
+                <div className="rounded-3xl border border-white/8 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-text-muted">Visible items</p>
+                  <p className="mt-3 text-lg font-semibold text-planka-text">{items.length}</p>
+                </div>
+              </div>
+            </section>
 
-              {unassignedItems.length > 0 ? (
-                <section className="rounded-3xl border border-white/8 bg-black/10 p-5">
-                  <h2 className="text-xl font-semibold text-planka-text">Unassigned State</h2>
-                  <div className="mt-4 grid gap-3">
-                    {unassignedItems.map((item) => (
-                      <WorkItemRow key={item.id} item={item} />
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-            </div>
+            <ViewToggle
+              workspaceSlug={slug}
+              projectKey={key}
+              items={items}
+              members={members}
+              states={states}
+            />
           </article>
 
           <aside className="grid gap-6">
@@ -143,7 +190,7 @@ export default async function ProjectDetailPage({
                 </p>
                 <p>
                   Total items:
-                  <span className="ml-2 font-semibold text-planka-text">{items.length}</span>
+                  <span className="ml-2 font-semibold text-planka-text">{project.itemCounter}</span>
                 </p>
               </div>
             </div>
