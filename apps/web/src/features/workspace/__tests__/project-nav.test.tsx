@@ -37,6 +37,23 @@ describe("ProjectNav", () => {
     expect(screen.getByText("Phase 2: Execution Surface")).toBeInTheDocument();
     expect(screen.getByText("3/7 plan items complete")).toBeInTheDocument();
   });
+
+  it("sends the create issue CTA to the board create-work-item anchor", () => {
+    render(
+      <ProjectNav
+        canCreate
+        createIssueHref="/workspaces/platform-ops/projects/OPS?view=board#create-work-item"
+        stageLabel="Current stage"
+        stageTitle="Phase 2: Execution Surface"
+        progressLabel="3/7 plan items complete"
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Create issue" })).toHaveAttribute(
+      "href",
+      "/workspaces/platform-ops/projects/OPS?view=board#create-work-item"
+    );
+  });
 });
 
 describe("ViewToolbar", () => {

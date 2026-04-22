@@ -8,7 +8,7 @@ import type {
   WorkflowStateRecord,
   WorkItemRecord
 } from "@the-platform/shared";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { BoardView } from "./board-view";
@@ -39,15 +39,17 @@ interface ViewToggleProps {
 type ViewPreference = "board" | "list";
 
 function buildViewHref(
+  pathname: string,
   basePath: string,
   searchParams: ReturnType<typeof useSearchParams>,
   view: ViewPreference
 ) {
+  const nextPath = pathname.startsWith(`${basePath}/items/`) ? pathname : basePath;
   const params = new URLSearchParams(searchParams.toString());
   params.set("view", view);
 
   const query = params.toString();
-  return query ? `${basePath}?${query}` : basePath;
+  return query ? `${nextPath}?${query}` : nextPath;
 }
 
 export function ViewToggle({
@@ -65,6 +67,7 @@ export function ViewToggle({
   membershipRole
 }: ViewToggleProps) {
   const [view, setView] = useState<ViewPreference>("board");
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -84,12 +87,12 @@ export function ViewToggle({
     const storedPreference = window.localStorage.getItem(`view-pref-${projectKey}`);
     if (storedPreference === "list") {
       setView(storedPreference);
-      router.replace(buildViewHref(basePath, searchParams, "list"), { scroll: false });
+      router.replace(buildViewHref(pathname, basePath, searchParams, "list"), { scroll: false });
       return;
     }
 
     setView("board");
-  }, [basePath, projectKey, router, searchParams]);
+  }, [basePath, pathname, projectKey, router, searchParams]);
 
   useEffect(() => {
     window.localStorage.setItem(`view-pref-${projectKey}`, view);
@@ -97,7 +100,7 @@ export function ViewToggle({
 
   function setViewPreference(nextView: ViewPreference) {
     setView(nextView);
-    router.replace(buildViewHref(basePath, searchParams, nextView), { scroll: false });
+    router.replace(buildViewHref(pathname, basePath, searchParams, nextView), { scroll: false });
   }
 
   function openItem(identifier: string) {
