@@ -61,7 +61,9 @@ export function WorkItemCard({ item, assigneeLabel, subtaskCount, onOpen }: Work
       </div>
 
       <h3 className="mt-4 text-base font-semibold text-planka-text">{item.title}</h3>
-      <p className="mt-2 text-sm leading-6 text-planka-text-muted">{item.description || "No description yet."}</p>
+      {item.description ? (
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-planka-text-muted">{item.description}</p>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">

@@ -157,8 +157,9 @@ export async function ProjectDetailContent({
         workspaces={workspaces}
         isClerkEnabled={isClerkConfigured()}
       >
-        <section className="grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
-          <article className="grid gap-6">
+        <div className="max-w-full overflow-hidden">
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <article className="grid min-w-0 gap-6">
             <section className="rounded-[2rem] border border-white/8 bg-planka-card/75 p-8 shadow-[0_32px_120px_rgba(0,0,0,0.24)] backdrop-blur">
               <Link href={`/workspaces/${workspaceSlug}/projects`} className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
                 Back to projects
@@ -207,38 +208,39 @@ export async function ProjectDetailContent({
               sessionUserId={session.userId}
               membershipRole={membership.role}
             />
-          </article>
+            </article>
 
-          <aside className="grid gap-6">
-            <CreateWorkItemDialog
-              workspaceSlug={workspaceSlug}
-              projectKey={projectKey}
-              states={states}
-              canCreate={canCreate}
-            />
-            <div className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Project Summary</p>
-              <div className="mt-5 grid gap-3 text-sm text-planka-text-muted">
-                <p>
-                  Workspace:
-                  <span className="ml-2 font-semibold text-planka-text">{workspace.name}</span>
-                </p>
-                <p>
-                  Stage:
-                  <span className="ml-2 font-semibold text-planka-text">{project.stage}</span>
-                </p>
-                <p>
-                  Role:
-                  <span className="ml-2 font-semibold text-planka-text">{membership.role}</span>
-                </p>
-                <p>
-                  Total items:
-                  <span className="ml-2 font-semibold text-planka-text">{project.itemCounter}</span>
-                </p>
+            <aside className="grid gap-6 xl:content-start">
+              <CreateWorkItemDialog
+                workspaceSlug={workspaceSlug}
+                projectKey={projectKey}
+                states={states}
+                canCreate={canCreate}
+              />
+              <div className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Project Summary</p>
+                <div className="mt-5 grid gap-3 text-sm text-planka-text-muted">
+                  <p>
+                    Workspace:
+                    <span className="ml-2 font-semibold text-planka-text">{workspace.name}</span>
+                  </p>
+                  <p>
+                    Stage:
+                    <span className="ml-2 font-semibold text-planka-text">{project.stage}</span>
+                  </p>
+                  <p>
+                    Role:
+                    <span className="ml-2 font-semibold text-planka-text">{membership.role}</span>
+                  </p>
+                  <p>
+                    Total items:
+                    <span className="ml-2 font-semibold text-planka-text">{project.itemCounter}</span>
+                  </p>
+                </div>
               </div>
-            </div>
-          </aside>
-        </section>
+            </aside>
+          </section>
+        </div>
       </AppShell>
     );
   } catch (error) {

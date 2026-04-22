@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import type { WorkspaceMemberRecord, WorkflowStateRecord, WorkItemRecord } from "@the-platform/shared";
 import { describe, expect, it, vi } from "vitest";
 
@@ -98,12 +98,15 @@ describe("BoardView", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Backlog" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "In Progress" })).toBeInTheDocument();
-    expect(screen.getByText("OPS-1")).toBeInTheDocument();
-    expect(screen.getByText("Build board shell")).toBeInTheDocument();
-    expect(screen.getByText("1 subtasks")).toBeInTheDocument();
-    expect(screen.getByText("No items")).toBeInTheDocument();
+    const backlogColumn = screen.getByRole("region", { name: "Backlog" });
+    const activeColumn = screen.getByRole("region", { name: "In Progress" });
+
+    expect(within(backlogColumn).getByRole("heading", { name: "Backlog" })).toBeInTheDocument();
+    expect(within(activeColumn).getByRole("heading", { name: "In Progress" })).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("OPS-1")).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("Build board shell")).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("1 subtasks")).toBeInTheDocument();
+    expect(within(activeColumn).getByText("No items here yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Build board shell"));
 

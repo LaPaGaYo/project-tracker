@@ -34,7 +34,7 @@ export function AppShell({
   return (
     <main className="min-h-screen">
       <header className="border-b border-white/6 bg-black/10 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Link href="/" className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
               The Platform
@@ -65,7 +65,7 @@ export function AppShell({
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-6xl px-6 py-10">{children}</div>
+      <div className="mx-auto max-w-[1400px] px-6 py-10">{children}</div>
     </main>
   );
 }
