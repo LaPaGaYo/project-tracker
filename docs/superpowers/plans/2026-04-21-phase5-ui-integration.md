@@ -214,3 +214,16 @@
   - `npm run typecheck`
   - `npm test`
   - `npm run build`
+
+## Delivery Notes
+
+- 2026-04-22: Task 4 is complete.
+  - `8573a9c` adds the durable stage / plan / GitHub-status model plus the workspace projection contract tests.
+  - `ad846e2` adds the functional project workspace shell plus real `Plan`, `Overview`, `Docs`, and `Engineering` views on `/workspaces/[slug]/projects/[key]`.
+- 2026-04-22: Task 5 required no route deletion in this integration branch because the duplicate fixture-backed `/app/projects/[projectSlug]` family was already absent. The functional `/workspaces/[slug]/projects/[key]` tree is the only project surface present here.
+- 2026-04-22: Full verification passed.
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+- 2026-04-22: One operational note from verification: a fresh `npm run typecheck` in the root may need to be re-run after `npm run build` if `.next/types` has not been generated in this worktree yet. After the build-generated type artifacts existed, root typecheck passed cleanly.
