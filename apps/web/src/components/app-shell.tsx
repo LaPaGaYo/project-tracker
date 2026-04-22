@@ -44,6 +44,7 @@ export function AppShell({
                 <Link
                   key={workspace.id}
                   href={`/workspaces/${workspace.slug}/projects`}
+                  aria-current={workspace.id === currentWorkspaceId ? "page" : undefined}
                   className={`rounded-full px-3 py-1 text-sm transition ${
                     workspace.id === currentWorkspaceId
                       ? "bg-planka-selected text-white"

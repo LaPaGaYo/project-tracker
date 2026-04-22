@@ -9,7 +9,8 @@
     "lint": "eslint src middleware.ts next.config.ts --max-warnings=0",
     "start": "next start",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "echo 'No tests configured yet' && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.1.0",
@@ -27,8 +28,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4",
     "tailwindcss": "^4.1.4"
   }
 }
