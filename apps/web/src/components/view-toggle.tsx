@@ -38,6 +38,18 @@ interface ViewToggleProps {
 
 type ViewPreference = "board" | "list";
 
+function buildViewHref(
+  basePath: string,
+  searchParams: ReturnType<typeof useSearchParams>,
+  view: ViewPreference
+) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("view", view);
+
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
 export function ViewToggle({
   workspaceSlug,
   projectKey,
@@ -57,15 +69,36 @@ export function ViewToggle({
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const storedPreference = window.localStorage.getItem(`view-pref-${projectKey}`);
-    if (storedPreference === "board" || storedPreference === "list") {
-      setView(storedPreference);
+    const queryView = searchParams.get("view");
+
+    if (queryView === "board") {
+      setView("board");
+      return;
     }
-  }, [projectKey]);
+
+    if (queryView === "list") {
+      setView("list");
+      return;
+    }
+
+    const storedPreference = window.localStorage.getItem(`view-pref-${projectKey}`);
+    if (storedPreference === "list") {
+      setView(storedPreference);
+      router.replace(buildViewHref(basePath, searchParams, "list"), { scroll: false });
+      return;
+    }
+
+    setView("board");
+  }, [basePath, projectKey, router, searchParams]);
 
   useEffect(() => {
     window.localStorage.setItem(`view-pref-${projectKey}`, view);
   }, [projectKey, view]);
+
+  function setViewPreference(nextView: ViewPreference) {
+    setView(nextView);
+    router.replace(buildViewHref(basePath, searchParams, nextView), { scroll: false });
+  }
 
   function openItem(identifier: string) {
     const queryString = searchParams.toString();
@@ -90,7 +123,7 @@ export function ViewToggle({
             <button
               key={option}
               type="button"
-              onClick={() => setView(option)}
+              onClick={() => setViewPreference(option)}
               className={`rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-all ${
                 view === option
                   ? "bg-planka-selected text-white shadow-[0_10px_30px_rgba(43,108,217,0.3)]"
