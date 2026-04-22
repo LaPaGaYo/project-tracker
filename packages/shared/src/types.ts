@@ -1,7 +1,12 @@
 import type {
   InvitationStatus,
+  PlanItemStatus,
   ProjectStage,
+  StageStatus,
   TaskStatus,
+  TaskGithubCiStatus,
+  TaskGithubDeployStatus,
+  TaskGithubPrStatus,
   WorkflowStateCategory,
   WorkspaceRole,
   WorkItemPriority,
@@ -35,6 +40,8 @@ export interface WorkItemRecord {
   priority: WorkItemPriority;
   labels: string[] | null;
   workflowStateId: string | null;
+  stageId: string | null;
+  planItemId: string | null;
   position: number;
   blockedReason: string | null;
   dueDate: string | null;
@@ -54,6 +61,35 @@ export interface WorkflowStateRecord {
   color: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectStageRecord {
+  id: string;
+  projectId: string;
+  slug: string;
+  title: string;
+  goal: string;
+  status: StageStatus;
+  gateStatus: string;
+  sortOrder: number;
+}
+
+export interface PlanItemRecord {
+  id: string;
+  stageId: string;
+  title: string;
+  outcome: string;
+  status: PlanItemStatus;
+  blocker: string | null;
+  sortOrder: number;
+}
+
+export interface TaskGithubStatusRecord {
+  id: string;
+  taskId: string;
+  prStatus: TaskGithubPrStatus;
+  ciStatus: TaskGithubCiStatus;
+  deployStatus: TaskGithubDeployStatus;
 }
 
 export interface WorkspaceRecord {

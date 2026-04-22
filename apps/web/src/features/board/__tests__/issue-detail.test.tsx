@@ -37,6 +37,8 @@ const item: WorkItemRecord = {
   priority: "high",
   labels: ["ui", "phase5"],
   workflowStateId: "state-active",
+  stageId: null,
+  planItemId: null,
   position: 1000,
   blockedReason: null,
   dueDate: null,

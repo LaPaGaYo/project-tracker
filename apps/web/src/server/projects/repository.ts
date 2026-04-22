@@ -1,7 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
-import { db, projects, tasks, workflowStates } from "@the-platform/db";
-import type { ProjectRecord, WorkflowStateRecord } from "@the-platform/shared";
+import { db, planItems, projectStages, projects, taskGithubStatus, tasks, workflowStates } from "@the-platform/db";
+import type {
+  PlanItemRecord,
+  ProjectRecord,
+  ProjectStageRecord,
+  TaskGithubStatusRecord,
+  WorkflowStateRecord
+} from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../activity/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
@@ -37,6 +43,41 @@ function serializeWorkflowState(row: typeof workflowStates.$inferSelect): Workfl
     color: row.color,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeProjectStage(row: typeof projectStages.$inferSelect): ProjectStageRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    slug: row.slug,
+    title: row.title,
+    goal: row.goal,
+    status: row.status,
+    gateStatus: row.gateStatus,
+    sortOrder: row.sortOrder
+  };
+}
+
+function serializePlanItem(row: typeof planItems.$inferSelect): PlanItemRecord {
+  return {
+    id: row.id,
+    stageId: row.stageId,
+    title: row.title,
+    outcome: row.outcome,
+    status: row.status,
+    blocker: row.blocker,
+    sortOrder: row.sortOrder
+  };
+}
+
+function serializeTaskGithubStatus(row: typeof taskGithubStatus.$inferSelect): TaskGithubStatusRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    prStatus: row.prStatus,
+    ciStatus: row.ciStatus,
+    deployStatus: row.deployStatus
   };
 }
 
@@ -255,6 +296,41 @@ export function createProjectRepository(): ProjectRepository {
         .orderBy(workflowStates.position, workflowStates.createdAt);
 
       return rows.map(serializeWorkflowState);
+    },
+
+    async listProjectStages(projectId) {
+      const rows = await db
+        .select()
+        .from(projectStages)
+        .where(eq(projectStages.projectId, projectId))
+        .orderBy(asc(projectStages.sortOrder), asc(projectStages.title));
+
+      return rows.map(serializeProjectStage);
+    },
+
+    async listPlanItems(projectId) {
+      const rows = await db
+        .select({
+          planItem: planItems
+        })
+        .from(planItems)
+        .innerJoin(projectStages, eq(planItems.stageId, projectStages.id))
+        .where(eq(projectStages.projectId, projectId))
+        .orderBy(asc(projectStages.sortOrder), asc(planItems.sortOrder), asc(planItems.title));
+
+      return rows.map((row) => serializePlanItem(row.planItem));
+    },
+
+    async listTaskGithubStatuses(projectId) {
+      const rows = await db
+        .select({
+          githubStatus: taskGithubStatus
+        })
+        .from(taskGithubStatus)
+        .innerJoin(tasks, eq(taskGithubStatus.taskId, tasks.id))
+        .where(eq(tasks.projectId, projectId));
+
+      return rows.map((row) => serializeTaskGithubStatus(row.githubStatus));
     }
   };
 }

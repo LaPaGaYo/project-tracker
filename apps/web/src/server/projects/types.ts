@@ -1,4 +1,11 @@
-import type { ProjectRecord, ProjectStage, WorkflowStateRecord } from "@the-platform/shared";
+import type {
+  PlanItemRecord,
+  ProjectRecord,
+  ProjectStage,
+  ProjectStageRecord,
+  TaskGithubStatusRecord,
+  WorkflowStateRecord
+} from "@the-platform/shared";
 
 import type { WorkspaceRepository } from "../workspaces/types";
 
@@ -49,4 +56,7 @@ export interface ProjectRepository extends Pick<WorkspaceRepository, "findWorksp
   ): Promise<ProjectRecord | null>;
   deleteProject(projectId: string, workspaceId: string, actorId: string): Promise<boolean>;
   listWorkflowStates(projectId: string): Promise<WorkflowStateRecord[]>;
+  listProjectStages(projectId: string): Promise<ProjectStageRecord[]>;
+  listPlanItems(projectId: string): Promise<PlanItemRecord[]>;
+  listTaskGithubStatuses(projectId: string): Promise<TaskGithubStatusRecord[]>;
 }
