@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type {
   CommentRecord,
   DescriptionVersionRecord,
@@ -6,7 +6,7 @@ import type {
   WorkflowStateRecord,
   WorkItemRecord
 } from "@the-platform/shared";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DetailPanel } from "../../../components/detail-panel";
 import { render } from "../../../test/render";
@@ -112,8 +112,8 @@ const timeline: TimelineEntry[] = [
       action: "assigned",
       actorId: "henry",
       metadata: {
-        from: null,
-        to: "henry"
+        before: null,
+        after: "henry"
       },
       createdAt: "2026-04-20T12:45:00.000Z"
     }
@@ -121,6 +121,10 @@ const timeline: TimelineEntry[] = [
 ];
 
 describe("DetailPanel", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders the functional issue detail surface with metadata and comments", () => {
     render(
       <DetailPanel
@@ -139,15 +143,82 @@ describe("DetailPanel", () => {
     );
 
     expect(screen.getAllByText("OPS-1")).toHaveLength(2);
-    expect(screen.getByDisplayValue("Build board shell")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Build board shell/i })).toBeInTheDocument();
     expect(screen.getByText("Description history")).toBeInTheDocument();
     expect(screen.getByText("Comments")).toBeInTheDocument();
     expect(screen.getByText("Timeline")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save description" })).toBeDisabled();
     expect(screen.getByLabelText("Priority")).toHaveValue("high");
     expect(screen.getByLabelText("Type")).toHaveValue("task");
     expect(screen.getByLabelText("State")).toHaveValue("state-active");
     expect(screen.getByLabelText("Assignee")).toHaveValue("henry");
     expect(screen.getByText("Pair with the CI owner before merging.")).toBeInTheDocument();
-    expect(screen.getByText("Assignment updated")).toBeInTheDocument();
+    expect(screen.getByText("Assigned to henry")).toBeInTheDocument();
+  });
+
+  it("lets editors switch the title into edit mode on demand", () => {
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        comments={comments}
+        versions={versions}
+        timeline={timeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    expect(screen.queryByDisplayValue("Build board shell")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Build board shell/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Build board shell/i }));
+
+    expect(screen.getByDisplayValue("Build board shell")).toBeInTheDocument();
+  });
+
+  it("commits a title change only once when Enter also blurs the input", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({
+        workItem: {
+          ...item,
+          title: "Board shell v2"
+        }
+      })
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        comments={comments}
+        versions={versions}
+        timeline={timeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Build board shell/i }));
+
+    const input = screen.getByDisplayValue("Build board shell");
+    fireEvent.change(input, { target: { value: "Board shell v2" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

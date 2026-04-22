@@ -60,13 +60,24 @@ export function DetailPanel({
   const [localItem, setLocalItem] = useState(item);
   const [localComments, setLocalComments] = useState(comments);
   const [titleDraft, setTitleDraft] = useState(item.title);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const canEdit = membershipRole !== "viewer";
 
   useEffect(() => {
     setLocalItem(item);
     setLocalComments(comments);
     setTitleDraft(item.title);
+    setIsEditingTitle(false);
   }, [comments, item]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   function closePanel() {
     const expectedOrigin = buildDetailPanelOrigin(basePath, searchParams.toString());
@@ -84,25 +95,19 @@ export function DetailPanel({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (isEditingTitle) {
+          setIsEditingTitle(false);
+          setTitleDraft(localItem.title);
+          return;
+        }
+
         closePanel();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [basePath, router, searchParams]);
-
-  useEffect(() => {
-    if (!canEdit || titleDraft === localItem.title) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void patchWorkItem({ title: titleDraft });
-    }, 500);
-
-    return () => window.clearTimeout(timeout);
-  }, [canEdit, localItem.title, titleDraft]);
+  }, [basePath, isEditingTitle, localItem.title, router, searchParams]);
 
   async function patchWorkItem(
     patch: Partial<Pick<WorkItemRecord, "title" | "priority" | "type" | "workflowStateId" | "assigneeId">>
@@ -138,6 +143,18 @@ export function DetailPanel({
     startTransition(() => {
       router.refresh();
     });
+  }
+
+  async function commitTitle() {
+    const nextTitle = titleDraft.trim();
+    setIsEditingTitle(false);
+
+    if (!nextTitle || nextTitle === localItem.title) {
+      setTitleDraft(localItem.title);
+      return;
+    }
+
+    await patchWorkItem({ title: nextTitle });
   }
 
   async function saveDescription(content: string) {
@@ -248,16 +265,45 @@ export function DetailPanel({
       <section className="relative z-10 flex h-full w-full max-w-[42rem] flex-col overflow-y-auto border-l border-white/10 bg-[#0f1728] shadow-[0_32px_120px_rgba(0,0,0,0.45)]">
         <header className="border-b border-white/8 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="grid gap-3">
+            <div className="grid flex-1 gap-3">
               <span className="w-fit rounded-full bg-planka-selected px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
                 {localItem.identifier}
               </span>
-              <input
-                value={titleDraft}
-                onChange={(event) => setTitleDraft(event.target.value)}
-                disabled={!canEdit || isPending}
-                className="bg-transparent text-3xl font-semibold text-planka-text outline-none disabled:opacity-80"
-              />
+              {isEditingTitle && canEdit ? (
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  onBlur={() => {
+                    void commitTitle();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void commitTitle();
+                    }
+                  }}
+                  disabled={isPending}
+                  className="w-full bg-transparent text-3xl font-semibold text-planka-text outline-none disabled:opacity-80"
+                />
+              ) : (
+                <h2 className="text-3xl font-semibold text-planka-text">
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTitle(true)}
+                      className="group flex items-center gap-3 rounded-xl bg-transparent text-left text-inherit outline-none transition focus-visible:ring-2 focus-visible:ring-planka-accent/60"
+                    >
+                      <span>{localItem.title}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-planka-text-muted opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                        Edit
+                      </span>
+                    </button>
+                  ) : (
+                    <span>{localItem.title}</span>
+                  )}
+                </h2>
+              )}
             </div>
 
             <button

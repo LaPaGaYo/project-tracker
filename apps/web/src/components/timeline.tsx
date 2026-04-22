@@ -23,27 +23,48 @@ function formatTimestamp(value: string) {
 }
 
 function describeActivity(entry: ActivityLogRecord) {
+  const metadata = entry.metadata ?? {};
+
   if (entry.action === "assigned") {
-    return "Assignment updated";
+    const assigneeId =
+      typeof metadata.after === "string"
+        ? metadata.after
+        : typeof metadata.assigneeId === "string"
+          ? metadata.assigneeId
+          : null;
+    return `Assigned to ${assigneeId ?? "unassigned"}`;
   }
 
   if (entry.action === "moved") {
-    return "Position changed";
+    return "Changed position on board";
   }
 
   if (entry.action === "state_changed") {
-    return "Workflow state changed";
+    const from =
+      typeof metadata.before === "string"
+        ? metadata.before
+        : typeof metadata.from === "string"
+          ? metadata.from
+          : "none";
+    const to =
+      typeof metadata.after === "string"
+        ? metadata.after
+        : typeof metadata.to === "string"
+          ? metadata.to
+          : "none";
+    return `Moved from ${from} to ${to}`;
   }
 
   if (entry.action === "deleted") {
-    return "Item deleted";
+    return "Deleted work item";
   }
 
   if (entry.action === "updated") {
-    return "Item updated";
+    const fields = Object.keys(metadata).join(", ");
+    return `Updated ${fields || "item"}`;
   }
 
-  return "Item created";
+  return "Created work item";
 }
 
 export function Timeline({ entries }: TimelineProps) {
@@ -70,11 +91,7 @@ export function Timeline({ entries }: TimelineProps) {
             <div className="prose prose-invert mt-3 max-w-none text-sm prose-p:my-2">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.comment.content}</ReactMarkdown>
             </div>
-          ) : (
-            <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-planka-text-muted">
-              {JSON.stringify(entry.activity.metadata ?? {}, null, 2)}
-            </pre>
-          )}
+          ) : null}
         </article>
       ))}
     </div>

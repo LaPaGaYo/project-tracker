@@ -66,7 +66,7 @@ export function DescriptionEditor({
         <div className="flex justify-end">
           <button
             type="button"
-            disabled={disabled}
+            disabled={disabled || draft === value}
             onClick={() => {
               void onSave(draft);
             }}

@@ -1,6 +1,22 @@
+"use client";
+
+import { useFormStatus } from "react-dom";
 import type { WorkflowStateRecord } from "@the-platform/shared";
 
 import { createWorkItemAction } from "@/app/actions";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      disabled={pending}
+      className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? "Creating..." : "Create work item"}
+    </button>
+  );
+}
 
 interface CreateWorkItemDialogProps {
   workspaceSlug: string;
@@ -24,9 +40,21 @@ export function CreateWorkItemDialog({
   }
 
   return (
-    <details className="rounded-3xl border border-white/8 bg-black/10 p-5">
-      <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.2em] text-planka-accent">
-        Create work item
+    <details className="group rounded-3xl border border-white/8 bg-black/10 p-5">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold uppercase tracking-[0.2em] text-planka-accent">
+        <span>Create work item</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-5 w-5 transition-transform group-open:rotate-180"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+            clipRule="evenodd"
+          />
+        </svg>
       </summary>
       <form action={createWorkItemAction.bind(null, workspaceSlug, projectKey)} className="mt-5 grid gap-4">
         <label className="grid gap-2 text-sm text-planka-text">
@@ -97,9 +125,7 @@ export function CreateWorkItemDialog({
             className="rounded-2xl border border-white/10 bg-planka-bg px-4 py-3 outline-none placeholder:text-planka-text-muted"
           />
         </label>
-        <button className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover">
-          Create work item
-        </button>
+        <SubmitButton />
       </form>
     </details>
   );
