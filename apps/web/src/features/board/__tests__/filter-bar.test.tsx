@@ -1,6 +1,6 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { WorkspaceMemberRecord, WorkflowStateRecord } from "@the-platform/shared";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilterBar } from "../../../components/filter-bar";
 import { render } from "../../../test/render";
@@ -8,11 +8,12 @@ import { render } from "../../../test/render";
 const router = vi.hoisted(() => ({
   replace: vi.fn()
 }));
+const useSearchParamsMock = vi.hoisted(() => vi.fn<() => URLSearchParams>());
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/workspaces/platform-ops/projects/OPS",
   useRouter: () => router,
-  useSearchParams: () => new URLSearchParams("")
+  useSearchParams: () => useSearchParamsMock()
 }));
 
 const members: WorkspaceMemberRecord[] = [
@@ -39,20 +40,45 @@ const states: WorkflowStateRecord[] = [
 ];
 
 describe("FilterBar", () => {
-  it("starts compact and expands the full filter controls on demand", () => {
+  beforeEach(() => {
+    router.replace.mockReset();
+    useSearchParamsMock.mockReturnValue(new URLSearchParams(""));
+  });
+
+  it("keeps the compact filter strip visible on the board surface", () => {
     render(<FilterBar members={members} states={states} />);
-
-    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
-    expect(screen.queryByText("Type")).not.toBeInTheDocument();
-    expect(screen.queryByText("Priority")).not.toBeInTheDocument();
-    expect(screen.queryByText("State")).not.toBeInTheDocument();
-    expect(screen.queryByText("Assignee")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
     expect(screen.getByText("Type")).toBeInTheDocument();
     expect(screen.getByText("Priority")).toBeInTheDocument();
     expect(screen.getByText("State")).toBeInTheDocument();
     expect(screen.getByText("Assignee")).toBeInTheDocument();
+  });
+
+  it("writes filter selections into the query string and clears them back to the base path", async () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams("type=task&priority=high"));
+
+    render(<FilterBar members={members} states={states} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "epic" }));
+
+    const expectedNextQuery = new URLSearchParams({
+      type: "task,epic",
+      priority: "high"
+    }).toString();
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith(
+        `/workspaces/platform-ops/projects/OPS?${expectedNextQuery}`,
+        { scroll: false }
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenLastCalledWith("/workspaces/platform-ops/projects/OPS", {
+        scroll: false
+      });
+    });
   });
 });

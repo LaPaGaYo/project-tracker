@@ -157,7 +157,7 @@ export async function ProjectDetailContent({
         workspaces={workspaces}
         isClerkEnabled={isClerkConfigured()}
       >
-        <div className="max-w-full overflow-hidden">
+        <div className="max-w-full">
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <article className="grid min-w-0 gap-6">
             <section className="rounded-[2rem] border border-white/8 bg-planka-card/75 p-8 shadow-[0_32px_120px_rgba(0,0,0,0.24)] backdrop-blur">

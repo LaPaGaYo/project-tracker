@@ -2,7 +2,7 @@
 
 import type { WorkspaceMemberRecord, WorkflowStateRecord } from "@the-platform/shared";
 import { usePathname, useRouter, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 
 const workItemTypes = ["epic", "task", "subtask"] as const;
 const priorities = ["urgent", "high", "medium", "low", "none"] as const;
@@ -24,7 +24,6 @@ export function FilterBar({ members, states }: FilterBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const typeValues = readList(searchParams, "type");
   const priorityValues = readList(searchParams, "priority");
@@ -79,32 +78,12 @@ export function FilterBar({ members, states }: FilterBarProps) {
   return (
     <section className="rounded-[1.5rem] border border-white/8 bg-black/15 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          aria-label="Filters"
-          aria-expanded={isExpanded}
-          onClick={() => setIsExpanded((current) => !current)}
-          className="flex items-center gap-3 text-left transition hover:text-planka-text"
-        >
+        <div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Views</p>
-            <span className="mt-2 inline-flex items-center gap-2 text-lg font-semibold text-planka-text">
-              Filters
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </span>
+            <h2 className="mt-2 text-lg font-semibold text-planka-text">Filters</h2>
           </div>
-        </button>
+        </div>
         <div className="flex items-center gap-3">
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
@@ -126,8 +105,7 @@ export function FilterBar({ members, states }: FilterBarProps) {
         </div>
       </div>
 
-      {isExpanded ? (
-        <div className="mt-6 grid gap-5 border-t border-white/6 pt-6 xl:grid-cols-[1fr_1fr_1fr_16rem]">
+      <div className="mt-6 grid gap-5 border-t border-white/6 pt-6 xl:grid-cols-[1fr_1fr_1fr_16rem]">
           <div className="grid gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-planka-text-muted">Type</p>
             <div className="flex flex-wrap gap-2">
@@ -216,8 +194,7 @@ export function FilterBar({ members, states }: FilterBarProps) {
               ))}
             </select>
           </label>
-        </div>
-      ) : null}
+      </div>
     </section>
   );
 }
