@@ -3,6 +3,8 @@
 import type {
   CommentRecord,
   DescriptionVersionRecord,
+  PlanItemRecord,
+  ProjectStageRecord,
   WorkspaceMemberRecord,
   WorkspaceRole,
   WorkflowStateRecord,
@@ -32,6 +34,8 @@ interface ViewToggleProps {
   comments?: CommentRecord[];
   versions?: DescriptionVersionRecord[];
   timeline?: TimelineEntry[];
+  projectStages?: ProjectStageRecord[];
+  planItems?: PlanItemRecord[];
   sessionUserId: string;
   membershipRole: WorkspaceRole;
 }
@@ -63,6 +67,8 @@ export function ViewToggle({
   comments = [],
   versions = [],
   timeline = [],
+  projectStages = [],
+  planItems = [],
   sessionUserId,
   membershipRole
 }: ViewToggleProps) {
@@ -163,6 +169,8 @@ export function ViewToggle({
           timeline={timeline}
           members={members}
           states={states}
+          projectStages={projectStages}
+          planItems={planItems}
           sessionUserId={sessionUserId}
           membershipRole={membershipRole}
         />

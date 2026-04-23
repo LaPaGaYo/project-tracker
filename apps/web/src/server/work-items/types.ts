@@ -1,6 +1,8 @@
 import type {
   DescriptionVersionRecord,
+  PlanItemRecord,
   ProjectRecord,
+  ProjectStageRecord,
   WorkflowStateRecord,
   WorkItemRecord
 } from "@the-platform/shared";
@@ -16,6 +18,8 @@ export interface CreateWorkItemInput {
   priority?: unknown;
   labels?: unknown;
   workflowStateId?: unknown;
+  stageId?: unknown;
+  planItemId?: unknown;
   dueDate?: unknown;
   blockedReason?: unknown;
   position?: unknown;
@@ -30,6 +34,8 @@ export interface UpdateWorkItemInput {
   priority?: unknown;
   labels?: unknown;
   workflowStateId?: unknown;
+  stageId?: unknown;
+  planItemId?: unknown;
   dueDate?: unknown;
   blockedReason?: unknown;
   position?: unknown;
@@ -59,6 +65,8 @@ export interface WorkItemRepository
   getProjectByKey(workspaceId: string, projectKey: string): Promise<ProjectRecord | null>;
   listWorkflowStates(projectId: string): Promise<WorkflowStateRecord[]>;
   getWorkflowState(projectId: string, stateId: string): Promise<WorkflowStateRecord | null>;
+  getProjectStage(projectId: string, stageId: string): Promise<ProjectStageRecord | null>;
+  getPlanItem(projectId: string, planItemId: string): Promise<PlanItemRecord | null>;
   getWorkItemById(projectId: string, workItemId: string): Promise<WorkItemRecord | null>;
   getWorkItemByIdentifier(projectId: string, identifier: string): Promise<WorkItemRecord | null>;
   createWorkItem(input: {
@@ -72,6 +80,8 @@ export interface WorkItemRepository
     priority: WorkItemRecord["priority"];
     labels: string[] | null;
     workflowStateId: string | null;
+    stageId: string | null;
+    planItemId: string | null;
     dueDate: string | null;
     blockedReason: string | null;
     position: number;
@@ -91,6 +101,8 @@ export interface WorkItemRepository
       priority?: WorkItemRecord["priority"];
       labels?: string[] | null;
       workflowStateId?: string | null;
+      stageId?: string | null;
+      planItemId?: string | null;
       dueDate?: string | null;
       blockedReason?: string | null;
       position?: number;

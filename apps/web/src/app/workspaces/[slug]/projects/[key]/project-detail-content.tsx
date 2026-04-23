@@ -84,7 +84,18 @@ export async function ProjectDetailContent({
   const commentRepository = createCommentRepository();
   const activityRepository = createActivityRepository();
   try {
-    const { canCreate, isClerkEnabled, membership, project, session, workspace, workspaces, workspaceView } =
+    const {
+      canCreate,
+      isClerkEnabled,
+      membership,
+      project,
+      session,
+      workspace,
+      workspaces,
+      workspaceView,
+      projectStages,
+      planItems
+    } =
       await loadProjectPageData(workspaceSlug, projectKey);
     const types = parseTypeFilters(query.type);
     const priorities = parsePriorityFilters(query.priority);
@@ -173,6 +184,8 @@ export async function ProjectDetailContent({
                   comments={comments}
                   versions={versions}
                   timeline={timeline}
+                  projectStages={projectStages}
+                  planItems={planItems}
                   sessionUserId={session.userId}
                   membershipRole={membership.role}
                 />
@@ -184,6 +197,8 @@ export async function ProjectDetailContent({
                     workspaceSlug={workspaceSlug}
                     projectKey={projectKey}
                     states={states}
+                    projectStages={projectStages}
+                    planItems={planItems}
                     canCreate={canCreate}
                   />
                 </div>

@@ -1,9 +1,20 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import { activityLog, db, descriptionVersions, projects, tasks, workflowStates } from "@the-platform/db";
+import {
+  activityLog,
+  db,
+  descriptionVersions,
+  planItems,
+  projectStages,
+  projects,
+  tasks,
+  workflowStates
+} from "@the-platform/db";
 import type {
   DescriptionVersionRecord,
+  PlanItemRecord,
   ProjectRecord,
+  ProjectStageRecord,
   WorkflowStateRecord,
   WorkItemRecord
 } from "@the-platform/shared";
@@ -50,6 +61,31 @@ function serializeWorkflowState(row: typeof workflowStates.$inferSelect): Workfl
     color: row.color,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeProjectStage(row: typeof projectStages.$inferSelect): ProjectStageRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    slug: row.slug,
+    title: row.title,
+    goal: row.goal,
+    status: row.status,
+    gateStatus: row.gateStatus,
+    sortOrder: row.sortOrder
+  };
+}
+
+function serializePlanItem(row: typeof planItems.$inferSelect): PlanItemRecord {
+  return {
+    id: row.id,
+    stageId: row.stageId,
+    title: row.title,
+    outcome: row.outcome,
+    status: row.status,
+    blocker: row.blocker,
+    sortOrder: row.sortOrder
   };
 }
 
@@ -156,6 +192,29 @@ export function createWorkItemRepository(): WorkItemRepository {
       return state ? serializeWorkflowState(state) : null;
     },
 
+    async getProjectStage(projectId, stageId) {
+      const [stage] = await db
+        .select()
+        .from(projectStages)
+        .where(and(eq(projectStages.projectId, projectId), eq(projectStages.id, stageId)))
+        .limit(1);
+
+      return stage ? serializeProjectStage(stage) : null;
+    },
+
+    async getPlanItem(projectId, planItemId) {
+      const [row] = await db
+        .select({
+          planItem: planItems
+        })
+        .from(planItems)
+        .innerJoin(projectStages, eq(planItems.stageId, projectStages.id))
+        .where(and(eq(projectStages.projectId, projectId), eq(planItems.id, planItemId)))
+        .limit(1);
+
+      return row ? serializePlanItem(row.planItem) : null;
+    },
+
     async getWorkItemById(projectId, workItemId) {
       const [row] = await db
         .select({
@@ -214,6 +273,8 @@ export function createWorkItemRepository(): WorkItemRepository {
             priority: input.priority,
             labels: input.labels,
             workflowStateId: input.workflowStateId,
+            stageId: input.stageId,
+            planItemId: input.planItemId,
             position: input.position,
             blockedReason: input.blockedReason,
             dueDate: input.dueDate ? new Date(input.dueDate) : null,
@@ -326,6 +387,8 @@ export function createWorkItemRepository(): WorkItemRepository {
             ...(input.priority !== undefined ? { priority: input.priority } : {}),
             ...(input.labels !== undefined ? { labels: input.labels } : {}),
             ...(input.workflowStateId !== undefined ? { workflowStateId: input.workflowStateId } : {}),
+            ...(input.stageId !== undefined ? { stageId: input.stageId } : {}),
+            ...(input.planItemId !== undefined ? { planItemId: input.planItemId } : {}),
             ...(input.dueDate !== undefined ? { dueDate: input.dueDate ? new Date(input.dueDate) : null } : {}),
             ...(input.blockedReason !== undefined ? { blockedReason: input.blockedReason } : {}),
             ...(input.position !== undefined ? { position: input.position } : {}),
@@ -398,6 +461,8 @@ export function createWorkItemRepository(): WorkItemRepository {
           input.parentId !== undefined ||
           input.priority !== undefined ||
           input.labels !== undefined ||
+          input.stageId !== undefined ||
+          input.planItemId !== undefined ||
           input.dueDate !== undefined ||
           input.blockedReason !== undefined;
 
@@ -418,6 +483,8 @@ export function createWorkItemRepository(): WorkItemRepository {
                 parentId: current.parentId,
                 priority: current.priority,
                 labels: current.labels,
+                stageId: current.stageId,
+                planItemId: current.planItemId,
                 dueDate: toIso(current.dueDate),
                 blockedReason: current.blockedReason
               },
@@ -428,6 +495,8 @@ export function createWorkItemRepository(): WorkItemRepository {
                 parentId: updated.parentId,
                 priority: updated.priority,
                 labels: updated.labels,
+                stageId: updated.stageId,
+                planItemId: updated.planItemId,
                 dueDate: toIso(updated.dueDate),
                 blockedReason: updated.blockedReason
               }

@@ -153,6 +153,8 @@ describe("DetailPanel", () => {
     expect(screen.getByLabelText("Priority")).toHaveValue("high");
     expect(screen.getByLabelText("Type")).toHaveValue("task");
     expect(screen.getByLabelText("State")).toHaveValue("state-active");
+    expect(screen.getByLabelText("Stage")).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan item")).toBeInTheDocument();
     expect(screen.getByLabelText("Assignee")).toHaveValue("henry");
     expect(screen.getByText("Pair with the CI owner before merging.")).toBeInTheDocument();
     expect(screen.getByText("Assigned to henry")).toBeInTheDocument();

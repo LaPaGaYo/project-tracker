@@ -3,6 +3,8 @@
 import type {
   CommentRecord,
   DescriptionVersionRecord,
+  PlanItemRecord,
+  ProjectStageRecord,
   WorkspaceMemberRecord,
   WorkspaceRole,
   WorkflowStateRecord,
@@ -33,6 +35,8 @@ interface DetailPanelProps {
   timeline: TimelineEntry[];
   members: WorkspaceMemberRecord[];
   states: WorkflowStateRecord[];
+  projectStages?: ProjectStageRecord[];
+  planItems?: PlanItemRecord[];
   sessionUserId: string;
   membershipRole: WorkspaceRole;
 }
@@ -51,6 +55,8 @@ export function DetailPanel({
   timeline,
   members,
   states,
+  projectStages = [],
+  planItems = [],
   sessionUserId,
   membershipRole
 }: DetailPanelProps) {
@@ -110,7 +116,12 @@ export function DetailPanel({
   }, [basePath, isEditingTitle, localItem.title, router, searchParams]);
 
   async function patchWorkItem(
-    patch: Partial<Pick<WorkItemRecord, "title" | "priority" | "type" | "workflowStateId" | "assigneeId">>
+    patch: Partial<
+      Pick<
+        WorkItemRecord,
+        "title" | "priority" | "type" | "workflowStateId" | "assigneeId" | "stageId" | "planItemId"
+      >
+    >
   ) {
     const previousItem = localItem;
     const optimisticItem = {
@@ -364,12 +375,12 @@ export function DetailPanel({
             item={localItem}
             members={members}
             states={states}
+            projectStages={projectStages}
+            planItems={planItems}
             canEdit={canEdit}
             disabled={isPending}
-            onFieldChange={(field, value) => {
-              void patchWorkItem({
-                [field]: value
-              });
+            onFieldChange={(patch) => {
+              void patchWorkItem(patch);
             }}
           />
         </div>

@@ -1,3 +1,5 @@
+import type { PlanItemRecord, ProjectStageRecord, WorkItemRecord } from "@the-platform/shared";
+
 import { hasMinimumRole, WorkspaceError } from "../workspaces/core";
 import {
   normalizeLabels,
@@ -65,6 +67,96 @@ async function resolveWorkflowState(
   }
 
   return state;
+}
+
+async function resolveProjectStage(
+  repository: WorkItemRepository,
+  projectId: string,
+  stageId: unknown
+): Promise<ProjectStageRecord | null | undefined> {
+  if (stageId === undefined) {
+    return undefined;
+  }
+
+  if (stageId === null || stageId === "") {
+    return null;
+  }
+
+  if (typeof stageId !== "string") {
+    throw new WorkspaceError(400, "stageId is invalid.");
+  }
+
+  const stage = await repository.getProjectStage(projectId, stageId);
+  if (!stage) {
+    throw new WorkspaceError(404, "project stage not found.");
+  }
+
+  return stage;
+}
+
+async function resolvePlanItem(
+  repository: WorkItemRepository,
+  projectId: string,
+  planItemId: unknown
+): Promise<PlanItemRecord | null | undefined> {
+  if (planItemId === undefined) {
+    return undefined;
+  }
+
+  if (planItemId === null || planItemId === "") {
+    return null;
+  }
+
+  if (typeof planItemId !== "string") {
+    throw new WorkspaceError(400, "planItemId is invalid.");
+  }
+
+  const planItem = await repository.getPlanItem(projectId, planItemId);
+  if (!planItem) {
+    throw new WorkspaceError(404, "plan item not found.");
+  }
+
+  return planItem;
+}
+
+async function resolvePlanningSelection(
+  repository: WorkItemRepository,
+  projectId: string,
+  input: Pick<CreateWorkItemInput | UpdateWorkItemInput, "stageId" | "planItemId">,
+  current?: Pick<WorkItemRecord, "stageId" | "planItemId">
+) {
+  const [nextStage, nextPlanItem, currentPlanItem] = await Promise.all([
+    resolveProjectStage(repository, projectId, input.stageId),
+    resolvePlanItem(repository, projectId, input.planItemId),
+    current?.planItemId ? repository.getPlanItem(projectId, current.planItemId) : Promise.resolve(null)
+  ]);
+
+  let stageId = nextStage === undefined ? (current?.stageId ?? null) : nextStage?.id ?? null;
+  let planItemId = nextPlanItem === undefined ? (current?.planItemId ?? null) : nextPlanItem?.id ?? null;
+  const effectivePlanItem = nextPlanItem === undefined ? currentPlanItem : nextPlanItem;
+
+  if (effectivePlanItem) {
+    if (stageId === null) {
+      if (nextStage === undefined || nextPlanItem !== undefined) {
+        stageId = effectivePlanItem.stageId;
+      } else {
+        planItemId = null;
+      }
+    }
+
+    if (stageId !== null && effectivePlanItem.stageId !== stageId) {
+      if (nextPlanItem === undefined) {
+        planItemId = null;
+      } else {
+        throw new WorkspaceError(400, "plan item must belong to the selected stage.");
+      }
+    }
+  }
+
+  return {
+    stageId,
+    planItemId
+  };
 }
 
 async function validateAssignee(
@@ -163,6 +255,7 @@ export async function createWorkItemForUser(
   const state = await resolveWorkflowState(repository, project.id, input.workflowStateId);
   const assigneeId = typeof input.assigneeId === "string" && input.assigneeId ? input.assigneeId : null;
   await validateAssignee(repository, workspace.id, assigneeId);
+  const planningSelection = await resolvePlanningSelection(repository, project.id, input);
 
   const position = typeof input.position === "number" ? input.position : 0;
 
@@ -177,6 +270,8 @@ export async function createWorkItemForUser(
     priority: requireWorkItemPriority(input.priority),
     labels: normalizeLabels(input.labels) ?? null,
     workflowStateId: state?.id ?? null,
+    stageId: planningSelection.stageId,
+    planItemId: planningSelection.planItemId,
     dueDate: normalizeOptionalDate(input.dueDate, "dueDate") ?? null,
     blockedReason: normalizeOptionalString(input.blockedReason) ?? null,
     position,
@@ -385,6 +480,10 @@ export async function updateWorkItemForUser(
   if (input.assigneeId !== undefined) {
     await validateAssignee(repository, workspace.id, assigneeId);
   }
+  const planningTouched = input.stageId !== undefined || input.planItemId !== undefined;
+  const planningSelection = planningTouched
+    ? await resolvePlanningSelection(repository, project.id, input, current)
+    : null;
 
   const updated = await repository.updateWorkItem(project.id, identifier, {
     ...(input.title !== undefined ? { title: requireNonEmptyString(input.title, "title") } : {}),
@@ -395,6 +494,7 @@ export async function updateWorkItemForUser(
     ...(input.priority !== undefined ? { priority: requireWorkItemPriority(input.priority) } : {}),
     ...(input.labels !== undefined ? { labels: normalizeLabels(input.labels) ?? null } : {}),
     ...(input.workflowStateId !== undefined ? { workflowStateId: state?.id ?? null } : {}),
+    ...(planningSelection ?? {}),
     ...(input.dueDate !== undefined ? { dueDate: normalizeOptionalDate(input.dueDate, "dueDate") ?? null } : {}),
     ...(input.blockedReason !== undefined ? { blockedReason: normalizeOptionalString(input.blockedReason) ?? null } : {}),
     ...(typeof input.position === "number" ? { position: input.position } : {}),

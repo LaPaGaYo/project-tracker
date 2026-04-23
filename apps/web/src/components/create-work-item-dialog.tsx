@@ -1,7 +1,9 @@
 "use client";
 
+import { usePathname, useSearchParams } from "next/navigation";
+import type { PlanItemRecord, ProjectStageRecord, WorkflowStateRecord } from "@the-platform/shared";
+import { useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { WorkflowStateRecord } from "@the-platform/shared";
 
 import { createWorkItemAction } from "@/app/actions";
 
@@ -18,10 +20,17 @@ function SubmitButton() {
   );
 }
 
+function buildReturnTo(pathname: string, searchParams: URLSearchParams, hash: string) {
+  const query = searchParams.toString();
+  return `${pathname}${query ? `?${query}` : ""}${hash}`;
+}
+
 interface CreateWorkItemDialogProps {
   workspaceSlug: string;
   projectKey: string;
   states: WorkflowStateRecord[];
+  projectStages?: ProjectStageRecord[];
+  planItems?: PlanItemRecord[];
   canCreate: boolean;
 }
 
@@ -29,8 +38,46 @@ export function CreateWorkItemDialog({
   workspaceSlug,
   projectKey,
   states,
+  projectStages = [],
+  planItems = [],
   canCreate
 }: CreateWorkItemDialogProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isOpen, setIsOpen] = useState(false);
+  const [hashValue, setHashValue] = useState("");
+  const [selectedStageId, setSelectedStageId] = useState("");
+  const [selectedPlanItemId, setSelectedPlanItemId] = useState("");
+
+  useEffect(() => {
+    function syncFromLocation() {
+      const nextHash = window.location.hash;
+      setHashValue(nextHash);
+      if (nextHash === "#create-work-item") {
+        setIsOpen(true);
+      }
+    }
+
+    syncFromLocation();
+    window.addEventListener("hashchange", syncFromLocation);
+    return () => window.removeEventListener("hashchange", syncFromLocation);
+  }, []);
+
+  useEffect(() => {
+    if (
+      selectedPlanItemId &&
+      !planItems.some((item) => item.id === selectedPlanItemId && item.stageId === selectedStageId)
+    ) {
+      setSelectedPlanItemId("");
+    }
+  }, [planItems, selectedPlanItemId, selectedStageId]);
+
+  const availablePlanItems = useMemo(
+    () => planItems.filter((item) => item.stageId === selectedStageId),
+    [planItems, selectedStageId]
+  );
+  const returnTo = buildReturnTo(pathname, new URLSearchParams(searchParams.toString()), hashValue);
+
   if (!canCreate) {
     return (
       <div className="rounded-3xl border border-dashed border-white/12 bg-black/10 px-5 py-5 text-sm text-planka-text-muted">
@@ -40,14 +87,20 @@ export function CreateWorkItemDialog({
   }
 
   return (
-    <details className="group rounded-3xl border border-white/8 bg-black/10 p-5">
-      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold uppercase tracking-[0.2em] text-planka-accent">
+    <details open={isOpen} className="group rounded-3xl border border-white/8 bg-black/10 p-5">
+      <summary
+        onClick={(event) => {
+          event.preventDefault();
+          setIsOpen((current) => !current);
+        }}
+        className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold uppercase tracking-[0.2em] text-planka-accent"
+      >
         <span>Create work item</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 20 20"
           fill="currentColor"
-          className="h-5 w-5 transition-transform group-open:rotate-180"
+          className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
           <path
             fillRule="evenodd"
@@ -57,6 +110,8 @@ export function CreateWorkItemDialog({
         </svg>
       </summary>
       <form action={createWorkItemAction.bind(null, workspaceSlug, projectKey)} className="mt-5 grid gap-4">
+        <input type="hidden" name="returnTo" value={returnTo} />
+
         <label className="grid gap-2 text-sm text-planka-text">
           <span>Title</span>
           <input
@@ -112,6 +167,57 @@ export function CreateWorkItemDialog({
               {states.map((state) => (
                 <option key={state.id} value={state.id}>
                   {state.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2 text-sm text-planka-text">
+            <span>Stage</span>
+            <select
+              name="stageId"
+              value={selectedStageId}
+              onChange={(event) => {
+                const nextStageId = event.target.value;
+                setSelectedStageId(nextStageId);
+                if (
+                  selectedPlanItemId &&
+                  !planItems.some((item) => item.id === selectedPlanItemId && item.stageId === nextStageId)
+                ) {
+                  setSelectedPlanItemId("");
+                }
+              }}
+              className="rounded-2xl border border-white/10 bg-planka-bg px-4 py-3 outline-none"
+            >
+              <option value="">No stage</option>
+              {projectStages.map((stage) => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-planka-text">
+            <span>Plan item</span>
+            <select
+              name="planItemId"
+              value={selectedPlanItemId}
+              onChange={(event) => {
+                const nextPlanItemId = event.target.value;
+                const matchedPlanItem = planItems.find((item) => item.id === nextPlanItemId) ?? null;
+                setSelectedPlanItemId(nextPlanItemId);
+                if (matchedPlanItem && matchedPlanItem.stageId !== selectedStageId) {
+                  setSelectedStageId(matchedPlanItem.stageId);
+                }
+              }}
+              disabled={projectStages.length > 0 && !selectedStageId}
+              className="rounded-2xl border border-white/10 bg-planka-bg px-4 py-3 outline-none disabled:opacity-60"
+            >
+              <option value="">No plan item</option>
+              {availablePlanItems.map((planItem) => (
+                <option key={planItem.id} value={planItem.id}>
+                  {planItem.title}
                 </option>
               ))}
             </select>

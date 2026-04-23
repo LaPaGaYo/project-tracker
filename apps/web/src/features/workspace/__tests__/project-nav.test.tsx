@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "../../../test/render";
 
 import { ProjectNav } from "../project-nav";
+import { ProjectShell } from "../project-shell";
 import { ViewToolbar } from "../view-toolbar";
 
 const usePathname = vi.hoisted(() => vi.fn());
@@ -47,6 +48,35 @@ describe("ProjectNav", () => {
         stageTitle="Phase 2: Execution Surface"
         progressLabel="3/7 plan items complete"
       />
+    );
+
+    expect(screen.getByRole("link", { name: "Create issue" })).toHaveAttribute(
+      "href",
+      "/workspaces/platform-ops/projects/OPS?view=board#create-work-item"
+    );
+  });
+});
+
+describe("ProjectShell", () => {
+  it("routes the create issue CTA to the board create anchor", () => {
+    useSearchParams.mockReturnValue(new URLSearchParams("view=overview"));
+    useSelectedLayoutSegment.mockReturnValue(null);
+
+    render(
+      <ProjectShell
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        projectTitle="Platform Ops"
+        projectDescription="Execution surface redesign"
+        canCreate
+        stage={{
+          label: "Current stage",
+          title: "Phase 2: Execution Surface",
+          progressLabel: "3/7 plan items complete"
+        }}
+      >
+        <div>Board content</div>
+      </ProjectShell>
     );
 
     expect(screen.getByRole("link", { name: "Create issue" })).toHaveAttribute(

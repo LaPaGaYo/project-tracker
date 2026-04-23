@@ -26,9 +26,11 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
 
   try {
     const membership = await requireWorkspaceMembership(workspaceRepository, session, workspace.id, "viewer");
-    const [workspaces, project, workspaceView] = await Promise.all([
+    const [workspaces, project] = await Promise.all([
       listWorkspacesForUser(workspaceRepository, session),
-      getProjectForUser(projectRepository, session, workspaceSlug, projectKey),
+      getProjectForUser(projectRepository, session, workspaceSlug, projectKey)
+    ]);
+    const [workspaceView, projectStages, planItems] = await Promise.all([
       getProjectWorkspaceForUser(
         {
           projectRepository,
@@ -37,7 +39,9 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
         session,
         workspaceSlug,
         projectKey
-      )
+      ),
+      projectRepository.listProjectStages(project.id),
+      projectRepository.listPlanItems(project.id)
     ]);
 
     return {
@@ -48,7 +52,9 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
       session,
       workspace,
       workspaces,
-      workspaceView
+      workspaceView,
+      projectStages,
+      planItems
     };
   } catch (error) {
     if (error instanceof WorkspaceError && error.status === 404) {

@@ -27,7 +27,7 @@ export function ProjectShell({
   canCreate = false,
   children
 }: ProjectShellProps) {
-  const basePath = `/workspaces/${workspaceSlug}/projects/${projectKey}?view=board`;
+  const boardPath = `/workspaces/${workspaceSlug}/projects/${projectKey}?view=board`;
 
   return (
     <div className="space-y-6">
@@ -45,7 +45,7 @@ export function ProjectShell({
           </div>
           <ProjectNav
             canCreate={canCreate}
-            createIssueHref={basePath}
+            createIssueHref={`${boardPath}#create-work-item`}
             progressLabel={stage.progressLabel}
             stageLabel={stage.label}
             stageTitle={stage.title}
