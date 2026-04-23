@@ -16,7 +16,13 @@ import type { WorkItemRepository } from "../work-items/types";
 interface ProjectWorkspaceDependencies {
   projectRepository: Pick<
     ProjectRepository,
-    "findWorkspaceBySlug" | "getMembership" | "getProjectByKey" | "listProjectStages" | "listPlanItems" | "listTaskGithubStatuses"
+    | "findWorkspaceBySlug"
+    | "getMembership"
+    | "getProjectByKey"
+    | "listProjectStages"
+    | "listPlanItems"
+    | "listTaskGithubStatuses"
+    | "getProjectGithubConnection"
   >;
   workItemRepository: Pick<WorkItemRepository, "listWorkItems">;
 }
@@ -75,6 +81,9 @@ export interface ProjectWorkspaceView {
     milestones: ProjectWorkspaceOverviewMilestone[];
   };
   engineering: {
+    repository: string;
+    connectionStatus: string;
+    defaultBranch: string | null;
     pullRequests: string;
     checks: string;
     deploys: string;
@@ -257,11 +266,12 @@ export async function getProjectWorkspaceForUser(
 ): Promise<ProjectWorkspaceView> {
   const { project } = await resolveProjectContext(dependencies.projectRepository, session, workspaceSlug, projectKey);
 
-  const [stages, planItems, tasks, githubStatuses] = await Promise.all([
+  const [stages, planItems, tasks, githubStatuses, githubConnection] = await Promise.all([
     dependencies.projectRepository.listProjectStages(project.id),
     dependencies.projectRepository.listPlanItems(project.id),
     dependencies.workItemRepository.listWorkItems(project.id),
-    dependencies.projectRepository.listTaskGithubStatuses(project.id)
+    dependencies.projectRepository.listTaskGithubStatuses(project.id),
+    dependencies.projectRepository.getProjectGithubConnection(project.id)
   ]);
 
   const sortedStages = [...stages].sort((left, right) => {
@@ -343,6 +353,9 @@ export async function getProjectWorkspaceForUser(
       milestones: buildOverviewMilestones(sortedStages, currentStageIndex)
     },
     engineering: {
+      repository: githubConnection?.repository.fullName ?? "No repository connected",
+      connectionStatus: githubConnection ? "Connected" : "Setup required",
+      defaultBranch: githubConnection?.repository.defaultBranch ?? null,
       pullRequests: `${githubStatuses.filter((status) => status.prStatus === "Open PR" || status.prStatus === "Review requested").length} open`,
       checks: `${githubStatuses.filter((status) => status.ciStatus === "Failing").length} failing`,
       deploys: summarizeDeploys(githubStatuses),

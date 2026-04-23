@@ -10,6 +10,7 @@ import type {
 } from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../activity/repository";
+import { createGithubConnectionRepository } from "../github/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
 
 import type { ProjectRepository, ProjectWithCounts } from "./types";
@@ -105,9 +106,18 @@ function getEmptyCounts(project: ProjectRecord): ProjectWithCounts {
 
 export function createProjectRepository(): ProjectRepository {
   const workspaceRepository = createWorkspaceRepository();
+  const githubConnectionRepository = createGithubConnectionRepository();
 
   return {
     ...workspaceRepository,
+
+    async getProjectGithubConnection(projectId) {
+      return githubConnectionRepository.getProjectGithubConnection(projectId);
+    },
+
+    async createProjectGithubConnection(input) {
+      return githubConnectionRepository.createProjectGithubConnection(input);
+    },
 
     async createProject(input) {
       return db.transaction(async (tx) => {

@@ -7,6 +7,7 @@ import type {
   WorkflowStateRecord
 } from "@the-platform/shared";
 
+import type { ProjectGithubConnectionView } from "../github/types";
 import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateProjectInput {
@@ -59,4 +60,18 @@ export interface ProjectRepository extends Pick<WorkspaceRepository, "findWorksp
   listProjectStages(projectId: string): Promise<ProjectStageRecord[]>;
   listPlanItems(projectId: string): Promise<PlanItemRecord[]>;
   listTaskGithubStatuses(projectId: string): Promise<TaskGithubStatusRecord[]>;
+  getProjectGithubConnection(projectId: string): Promise<ProjectGithubConnectionView | null>;
+  createProjectGithubConnection(input: {
+    projectId: string;
+    workspaceId: string;
+    providerRepositoryId: string;
+    owner: string;
+    name: string;
+    fullName: string;
+    defaultBranch: string;
+    installationId: string;
+    stagingEnvironmentName: string | null;
+    productionEnvironmentName: string | null;
+    actorId: string;
+  }): Promise<ProjectGithubConnectionView>;
 }
