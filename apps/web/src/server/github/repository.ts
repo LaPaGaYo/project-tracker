@@ -1,7 +1,12 @@
 import { and, eq } from "drizzle-orm";
 
-import { db, githubRepositories, projectGithubConnections, projects } from "@the-platform/db";
-import type { GithubRepositoryRecord, ProjectGithubConnectionRecord, ProjectRecord } from "@the-platform/shared";
+import { db, githubRepositories, githubWebhookDeliveries, projectGithubConnections, projects } from "@the-platform/db";
+import type {
+  GithubRepositoryRecord,
+  GithubWebhookDeliveryRecord,
+  ProjectGithubConnectionRecord,
+  ProjectRecord
+} from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../activity/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
@@ -56,6 +61,19 @@ function serializeProjectGithubConnection(row: typeof projectGithubConnections.$
   };
 }
 
+function serializeGithubWebhookDelivery(row: typeof githubWebhookDeliveries.$inferSelect): GithubWebhookDeliveryRecord {
+  return {
+    id: row.id,
+    repositoryId: row.repositoryId,
+    deliveryId: row.deliveryId,
+    eventName: row.eventName,
+    status: row.status,
+    receivedAt: row.receivedAt.toISOString(),
+    processedAt: toIso(row.processedAt),
+    errorMessage: row.errorMessage
+  };
+}
+
 export function createGithubConnectionRepository(): GithubConnectionRepository {
   const workspaceRepository = createWorkspaceRepository();
 
@@ -91,6 +109,63 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
         connection: serializeProjectGithubConnection(row.connection),
         repository: serializeGithubRepository(row.repository)
       };
+    },
+
+    async findGithubRepositoryByProviderRepositoryId(providerRepositoryId) {
+      const [repository] = await db
+        .select()
+        .from(githubRepositories)
+        .where(and(eq(githubRepositories.provider, "github"), eq(githubRepositories.providerRepositoryId, providerRepositoryId)))
+        .limit(1);
+
+      return repository ? serializeGithubRepository(repository) : null;
+    },
+
+    async getGithubWebhookDeliveryByDeliveryId(deliveryId) {
+      const [delivery] = await db
+        .select()
+        .from(githubWebhookDeliveries)
+        .where(eq(githubWebhookDeliveries.deliveryId, deliveryId))
+        .limit(1);
+
+      return delivery ? serializeGithubWebhookDelivery(delivery) : null;
+    },
+
+    async createGithubWebhookDelivery(input) {
+      const [delivery] = await db
+        .insert(githubWebhookDeliveries)
+        .values({
+          repositoryId: input.repositoryId,
+          deliveryId: input.deliveryId,
+          eventName: input.eventName,
+          status: input.status,
+          receivedAt: new Date(input.receivedAt),
+          processedAt: input.processedAt ? new Date(input.processedAt) : null,
+          errorMessage: input.errorMessage
+        })
+        .returning();
+
+      if (!delivery) {
+        throw new Error("failed to create GitHub webhook delivery.");
+      }
+
+      return serializeGithubWebhookDelivery(delivery);
+    },
+
+    async updateGithubWebhookDelivery(deliveryId, input) {
+      const [delivery] = await db
+        .update(githubWebhookDeliveries)
+        .set({
+          ...(input.status !== undefined ? { status: input.status } : {}),
+          ...(input.processedAt !== undefined
+            ? { processedAt: input.processedAt ? new Date(input.processedAt) : null }
+            : {}),
+          ...(input.errorMessage !== undefined ? { errorMessage: input.errorMessage } : {})
+        })
+        .where(eq(githubWebhookDeliveries.deliveryId, deliveryId))
+        .returning();
+
+      return delivery ? serializeGithubWebhookDelivery(delivery) : null;
     },
 
     async createProjectGithubConnection(input) {
