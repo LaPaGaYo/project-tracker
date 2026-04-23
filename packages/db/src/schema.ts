@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   foreignKey,
   index,
@@ -17,6 +18,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 import {
+  githubCheckRollupStatuses,
+  githubDeploymentEnvironments,
+  githubDeploymentStatuses,
+  githubPullRequestStates,
+  githubRepositoryProviders,
+  githubWebhookDeliveryStatuses,
+  githubWebhookEventNames,
   invitationStatuses,
   planItemStatuses,
   projectStages as projectLifecycleStages,
@@ -27,6 +35,7 @@ import {
   taskStatuses,
   workflowStateCategories,
   workspaceRoles,
+  workItemGithubLinkSources,
   workItemPriorities,
   workItemTypes
 } from "@the-platform/shared";
@@ -38,6 +47,14 @@ export const planItemStatusEnum = pgEnum("plan_item_status", planItemStatuses);
 export const taskGithubPrStatusEnum = pgEnum("task_github_pr_status", taskGithubPrStatuses);
 export const taskGithubCiStatusEnum = pgEnum("task_github_ci_status", taskGithubCiStatuses);
 export const taskGithubDeployStatusEnum = pgEnum("task_github_deploy_status", taskGithubDeployStatuses);
+export const githubRepositoryProviderEnum = pgEnum("github_repository_provider", githubRepositoryProviders);
+export const githubPullRequestStateEnum = pgEnum("github_pull_request_state", githubPullRequestStates);
+export const githubCheckRollupStatusEnum = pgEnum("github_check_rollup_status", githubCheckRollupStatuses);
+export const githubDeploymentEnvironmentEnum = pgEnum("github_deployment_environment", githubDeploymentEnvironments);
+export const githubDeploymentStatusEnum = pgEnum("github_deployment_status", githubDeploymentStatuses);
+export const workItemGithubLinkSourceEnum = pgEnum("work_item_github_link_source", workItemGithubLinkSources);
+export const githubWebhookEventNameEnum = pgEnum("github_webhook_event_name", githubWebhookEventNames);
+export const githubWebhookDeliveryStatusEnum = pgEnum("github_webhook_delivery_status", githubWebhookDeliveryStatuses);
 export const workspaceRoleEnum = pgEnum("workspace_role", workspaceRoles);
 export const invitationStatusEnum = pgEnum("invitation_status", invitationStatuses);
 export const workItemTypeEnum = pgEnum("work_item_type", workItemTypes);
@@ -195,6 +212,192 @@ export const taskGithubStatus = pgTable(
   })
 );
 
+export const githubRepositories = pgTable(
+  "github_repositories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: githubRepositoryProviderEnum("provider").notNull().default("github"),
+    providerRepositoryId: varchar("provider_repository_id", { length: 255 }).notNull(),
+    owner: varchar("owner", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    fullName: varchar("full_name", { length: 255 }).notNull(),
+    defaultBranch: varchar("default_branch", { length: 255 }).notNull(),
+    installationId: varchar("installation_id", { length: 255 }).notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    workspaceIndex: index("github_repositories_workspace_idx").on(table.workspaceId),
+    fullNameIndex: index("github_repositories_full_name_idx").on(table.fullName),
+    providerRepositoryUnique: uniqueIndex("github_repositories_provider_repo_unique").on(
+      table.provider,
+      table.providerRepositoryId
+    )
+  })
+);
+
+export const projectGithubConnections = pgTable(
+  "project_github_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    repositoryId: uuid("repository_id")
+      .notNull()
+      .references(() => githubRepositories.id, { onDelete: "cascade" }),
+    stagingEnvironmentName: varchar("staging_environment_name", { length: 255 }),
+    productionEnvironmentName: varchar("production_environment_name", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    projectUnique: uniqueIndex("project_github_connections_project_unique").on(table.projectId),
+    repositoryUnique: uniqueIndex("project_github_connections_repository_unique").on(table.repositoryId)
+  })
+);
+
+export const githubPullRequests = pgTable(
+  "github_pull_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    repositoryId: uuid("repository_id")
+      .notNull()
+      .references(() => githubRepositories.id, { onDelete: "cascade" }),
+    providerPullRequestId: varchar("provider_pull_request_id", { length: 255 }).notNull(),
+    number: integer("number").notNull(),
+    title: varchar("title", { length: 300 }).notNull(),
+    body: text("body"),
+    url: text("url").notNull(),
+    state: githubPullRequestStateEnum("state").notNull().default("open"),
+    isDraft: boolean("is_draft").notNull().default(false),
+    authorLogin: varchar("author_login", { length: 255 }),
+    baseBranch: varchar("base_branch", { length: 255 }).notNull(),
+    headBranch: varchar("head_branch", { length: 255 }).notNull(),
+    headSha: varchar("head_sha", { length: 64 }).notNull(),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    headShaIndex: index("github_pull_requests_head_sha_idx").on(table.repositoryId, table.headSha),
+    repositoryNumberUnique: uniqueIndex("github_pull_requests_repository_number_unique").on(
+      table.repositoryId,
+      table.number
+    ),
+    repositoryProviderPrUnique: uniqueIndex("github_pull_requests_repository_provider_pr_unique").on(
+      table.repositoryId,
+      table.providerPullRequestId
+    )
+  })
+);
+
+export const githubCheckRollups = pgTable(
+  "github_check_rollups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    repositoryId: uuid("repository_id")
+      .notNull()
+      .references(() => githubRepositories.id, { onDelete: "cascade" }),
+    headSha: varchar("head_sha", { length: 64 }).notNull(),
+    status: githubCheckRollupStatusEnum("status").notNull().default("unknown"),
+    url: text("url"),
+    checkCount: integer("check_count").notNull().default(0),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    statusIndex: index("github_check_rollups_status_idx").on(table.status),
+    repositoryHeadShaUnique: uniqueIndex("github_check_rollups_repository_head_sha_unique").on(
+      table.repositoryId,
+      table.headSha
+    )
+  })
+);
+
+export const githubDeployments = pgTable(
+  "github_deployments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    repositoryId: uuid("repository_id")
+      .notNull()
+      .references(() => githubRepositories.id, { onDelete: "cascade" }),
+    providerDeploymentId: varchar("provider_deployment_id", { length: 255 }).notNull(),
+    headSha: varchar("head_sha", { length: 64 }).notNull(),
+    environmentName: varchar("environment_name", { length: 255 }),
+    environment: githubDeploymentEnvironmentEnum("environment").notNull().default("other"),
+    status: githubDeploymentStatusEnum("status").notNull().default("unknown"),
+    url: text("url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    headShaEnvironmentIndex: index("github_deployments_head_sha_environment_idx").on(
+      table.repositoryId,
+      table.headSha,
+      table.environment
+    ),
+    repositoryProviderDeploymentUnique: uniqueIndex("github_deployments_repository_provider_deployment_unique").on(
+      table.repositoryId,
+      table.providerDeploymentId
+    )
+  })
+);
+
+export const workItemGithubLinks = pgTable(
+  "work_item_github_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    repositoryId: uuid("repository_id")
+      .notNull()
+      .references(() => githubRepositories.id, { onDelete: "cascade" }),
+    pullRequestId: uuid("pull_request_id").references(() => githubPullRequests.id, { onDelete: "set null" }),
+    branchName: varchar("branch_name", { length: 255 }),
+    source: workItemGithubLinkSourceEnum("source").notNull().default("manual"),
+    confidence: integer("confidence").notNull().default(100),
+    linkedAt: timestamp("linked_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    workItemIndex: index("work_item_github_links_work_item_idx").on(table.workItemId),
+    pullRequestIndex: index("work_item_github_links_pull_request_idx").on(table.pullRequestId),
+    workItemPullRequestUnique: uniqueIndex("work_item_github_links_work_item_pull_request_unique").on(
+      table.workItemId,
+      table.pullRequestId
+    )
+  })
+);
+
+export const githubWebhookDeliveries = pgTable(
+  "github_webhook_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    repositoryId: uuid("repository_id").references(() => githubRepositories.id, { onDelete: "set null" }),
+    deliveryId: varchar("delivery_id", { length: 255 }).notNull(),
+    eventName: githubWebhookEventNameEnum("event_name").notNull(),
+    status: githubWebhookDeliveryStatusEnum("status").notNull().default("pending"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    errorMessage: text("error_message")
+  },
+  (table) => ({
+    repositoryStatusIndex: index("github_webhook_deliveries_repository_status_idx").on(
+      table.repositoryId,
+      table.status,
+      table.receivedAt
+    ),
+    deliveryIdUnique: uniqueIndex("github_webhook_deliveries_delivery_id_unique").on(table.deliveryId)
+  })
+);
+
 export const workspaces = pgTable(
   "workspaces",
   {
@@ -304,10 +507,14 @@ export const descriptionVersions = pgTable(
   })
 );
 
-export const projectRelations = relations(projects, ({ many }) => ({
+export const projectRelations = relations(projects, ({ many, one }) => ({
   tasks: many(tasks),
   workflowStates: many(workflowStates),
-  stages: many(projectStages)
+  stages: many(projectStages),
+  githubConnection: one(projectGithubConnections, {
+    fields: [projects.id],
+    references: [projectGithubConnections.projectId]
+  })
 }));
 
 export const projectStageRelations = relations(projectStages, ({ many, one }) => ({
@@ -356,6 +563,7 @@ export const taskRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.id],
     references: [taskGithubStatus.taskId]
   }),
+  githubLinks: many(workItemGithubLinks),
   comments: many(comments),
   descriptionVersions: many(descriptionVersions)
 }));
@@ -364,6 +572,74 @@ export const taskGithubStatusRelations = relations(taskGithubStatus, ({ one }) =
   task: one(tasks, {
     fields: [taskGithubStatus.taskId],
     references: [tasks.id]
+  })
+}));
+
+export const githubRepositoryRelations = relations(githubRepositories, ({ many, one }) => ({
+  workspace: one(workspaces, {
+    fields: [githubRepositories.workspaceId],
+    references: [workspaces.id]
+  }),
+  projectConnections: many(projectGithubConnections),
+  pullRequests: many(githubPullRequests),
+  checkRollups: many(githubCheckRollups),
+  deployments: many(githubDeployments),
+  workItemLinks: many(workItemGithubLinks),
+  webhookDeliveries: many(githubWebhookDeliveries)
+}));
+
+export const projectGithubConnectionRelations = relations(projectGithubConnections, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectGithubConnections.projectId],
+    references: [projects.id]
+  }),
+  repository: one(githubRepositories, {
+    fields: [projectGithubConnections.repositoryId],
+    references: [githubRepositories.id]
+  })
+}));
+
+export const githubPullRequestRelations = relations(githubPullRequests, ({ many, one }) => ({
+  repository: one(githubRepositories, {
+    fields: [githubPullRequests.repositoryId],
+    references: [githubRepositories.id]
+  }),
+  workItemLinks: many(workItemGithubLinks)
+}));
+
+export const githubCheckRollupRelations = relations(githubCheckRollups, ({ one }) => ({
+  repository: one(githubRepositories, {
+    fields: [githubCheckRollups.repositoryId],
+    references: [githubRepositories.id]
+  })
+}));
+
+export const githubDeploymentRelations = relations(githubDeployments, ({ one }) => ({
+  repository: one(githubRepositories, {
+    fields: [githubDeployments.repositoryId],
+    references: [githubRepositories.id]
+  })
+}));
+
+export const workItemGithubLinkRelations = relations(workItemGithubLinks, ({ one }) => ({
+  workItem: one(tasks, {
+    fields: [workItemGithubLinks.workItemId],
+    references: [tasks.id]
+  }),
+  repository: one(githubRepositories, {
+    fields: [workItemGithubLinks.repositoryId],
+    references: [githubRepositories.id]
+  }),
+  pullRequest: one(githubPullRequests, {
+    fields: [workItemGithubLinks.pullRequestId],
+    references: [githubPullRequests.id]
+  })
+}));
+
+export const githubWebhookDeliveryRelations = relations(githubWebhookDeliveries, ({ one }) => ({
+  repository: one(githubRepositories, {
+    fields: [githubWebhookDeliveries.repositoryId],
+    references: [githubRepositories.id]
   })
 }));
 
@@ -379,6 +655,7 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
   invitations: many(invitations),
   members: many(workspaceMembers),
   projects: many(projects),
+  githubRepositories: many(githubRepositories),
   activityEntries: many(activityLog)
 }));
 
@@ -421,13 +698,20 @@ export const schema = {
   activityLog,
   comments,
   descriptionVersions,
+  githubCheckRollups,
+  githubDeployments,
+  githubPullRequests,
+  githubRepositories,
+  githubWebhookDeliveries,
   invitations,
   planItems,
+  projectGithubConnections,
   projects,
   projectStages,
   tasks,
   taskGithubStatus,
   workflowStates,
+  workItemGithubLinks,
   workspaceMembers,
   workspaces
 };
@@ -437,12 +721,19 @@ export const schemaTableNames = [
   "project_stages",
   "plan_items",
   "tasks",
-  "task_github_status",
   "workflow_states",
   "activity_log",
   "comments",
   "description_versions",
   "workspaces",
   "workspace_members",
-  "invitations"
+  "invitations",
+  "task_github_status",
+  "github_repositories",
+  "project_github_connections",
+  "github_pull_requests",
+  "github_check_rollups",
+  "github_deployments",
+  "work_item_github_links",
+  "github_webhook_deliveries"
 ] as const;

@@ -3,17 +3,38 @@ import "dotenv/config";
 import { pathToFileURL } from "node:url";
 
 import type {
+  GithubCheckRollupStatus,
+  GithubDeploymentEnvironment,
+  GithubDeploymentStatus,
+  GithubPullRequestState,
+  GithubWebhookDeliveryStatus,
+  GithubWebhookEventName,
   PlanItemStatus,
   ProjectStage,
   StageStatus,
   TaskGithubCiStatus,
   TaskGithubDeployStatus,
   TaskGithubPrStatus,
-  TaskStatus
+  TaskStatus,
+  WorkItemGithubLinkSource
 } from "@the-platform/shared";
 
 import { db, sql } from "./client";
-import { planItems, projectStages, projects, taskGithubStatus, tasks, workspaces } from "./schema";
+import {
+  githubCheckRollups,
+  githubDeployments,
+  githubPullRequests,
+  githubRepositories,
+  githubWebhookDeliveries,
+  planItems,
+  projectGithubConnections,
+  projectStages,
+  projects,
+  taskGithubStatus,
+  tasks,
+  workItemGithubLinks,
+  workspaces
+} from "./schema";
 
 function getGithubSeedStatus(index: number): {
   prStatus: TaskGithubPrStatus;
@@ -147,6 +168,152 @@ const developmentPlanItemSeed: Array<{
   }
 ];
 
+const developmentGithubRepositorySeed = {
+  providerRepositoryId: "repo_platform_ops_local",
+  owner: "the-platform",
+  name: "platform-ops",
+  fullName: "the-platform/platform-ops",
+  defaultBranch: "main",
+  installationId: "installation_platform_ops_local"
+} as const;
+
+const developmentGithubPullRequestSeed: Array<{
+  taskIdentifier: string;
+  providerPullRequestId: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: GithubPullRequestState;
+  isDraft: boolean;
+  authorLogin: string;
+  baseBranch: string;
+  headBranch: string;
+  headSha: string;
+  mergedAt: string | null;
+  closedAt: string | null;
+}> = [
+  {
+    taskIdentifier: "OPS-1",
+    providerPullRequestId: "pr_ops_1",
+    number: 128,
+    title: "OPS-1 Build issue drawer with activity, comments, and engineering context",
+    body: "Implements the engineering context shell for OPS-1.",
+    url: "https://github.com/the-platform/platform-ops/pull/128",
+    state: "open",
+    isDraft: false,
+    authorLogin: "henry",
+    baseBranch: "main",
+    headBranch: "feature/ops-1-issue-drawer",
+    headSha: "a1b2c3d4e5f607182930aabbccddeeff00112233",
+    mergedAt: null,
+    closedAt: null
+  },
+  {
+    taskIdentifier: "OPS-2",
+    providerPullRequestId: "pr_ops_2",
+    number: 130,
+    title: "OPS-2 Approve board card hierarchy and issue drawer model",
+    body: "Requests review for OPS-2 before rollout.",
+    url: "https://github.com/the-platform/platform-ops/pull/130",
+    state: "open",
+    isDraft: false,
+    authorLogin: "henry",
+    baseBranch: "main",
+    headBranch: "feature/ops-2-board-review",
+    headSha: "b1c2d3e4f50617283940bbccddeeaa1100223344",
+    mergedAt: null,
+    closedAt: null
+  }
+];
+
+const developmentGithubCheckRollupSeed: Array<{
+  headSha: string;
+  status: GithubCheckRollupStatus;
+  url: string;
+  checkCount: number;
+  completedAt: string | null;
+}> = [
+  {
+    headSha: "a1b2c3d4e5f607182930aabbccddeeff00112233",
+    status: "failing",
+    url: "https://github.com/the-platform/platform-ops/actions/runs/501",
+    checkCount: 7,
+    completedAt: null
+  },
+  {
+    headSha: "b1c2d3e4f50617283940bbccddeeaa1100223344",
+    status: "passing",
+    url: "https://github.com/the-platform/platform-ops/actions/runs/502",
+    checkCount: 5,
+    completedAt: "2026-04-22T16:05:00.000Z"
+  }
+];
+
+const developmentGithubDeploymentSeed: Array<{
+  headSha: string;
+  providerDeploymentId: string;
+  environmentName: string;
+  environment: GithubDeploymentEnvironment;
+  status: GithubDeploymentStatus;
+  url: string;
+}> = [
+  {
+    headSha: "a1b2c3d4e5f607182930aabbccddeeff00112233",
+    providerDeploymentId: "deployment_ops_1",
+    environmentName: "staging",
+    environment: "staging",
+    status: "success",
+    url: "https://github.com/the-platform/platform-ops/deployments/401"
+  }
+];
+
+const developmentGithubLinkSeed: Array<{
+  taskIdentifier: string;
+  branchName: string;
+  source: WorkItemGithubLinkSource;
+  confidence: number;
+}> = [
+  {
+    taskIdentifier: "OPS-1",
+    branchName: "feature/ops-1-issue-drawer",
+    source: "pr_title",
+    confidence: 100
+  },
+  {
+    taskIdentifier: "OPS-2",
+    branchName: "feature/ops-2-board-review",
+    source: "pr_title",
+    confidence: 100
+  }
+];
+
+const developmentGithubWebhookDeliverySeed: Array<{
+  deliveryId: string;
+  eventName: GithubWebhookEventName;
+  status: GithubWebhookDeliveryStatus;
+  receivedAt: string;
+  processedAt: string | null;
+  errorMessage: string | null;
+}> = [
+  {
+    deliveryId: "delivery_ops_pr_128",
+    eventName: "pull_request",
+    status: "processed",
+    receivedAt: "2026-04-22T15:45:00.000Z",
+    processedAt: "2026-04-22T15:45:02.000Z",
+    errorMessage: null
+  },
+  {
+    deliveryId: "delivery_ops_deploy_401",
+    eventName: "deployment_status",
+    status: "failed",
+    receivedAt: "2026-04-22T15:50:00.000Z",
+    processedAt: "2026-04-22T15:50:01.000Z",
+    errorMessage: "Temporary GitHub status replay required for deployment classification."
+  }
+];
+
 export async function seedDevelopmentData() {
   await db.delete(workspaces);
 
@@ -260,8 +427,128 @@ export async function seedDevelopmentData() {
       })
     )
     .returning({
-      id: tasks.id
+      id: tasks.id,
+      identifier: tasks.identifier
     });
+
+  const taskIdByIdentifier = new Map(
+    seededTasks.flatMap((task) => (task.identifier ? [[task.identifier, task.id] as const] : []))
+  );
+
+  const seededRepositoryRows = await db
+    .insert(githubRepositories)
+    .values({
+      workspaceId: workspace.id,
+      providerRepositoryId: developmentGithubRepositorySeed.providerRepositoryId,
+      owner: developmentGithubRepositorySeed.owner,
+      name: developmentGithubRepositorySeed.name,
+      fullName: developmentGithubRepositorySeed.fullName,
+      defaultBranch: developmentGithubRepositorySeed.defaultBranch,
+      installationId: developmentGithubRepositorySeed.installationId
+    })
+    .returning({
+      id: githubRepositories.id
+    });
+  const repository = seededRepositoryRows[0];
+
+  if (!repository) {
+    throw new Error("Failed to insert development seed GitHub repository.");
+  }
+
+  await db.insert(projectGithubConnections).values({
+    projectId: project.id,
+    repositoryId: repository.id,
+    stagingEnvironmentName: "staging",
+    productionEnvironmentName: "production"
+  });
+
+  const seededPullRequests = await db
+    .insert(githubPullRequests)
+    .values(
+      developmentGithubPullRequestSeed.map((pullRequest) => ({
+        repositoryId: repository.id,
+        providerPullRequestId: pullRequest.providerPullRequestId,
+        number: pullRequest.number,
+        title: pullRequest.title,
+        body: pullRequest.body,
+        url: pullRequest.url,
+        state: pullRequest.state,
+        isDraft: pullRequest.isDraft,
+        authorLogin: pullRequest.authorLogin,
+        baseBranch: pullRequest.baseBranch,
+        headBranch: pullRequest.headBranch,
+        headSha: pullRequest.headSha,
+        mergedAt: pullRequest.mergedAt ? new Date(pullRequest.mergedAt) : null,
+        closedAt: pullRequest.closedAt ? new Date(pullRequest.closedAt) : null
+      }))
+    )
+    .returning({
+      id: githubPullRequests.id,
+      headSha: githubPullRequests.headSha,
+      number: githubPullRequests.number
+    });
+
+  const pullRequestIdByNumber = new Map(seededPullRequests.map((pullRequest) => [pullRequest.number, pullRequest.id]));
+  const pullRequestIdByTaskIdentifier = new Map(
+    developmentGithubPullRequestSeed.map((pullRequest) => [
+      pullRequest.taskIdentifier,
+      pullRequestIdByNumber.get(pullRequest.number) ?? null
+    ])
+  );
+
+  await db.insert(githubCheckRollups).values(
+    developmentGithubCheckRollupSeed.map((checkRollup) => ({
+      repositoryId: repository.id,
+      headSha: checkRollup.headSha,
+      status: checkRollup.status,
+      url: checkRollup.url,
+      checkCount: checkRollup.checkCount,
+      completedAt: checkRollup.completedAt ? new Date(checkRollup.completedAt) : null
+    }))
+  );
+
+  await db.insert(githubDeployments).values(
+    developmentGithubDeploymentSeed.map((deployment) => ({
+      repositoryId: repository.id,
+      providerDeploymentId: deployment.providerDeploymentId,
+      headSha: deployment.headSha,
+      environmentName: deployment.environmentName,
+      environment: deployment.environment,
+      status: deployment.status,
+      url: deployment.url
+    }))
+  );
+
+  await db.insert(workItemGithubLinks).values(
+    developmentGithubLinkSeed.map((link) => {
+      const taskId = taskIdByIdentifier.get(link.taskIdentifier);
+
+      if (!taskId) {
+        throw new Error(`Missing task for GitHub link seed: ${link.taskIdentifier}`);
+      }
+
+      return {
+        workItemId: taskId,
+        repositoryId: repository.id,
+        pullRequestId: pullRequestIdByTaskIdentifier.get(link.taskIdentifier) ?? null,
+        branchName: link.branchName,
+        source: link.source,
+        confidence: link.confidence
+      };
+    })
+  );
+
+  await db.insert(githubWebhookDeliveries).values(
+    developmentGithubWebhookDeliverySeed.map((delivery) => ({
+      repositoryId: repository.id,
+      deliveryId: delivery.deliveryId,
+      eventName: delivery.eventName,
+      status: delivery.status,
+      receivedAt: new Date(delivery.receivedAt),
+      processedAt: delivery.processedAt ? new Date(delivery.processedAt) : null,
+      errorMessage: delivery.errorMessage
+    }))
+  );
 
   await db.insert(taskGithubStatus).values(
     seededTasks.map((task, index) => ({
