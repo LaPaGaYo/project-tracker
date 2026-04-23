@@ -38,4 +38,3 @@ Result: merge ready
 - Design contract: none
 - QA design verification: not required
 - Design verification artifact: none
-
