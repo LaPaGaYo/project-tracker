@@ -1,4 +1,11 @@
 import type {
+  GithubCheckRollupStatus,
+  GithubDeploymentEnvironment,
+  GithubDeploymentStatus,
+  GithubPullRequestState,
+  GithubRepositoryProvider,
+  GithubWebhookDeliveryStatus,
+  GithubWebhookEventName,
   InvitationStatus,
   PlanItemStatus,
   ProjectStage,
@@ -9,6 +16,7 @@ import type {
   TaskGithubPrStatus,
   WorkflowStateCategory,
   WorkspaceRole,
+  WorkItemGithubLinkSource,
   WorkItemPriority,
   WorkItemType
 } from "./constants";
@@ -90,6 +98,98 @@ export interface TaskGithubStatusRecord {
   prStatus: TaskGithubPrStatus;
   ciStatus: TaskGithubCiStatus;
   deployStatus: TaskGithubDeployStatus;
+}
+
+export interface GithubRepositoryRecord {
+  id: string;
+  workspaceId: string;
+  provider: GithubRepositoryProvider;
+  providerRepositoryId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  installationId: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGithubConnectionRecord {
+  id: string;
+  projectId: string;
+  repositoryId: string;
+  stagingEnvironmentName: string | null;
+  productionEnvironmentName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubPullRequestRecord {
+  id: string;
+  repositoryId: string;
+  providerPullRequestId: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: GithubPullRequestState;
+  isDraft: boolean;
+  authorLogin: string | null;
+  baseBranch: string;
+  headBranch: string;
+  headSha: string;
+  mergedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubCheckRollupRecord {
+  id: string;
+  repositoryId: string;
+  headSha: string;
+  status: GithubCheckRollupStatus;
+  url: string | null;
+  checkCount: number;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubDeploymentRecord {
+  id: string;
+  repositoryId: string;
+  providerDeploymentId: string;
+  headSha: string;
+  environmentName: string | null;
+  environment: GithubDeploymentEnvironment;
+  status: GithubDeploymentStatus;
+  url: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkItemGithubLinkRecord {
+  id: string;
+  workItemId: string;
+  repositoryId: string;
+  pullRequestId: string | null;
+  branchName: string | null;
+  source: WorkItemGithubLinkSource;
+  confidence: number;
+  linkedAt: string;
+}
+
+export interface GithubWebhookDeliveryRecord {
+  id: string;
+  repositoryId: string | null;
+  deliveryId: string;
+  eventName: GithubWebhookEventName;
+  status: GithubWebhookDeliveryStatus;
+  receivedAt: string;
+  processedAt: string | null;
+  errorMessage: string | null;
 }
 
 export interface WorkspaceRecord {

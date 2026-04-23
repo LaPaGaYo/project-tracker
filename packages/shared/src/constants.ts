@@ -59,6 +59,57 @@ export const taskGithubDeployStatuses = ["Not deployed", "Staging", "Production"
   ...string[]
 ];
 
+export const githubRepositoryProviders = ["github"] as const satisfies readonly [string, ...string[]];
+
+export const githubPullRequestStates = ["open", "closed", "merged"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
+export const githubCheckRollupStatuses = [
+  "pending",
+  "passing",
+  "failing",
+  "cancelled",
+  "skipped",
+  "unknown"
+] as const satisfies readonly [string, ...string[]];
+
+export const githubDeploymentEnvironments = [
+  "development",
+  "preview",
+  "staging",
+  "production",
+  "other"
+] as const satisfies readonly [string, ...string[]];
+
+export const githubDeploymentStatuses = [
+  "queued",
+  "in_progress",
+  "success",
+  "failure",
+  "inactive",
+  "unknown"
+] as const satisfies readonly [string, ...string[]];
+
+export const workItemGithubLinkSources = ["pr_title", "pr_body", "branch_name", "manual"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
+export const githubWebhookEventNames = [
+  "pull_request",
+  "check_run",
+  "check_suite",
+  "deployment",
+  "deployment_status"
+] as const satisfies readonly [string, ...string[]];
+
+export const githubWebhookDeliveryStatuses = ["pending", "processed", "ignored", "failed"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
 export const workflowStateCategories = ["backlog", "active", "done"] as const satisfies readonly [
   string,
   ...string[]
@@ -77,4 +128,12 @@ export type WorkItemPriority = (typeof workItemPriorities)[number];
 export type TaskGithubPrStatus = (typeof taskGithubPrStatuses)[number];
 export type TaskGithubCiStatus = (typeof taskGithubCiStatuses)[number];
 export type TaskGithubDeployStatus = (typeof taskGithubDeployStatuses)[number];
+export type GithubRepositoryProvider = (typeof githubRepositoryProviders)[number];
+export type GithubPullRequestState = (typeof githubPullRequestStates)[number];
+export type GithubCheckRollupStatus = (typeof githubCheckRollupStatuses)[number];
+export type GithubDeploymentEnvironment = (typeof githubDeploymentEnvironments)[number];
+export type GithubDeploymentStatus = (typeof githubDeploymentStatuses)[number];
+export type WorkItemGithubLinkSource = (typeof workItemGithubLinkSources)[number];
+export type GithubWebhookEventName = (typeof githubWebhookEventNames)[number];
+export type GithubWebhookDeliveryStatus = (typeof githubWebhookDeliveryStatuses)[number];
 export type WorkflowStateCategory = (typeof workflowStateCategories)[number];
