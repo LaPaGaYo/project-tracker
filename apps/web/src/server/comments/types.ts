@@ -1,6 +1,7 @@
 import type { ActivityLogRecord, CommentRecord, ProjectRecord, WorkItemRecord } from "@the-platform/shared";
 
 import type { ActivityRepository } from "../activity/types";
+import type { NotificationRepository } from "../notifications/types";
 import type { WorkItemRepository } from "../work-items/types";
 import type { WorkspaceRepository } from "../workspaces/types";
 
@@ -32,6 +33,10 @@ export interface CommentRepository
     actorId: string;
   }): Promise<boolean>;
   listComments(workItemId: string): Promise<CommentRecord[]>;
+}
+
+export interface CommentNotificationDependencies {
+  notificationRepository?: NotificationRepository;
 }
 
 export type WorkItemTimelineEntry =

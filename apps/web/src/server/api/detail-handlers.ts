@@ -10,6 +10,7 @@ import {
   listDescriptionVersionsForUser,
   updateDescriptionForUser
 } from "../work-items/service";
+import type { NotificationRepository } from "../notifications/types";
 import type { WorkItemRepository } from "../work-items/types";
 import { WorkspaceError } from "../workspaces/core";
 import type { AppSession } from "../workspaces/types";
@@ -17,6 +18,7 @@ import type { AppSession } from "../workspaces/types";
 export interface DetailHandlerDependencies {
   getSession: () => Promise<AppSession | null>;
   commentRepository: CommentRepository;
+  notificationRepository?: NotificationRepository;
   workItemRepository: WorkItemRepository;
   activityRepository: ActivityRepository;
 }
@@ -98,7 +100,12 @@ export async function handleCreateComment(
       params.slug,
       params.key,
       params.identifier,
-      body
+      body,
+      {
+        ...(dependencies.notificationRepository
+          ? { notificationRepository: dependencies.notificationRepository }
+          : {})
+      }
     );
 
     return json({ comment }, 201);

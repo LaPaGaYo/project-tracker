@@ -4,6 +4,7 @@ import test from "node:test";
 import { sql } from "../packages/db/src/client.ts";
 import { createActivityRepository } from "../apps/web/src/server/activity/repository.ts";
 import { getItemActivityForUser } from "../apps/web/src/server/activity/service.ts";
+import { createNotificationRepository } from "../apps/web/src/server/notifications/repository.ts";
 import { createProjectRepository } from "../apps/web/src/server/projects/repository.ts";
 import { createProjectForUser } from "../apps/web/src/server/projects/service.ts";
 import { createWorkItemRepository } from "../apps/web/src/server/work-items/repository.ts";
@@ -129,6 +130,7 @@ async function createDetailRepositories() {
   return {
     activityRepository: createActivityRepository(),
     commentRepository: createCommentRepository(),
+    notificationRepository: createNotificationRepository(),
     projectRepository: createProjectRepository(),
     workItemRepository: createWorkItemRepository(),
     workflowStateRepository: createWorkflowStateRepository()

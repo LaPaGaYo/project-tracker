@@ -5,11 +5,13 @@ import {
 import { createActivityRepository } from "@/server/activity/repository";
 import { createCommentRepository } from "@/server/comments/repository";
 import { getAppSession } from "@/server/auth";
+import { createNotificationRepository } from "@/server/notifications/repository";
 import { createWorkItemRepository } from "@/server/work-items/repository";
 
 const dependencies = {
   getSession: getAppSession,
   commentRepository: createCommentRepository(),
+  notificationRepository: createNotificationRepository(),
   workItemRepository: createWorkItemRepository(),
   activityRepository: createActivityRepository()
 };

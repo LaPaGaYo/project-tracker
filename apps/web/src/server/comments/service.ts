@@ -1,9 +1,120 @@
+import type { CommentRecord, ProjectRecord, WorkItemRecord, WorkspaceRecord } from "@the-platform/shared";
+
+import { createNotificationForSource } from "../notifications/service";
+import type { NotificationRecipientInput, NotificationRepository } from "../notifications/types";
 import { hasMinimumRole, WorkspaceError } from "../workspaces/core";
 import { requireNonEmptyString, requireRoleAtLeast, resolveWorkspaceContext } from "../work-management/utils";
 
 import type { AppSession } from "../workspaces/types";
 
-import type { CommentRepository, TimelineDependencies, WorkItemTimelineEntry } from "./types";
+import type {
+  CommentNotificationDependencies,
+  CommentRepository,
+  TimelineDependencies,
+  WorkItemTimelineEntry
+} from "./types";
+
+const mentionPattern = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9][A-Za-z0-9._:-]{0,254})/g;
+
+function uniqueUserIds(userIds: Iterable<string>) {
+  return Array.from(new Set(Array.from(userIds).filter((userId) => userId.length > 0)));
+}
+
+function extractMentionedMemberIds(content: string, workspaceMemberIds: Set<string>) {
+  const mentionedUserIds = new Set<string>();
+
+  for (const match of content.matchAll(mentionPattern)) {
+    const userId = match[2];
+    if (userId && workspaceMemberIds.has(userId)) {
+      mentionedUserIds.add(userId);
+    }
+  }
+
+  return Array.from(mentionedUserIds);
+}
+
+function workItemUrl(workspaceSlug: string, projectKey: string, workItem: WorkItemRecord) {
+  return `/workspaces/${workspaceSlug}/projects/${projectKey}/items/${workItem.identifier ?? workItem.id}`;
+}
+
+async function emitCommentNotifications(
+  notificationRepository: NotificationRepository | undefined,
+  session: AppSession,
+  workspaceSlug: string,
+  context: {
+    workspace: WorkspaceRecord;
+    project: ProjectRecord;
+    workItem: WorkItemRecord;
+  },
+  comment: CommentRecord,
+  content: string,
+  priorComments: CommentRecord[]
+) {
+  if (!notificationRepository) {
+    return;
+  }
+
+  const members = await notificationRepository.listWorkspaceMembers(context.workspace.id);
+  const memberIds = new Set(members.map((member) => member.userId));
+  const mentionedUserIds = extractMentionedMemberIds(content, memberIds);
+  const url = workItemUrl(workspaceSlug, context.project.key, context.workItem);
+  const metadata = {
+    commentId: comment.id,
+    identifier: context.workItem.identifier
+  };
+
+  if (mentionedUserIds.length > 0) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: context.project.id,
+      workItemId: context.workItem.id,
+      sourceType: "comment",
+      sourceId: comment.id,
+      eventType: "mention_created",
+      actorId: session.userId,
+      priority: "normal",
+      title: `${session.displayName} mentioned you`,
+      body: content,
+      url,
+      metadata,
+      recipients: mentionedUserIds.map(
+        (recipientId): NotificationRecipientInput => ({
+          recipientId,
+          reason: "mention"
+        })
+      )
+    });
+  }
+
+  const mentionedSet = new Set(mentionedUserIds);
+  const participantIds = uniqueUserIds([
+    ...(context.workItem.assigneeId ? [context.workItem.assigneeId] : []),
+    ...priorComments.map((priorComment) => priorComment.authorId)
+  ]).filter((userId) => memberIds.has(userId) && userId !== session.userId && !mentionedSet.has(userId));
+
+  if (participantIds.length === 0) {
+    return;
+  }
+
+  await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+    projectId: context.project.id,
+    workItemId: context.workItem.id,
+    sourceType: "comment",
+    sourceId: comment.id,
+    eventType: "comment_created",
+    actorId: session.userId,
+    priority: "normal",
+    title: `${session.displayName} commented on ${context.workItem.identifier ?? context.workItem.title}`,
+    body: content,
+    url,
+    metadata,
+    recipients: participantIds.map(
+      (recipientId): NotificationRecipientInput => ({
+        recipientId,
+        reason: "participant"
+      })
+    )
+  });
+}
 
 async function resolveCommentContext(
   repository: CommentRepository,
@@ -50,7 +161,8 @@ export async function createCommentForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: { content?: unknown }
+  input: { content?: unknown },
+  notificationDependencies: CommentNotificationDependencies = {}
 ) {
   const { workspace, membership, project, workItem } = await resolveCommentContext(
     repository,
@@ -62,14 +174,32 @@ export async function createCommentForUser(
   );
 
   requireRoleAtLeast(membership.role, "member", "only members and above can create comments.");
+  const content = requireNonEmptyString(input.content, "content");
+  const priorComments = await repository.listComments(workItem.id);
 
-  return repository.createComment({
+  const comment = await repository.createComment({
     workspaceId: workspace.id,
     projectId: project.id,
     workItemId: workItem.id,
     authorId: session.userId,
-    content: requireNonEmptyString(input.content, "content")
+    content
   });
+
+  await emitCommentNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    {
+      workspace,
+      project,
+      workItem
+    },
+    comment,
+    content,
+    priorComments
+  );
+
+  return comment;
 }
 
 export async function updateCommentForUser(

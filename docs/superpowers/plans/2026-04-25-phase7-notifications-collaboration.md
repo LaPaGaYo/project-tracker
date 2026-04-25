@@ -105,16 +105,16 @@
 - Modify: `tests/phase5-detail-comments.test.mjs`
 - Create: `tests/phase7-comment-notifications.test.mjs`
 
-- [ ] Add notification dependencies to comment service calls without changing existing comment CRUD response shapes.
-- [ ] Add a mention parser that extracts `@userId` tokens from comment content and keeps only workspace members.
-- [ ] On comment create, notify mentioned users with reason `mention`.
-- [ ] On comment create, notify the current assignee and prior comment participants with reason `participant` when they are not the actor and are not already notified by mention.
-- [ ] Do not emit notifications for comment edits or deletes in Phase 7.
-- [ ] Keep all existing Phase 5 comment permissions intact.
-- [ ] Add tests for mention notifications, participant notifications, unknown mention suppression, and no self-notification.
-- [ ] Run: `node --import tsx --test tests/phase5-detail-comments.test.mjs tests/phase7-comment-notifications.test.mjs`
-- [ ] Expected: PASS with comment CRUD unchanged and notification recipients created only for valid users.
-- [ ] Commit: `feat: notify users from comments and mentions`
+- [x] Add notification dependencies to comment service calls without changing existing comment CRUD response shapes.
+- [x] Add a mention parser that extracts `@userId` tokens from comment content and keeps only workspace members.
+- [x] On comment create, notify mentioned users with reason `mention`.
+- [x] On comment create, notify the current assignee and prior comment participants with reason `participant` when they are not the actor and are not already notified by mention.
+- [x] Do not emit notifications for comment edits or deletes in Phase 7.
+- [x] Keep all existing Phase 5 comment permissions intact.
+- [x] Add tests for mention notifications, participant notifications, unknown mention suppression, and no self-notification.
+- [x] Run: `node --import tsx --test tests/phase5-detail-comments.test.mjs tests/phase7-comment-notifications.test.mjs`
+- [x] Expected: PASS with comment CRUD unchanged and notification recipients created only for valid users.
+- [x] Commit: `feat: notify users from comments and mentions`
 
 ### Task 5: Emit Notifications From Work Item Changes
 
