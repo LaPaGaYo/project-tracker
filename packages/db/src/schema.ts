@@ -26,6 +26,10 @@ import {
   githubWebhookDeliveryStatuses,
   githubWebhookEventNames,
   invitationStatuses,
+  notificationEventTypes,
+  notificationPriorities,
+  notificationRecipientReasons,
+  notificationSourceTypes,
   planItemStatuses,
   projectStages as projectLifecycleStages,
   stageStatuses,
@@ -55,6 +59,13 @@ export const githubDeploymentStatusEnum = pgEnum("github_deployment_status", git
 export const workItemGithubLinkSourceEnum = pgEnum("work_item_github_link_source", workItemGithubLinkSources);
 export const githubWebhookEventNameEnum = pgEnum("github_webhook_event_name", githubWebhookEventNames);
 export const githubWebhookDeliveryStatusEnum = pgEnum("github_webhook_delivery_status", githubWebhookDeliveryStatuses);
+export const notificationSourceTypeEnum = pgEnum("notification_source_type", notificationSourceTypes);
+export const notificationEventTypeEnum = pgEnum("notification_event_type", notificationEventTypes);
+export const notificationPriorityEnum = pgEnum("notification_priority", notificationPriorities);
+export const notificationRecipientReasonEnum = pgEnum(
+  "notification_recipient_reason",
+  notificationRecipientReasons
+);
 export const workspaceRoleEnum = pgEnum("workspace_role", workspaceRoles);
 export const invitationStatusEnum = pgEnum("invitation_status", invitationStatuses);
 export const workItemTypeEnum = pgEnum("work_item_type", workItemTypes);
@@ -507,10 +518,106 @@ export const descriptionVersions = pgTable(
   })
 );
 
+export const notificationEvents = pgTable(
+  "notification_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    workItemId: uuid("work_item_id").references(() => tasks.id, { onDelete: "set null" }),
+    sourceType: notificationSourceTypeEnum("source_type").notNull(),
+    sourceId: varchar("source_id", { length: 255 }).notNull(),
+    eventType: notificationEventTypeEnum("event_type").notNull(),
+    actorId: varchar("actor_id", { length: 255 }),
+    priority: notificationPriorityEnum("priority").notNull().default("normal"),
+    title: varchar("title", { length: 220 }).notNull(),
+    body: text("body"),
+    url: text("url").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    workspaceCreatedIndex: index("notification_events_workspace_created_idx").on(
+      table.workspaceId,
+      table.createdAt
+    ),
+    projectCreatedIndex: index("notification_events_project_created_idx").on(table.projectId, table.createdAt),
+    workItemCreatedIndex: index("notification_events_work_item_created_idx").on(
+      table.workItemId,
+      table.createdAt
+    ),
+    workspaceSourceEventUnique: uniqueIndex("notification_events_workspace_source_event_unique").on(
+      table.workspaceId,
+      table.sourceType,
+      table.sourceId,
+      table.eventType
+    )
+  })
+);
+
+export const notificationRecipients = pgTable(
+  "notification_recipients",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => notificationEvents.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    recipientId: varchar("recipient_id", { length: 255 }).notNull(),
+    reason: notificationRecipientReasonEnum("reason").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    workspaceRecipientReadCreatedIndex: index(
+      "notification_recipients_workspace_recipient_read_created_idx"
+    ).on(table.workspaceId, table.recipientId, table.readAt, table.createdAt),
+    workspaceRecipientCreatedIndex: index("notification_recipients_workspace_recipient_created_idx").on(
+      table.workspaceId,
+      table.recipientId,
+      table.createdAt
+    ),
+    eventRecipientReasonUnique: uniqueIndex("notification_recipients_event_recipient_reason_unique").on(
+      table.eventId,
+      table.recipientId,
+      table.reason
+    )
+  })
+);
+
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    commentsEnabled: boolean("comments_enabled").notNull().default(true),
+    mentionsEnabled: boolean("mentions_enabled").notNull().default(true),
+    assignmentsEnabled: boolean("assignments_enabled").notNull().default(true),
+    githubEnabled: boolean("github_enabled").notNull().default(true),
+    stateChangesEnabled: boolean("state_changes_enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    workspaceUserUnique: uniqueIndex("notification_preferences_workspace_user_unique").on(
+      table.workspaceId,
+      table.userId
+    )
+  })
+);
+
 export const projectRelations = relations(projects, ({ many, one }) => ({
   tasks: many(tasks),
   workflowStates: many(workflowStates),
   stages: many(projectStages),
+  notificationEvents: many(notificationEvents),
   githubConnection: one(projectGithubConnections, {
     fields: [projects.id],
     references: [projectGithubConnections.projectId]
@@ -565,7 +672,8 @@ export const taskRelations = relations(tasks, ({ one, many }) => ({
   }),
   githubLinks: many(workItemGithubLinks),
   comments: many(comments),
-  descriptionVersions: many(descriptionVersions)
+  descriptionVersions: many(descriptionVersions),
+  notificationEvents: many(notificationEvents)
 }));
 
 export const taskGithubStatusRelations = relations(taskGithubStatus, ({ one }) => ({
@@ -656,7 +764,10 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
   members: many(workspaceMembers),
   projects: many(projects),
   githubRepositories: many(githubRepositories),
-  activityEntries: many(activityLog)
+  activityEntries: many(activityLog),
+  notificationEvents: many(notificationEvents),
+  notificationRecipients: many(notificationRecipients),
+  notificationPreferences: many(notificationPreferences)
 }));
 
 export const workspaceMemberRelations = relations(workspaceMembers, ({ one }) => ({
@@ -694,6 +805,40 @@ export const descriptionVersionRelations = relations(descriptionVersions, ({ one
   })
 }));
 
+export const notificationEventRelations = relations(notificationEvents, ({ many, one }) => ({
+  workspace: one(workspaces, {
+    fields: [notificationEvents.workspaceId],
+    references: [workspaces.id]
+  }),
+  project: one(projects, {
+    fields: [notificationEvents.projectId],
+    references: [projects.id]
+  }),
+  workItem: one(tasks, {
+    fields: [notificationEvents.workItemId],
+    references: [tasks.id]
+  }),
+  recipients: many(notificationRecipients)
+}));
+
+export const notificationRecipientRelations = relations(notificationRecipients, ({ one }) => ({
+  event: one(notificationEvents, {
+    fields: [notificationRecipients.eventId],
+    references: [notificationEvents.id]
+  }),
+  workspace: one(workspaces, {
+    fields: [notificationRecipients.workspaceId],
+    references: [workspaces.id]
+  })
+}));
+
+export const notificationPreferenceRelations = relations(notificationPreferences, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [notificationPreferences.workspaceId],
+    references: [workspaces.id]
+  })
+}));
+
 export const schema = {
   activityLog,
   comments,
@@ -704,6 +849,9 @@ export const schema = {
   githubRepositories,
   githubWebhookDeliveries,
   invitations,
+  notificationEvents,
+  notificationPreferences,
+  notificationRecipients,
   planItems,
   projectGithubConnections,
   projects,
@@ -735,5 +883,8 @@ export const schemaTableNames = [
   "github_check_rollups",
   "github_deployments",
   "work_item_github_links",
-  "github_webhook_deliveries"
+  "github_webhook_deliveries",
+  "notification_events",
+  "notification_recipients",
+  "notification_preferences"
 ] as const;

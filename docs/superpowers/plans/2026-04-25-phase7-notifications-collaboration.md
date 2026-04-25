@@ -42,22 +42,22 @@
 - Create: `packages/db/src/notification-schema.test.ts`
 - Create: new Drizzle migration under `packages/db/drizzle/`
 
-- [ ] Add `pgEnum` definitions for notification source type, event type, priority, and recipient reason.
-- [ ] Add `notification_events` with workspace/project/work item references, source identity, title/body/url, metadata, priority, actor, and created timestamp.
-- [ ] Add `notification_recipients` with event id, workspace id, recipient id, reason, read/dismiss timestamps, and created timestamp.
-- [ ] Add `notification_preferences` keyed by workspace id and user id.
-- [ ] Add uniqueness constraints:
+- [x] Add `pgEnum` definitions for notification source type, event type, priority, and recipient reason.
+- [x] Add `notification_events` with workspace/project/work item references, source identity, title/body/url, metadata, priority, actor, and created timestamp.
+- [x] Add `notification_recipients` with event id, workspace id, recipient id, reason, read/dismiss timestamps, and created timestamp.
+- [x] Add `notification_preferences` keyed by workspace id and user id.
+- [x] Add uniqueness constraints:
   - `notification_events_workspace_source_event_unique` on workspace id, source type, source id, event type
   - `notification_recipients_event_recipient_reason_unique` on event id, recipient id, reason
   - `notification_preferences_workspace_user_unique` on workspace id and user id
-- [ ] Add indexes for user inbox reads: workspace id, recipient id, read at, created at.
-- [ ] Add seed rows that create at least one unread notification for the seeded project owner.
-- [ ] Add schema tests that assert tables, enums, uniqueness, and inbox indexes exist.
-- [ ] Run: `npm run db:generate --workspace @the-platform/db`
-- [ ] Run: `npm run db:migrate --workspace @the-platform/db`
-- [ ] Run: `npm run test --workspace @the-platform/db`
-- [ ] Expected: PASS with migration generated and schema tests green.
-- [ ] Commit: `feat: add notification schema`
+- [x] Add indexes for user inbox reads: workspace id, recipient id, read at, created at.
+- [x] Add seed rows that create at least one unread notification for the seeded project owner.
+- [x] Add schema tests that assert tables, enums, uniqueness, and inbox indexes exist.
+- [x] Run: `npm run db:generate --workspace @the-platform/db`
+- [x] Run: `npm run db:migrate --workspace @the-platform/db`
+- [x] Run: `npm run test --workspace @the-platform/db`
+- [x] Expected: PASS with migration generated and schema tests green.
+- [x] Commit: `feat: add notification schema`
 
 ### Task 3: Add Notification Repository and Service
 

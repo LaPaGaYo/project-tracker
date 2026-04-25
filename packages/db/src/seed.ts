@@ -9,6 +9,10 @@ import type {
   GithubPullRequestState,
   GithubWebhookDeliveryStatus,
   GithubWebhookEventName,
+  NotificationEventType,
+  NotificationPriority,
+  NotificationRecipientReason,
+  NotificationSourceType,
   PlanItemStatus,
   ProjectStage,
   StageStatus,
@@ -26,6 +30,9 @@ import {
   githubPullRequests,
   githubRepositories,
   githubWebhookDeliveries,
+  notificationEvents,
+  notificationPreferences,
+  notificationRecipients,
   planItems,
   projectGithubConnections,
   projectStages,
@@ -314,7 +321,41 @@ const developmentGithubWebhookDeliverySeed: Array<{
   }
 ];
 
+const developmentNotificationSeed: Array<{
+  workItemIdentifier: string;
+  sourceType: NotificationSourceType;
+  sourceId: string;
+  eventType: NotificationEventType;
+  actorId: string | null;
+  priority: NotificationPriority;
+  title: string;
+  body: string | null;
+  url: string;
+  metadata: Record<string, unknown> | null;
+  recipientId: string;
+  reason: NotificationRecipientReason;
+}> = [
+  {
+    workItemIdentifier: "OPS-1",
+    sourceType: "github",
+    sourceId: "pr_ops_1:failing-check",
+    eventType: "github_check_changed",
+    actorId: null,
+    priority: "high",
+    title: "OPS-1 has a failing CI check",
+    body: "The linked pull request for OPS-1 needs attention before the current stage can pass.",
+    url: "/workspaces/development-workspace/projects/OPS/items/OPS-1",
+    metadata: {
+      repository: "the-platform/platform-ops",
+      checkStatus: "failing"
+    },
+    recipientId: "henry",
+    reason: "github"
+  }
+];
+
 export async function seedDevelopmentData() {
+  await db.delete(githubWebhookDeliveries);
   await db.delete(workspaces);
 
   const seededWorkspaces = await db
@@ -548,6 +589,63 @@ export async function seedDevelopmentData() {
       processedAt: delivery.processedAt ? new Date(delivery.processedAt) : null,
       errorMessage: delivery.errorMessage
     }))
+  );
+
+  await db.insert(notificationPreferences).values({
+    workspaceId: workspace.id,
+    userId: "henry"
+  });
+
+  const seededNotificationEvents = await db
+    .insert(notificationEvents)
+    .values(
+      developmentNotificationSeed.map((notification) => {
+        const taskId = taskIdByIdentifier.get(notification.workItemIdentifier);
+
+        if (!taskId) {
+          throw new Error(`Missing task for notification seed: ${notification.workItemIdentifier}`);
+        }
+
+        return {
+          workspaceId: workspace.id,
+          projectId: project.id,
+          workItemId: taskId,
+          sourceType: notification.sourceType,
+          sourceId: notification.sourceId,
+          eventType: notification.eventType,
+          actorId: notification.actorId,
+          priority: notification.priority,
+          title: notification.title,
+          body: notification.body,
+          url: notification.url,
+          metadata: notification.metadata
+        };
+      })
+    )
+    .returning({
+      id: notificationEvents.id,
+      sourceId: notificationEvents.sourceId
+    });
+
+  const notificationEventIdBySourceId = new Map(
+    seededNotificationEvents.map((notification) => [notification.sourceId, notification.id])
+  );
+
+  await db.insert(notificationRecipients).values(
+    developmentNotificationSeed.map((notification) => {
+      const eventId = notificationEventIdBySourceId.get(notification.sourceId);
+
+      if (!eventId) {
+        throw new Error(`Missing notification event for recipient seed: ${notification.sourceId}`);
+      }
+
+      return {
+        eventId,
+        workspaceId: workspace.id,
+        recipientId: notification.recipientId,
+        reason: notification.reason
+      };
+    })
   );
 
   await db.insert(taskGithubStatus).values(

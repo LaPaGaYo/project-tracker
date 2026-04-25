@@ -42,18 +42,20 @@ function getIndexNames(table: Parameters<typeof getTableConfig>[0]): string[] {
 }
 
 void test("github schema adds normalized engineering tables without replacing task_github_status", () => {
+  const githubTableNames: readonly string[] = [
+    "task_github_status",
+    "github_repositories",
+    "project_github_connections",
+    "github_pull_requests",
+    "github_check_rollups",
+    "github_deployments",
+    "work_item_github_links",
+    "github_webhook_deliveries"
+  ] as const;
+
   assert.deepEqual(
-    schemaTableNames.slice(-8),
-    [
-      "task_github_status",
-      "github_repositories",
-      "project_github_connections",
-      "github_pull_requests",
-      "github_check_rollups",
-      "github_deployments",
-      "work_item_github_links",
-      "github_webhook_deliveries"
-    ]
+    schemaTableNames.filter((tableName) => githubTableNames.includes(tableName)),
+    [...githubTableNames]
   );
 
   assert.equal(getTableName(taskGithubStatus), "task_github_status");

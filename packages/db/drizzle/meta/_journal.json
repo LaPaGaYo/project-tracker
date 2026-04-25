@@ -50,6 +50,13 @@
       "when": 1776909239105,
       "tag": "0006_supreme_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777106150099,
+      "tag": "0007_nice_madame_web",
+      "breakpoints": true
     }
   ]
 }
