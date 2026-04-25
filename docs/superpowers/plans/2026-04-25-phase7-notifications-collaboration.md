@@ -148,17 +148,17 @@
 - Modify: `tests/phase6-github-projection.test.mjs`
 - Create: `tests/phase7-github-notifications.test.mjs`
 
-- [ ] Add notification dependencies to GitHub projection after normalized PR/check/deploy state is persisted.
-- [ ] Emit `github_pr_changed` for linked PR open, review requested, merged, and closed transitions.
-- [ ] Emit `github_check_changed` when linked checks move into failing or recover to passing.
-- [ ] Emit `github_deploy_changed` when linked deployments reach staging or production.
-- [ ] Emit `github_webhook_failed` to project admins/owners when a connected repository delivery fails processing.
-- [ ] Resolve recipients from work item assignee, creator activity, and comment participants.
-- [ ] Keep webhook replay idempotent by relying on notification event uniqueness.
-- [ ] Add tests for PR, failing check, recovered check, production deploy, failed webhook, and replay dedupe.
-- [ ] Run: `node --import tsx --test tests/phase6-github-projection.test.mjs tests/phase7-github-notifications.test.mjs`
-- [ ] Expected: PASS with engineering notifications derived from persisted GitHub state.
-- [ ] Commit: `feat: notify users from github engineering changes`
+- [x] Add notification dependencies to GitHub projection after normalized PR/check/deploy state is persisted.
+- [x] Emit `github_pr_changed` for linked PR open, review requested, merged, and closed transitions.
+- [x] Emit `github_check_changed` when linked checks move into failing or recover to passing.
+- [x] Emit `github_deploy_changed` when linked deployments reach staging or production.
+- [x] Emit `github_webhook_failed` to project admins/owners when a connected repository delivery fails processing.
+- [x] Resolve recipients from work item assignee, creator activity, and comment participants.
+- [x] Keep webhook replay idempotent by relying on notification event uniqueness.
+- [x] Add tests for PR, failing check, recovered check, production deploy, failed webhook, and replay dedupe.
+- [x] Run: `node --import tsx --test tests/phase6-github-projection.test.mjs tests/phase7-github-notifications.test.mjs`
+- [x] Expected: PASS with engineering notifications derived from persisted GitHub state.
+- [x] Commit: `feat: notify users from github engineering changes`
 
 ### Task 7: Add Notification API Routes
 

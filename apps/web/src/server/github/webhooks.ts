@@ -1,5 +1,8 @@
 import type { GithubRepositoryRecord, GithubWebhookEventName } from "@the-platform/shared";
 
+import type { NotificationRepository } from "../notifications/types";
+
+import { notifyGithubWebhookDeliveryFailure } from "./service";
 import type { GithubWebhookRepository } from "./types";
 import { verifyGithubWebhookSignature } from "./signature";
 
@@ -21,6 +24,7 @@ export interface SyncGithubWebhookRequestOptions {
   secret?: string;
   now?: () => Date;
   verifySignature?: (payload: string, signature: string | null, secret: string) => boolean;
+  notificationRepository?: NotificationRepository;
   processDelivery?: (input: {
     repository: GithubRepositoryRecord;
     deliveryId: string;
@@ -116,6 +120,19 @@ export async function syncGithubWebhookRequest(
       processedAt: timestamp,
       errorMessage: message
     });
+
+    if (repositoryRecord && options.notificationRepository) {
+      await notifyGithubWebhookDeliveryFailure(
+        repository,
+        options.notificationRepository,
+        repositoryRecord,
+        {
+          deliveryId,
+          eventName,
+          errorMessage: message
+        }
+      );
+    }
 
     return json({ error: message }, 500);
   }

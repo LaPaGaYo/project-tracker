@@ -10,6 +10,7 @@ import { resolveWorkspaceContext } from "../work-management/utils";
 import type { AppSession } from "../workspaces/types";
 
 import type {
+  CreateNotificationEventInput,
   CreateNotificationForSourceInput,
   CreateNotificationResult,
   NotificationPreferenceUpdateInput,
@@ -118,9 +119,19 @@ export async function createNotificationForSource(
   input: CreateNotificationForSourceInput
 ): Promise<CreateNotificationResult> {
   const { workspace } = await resolveWorkspaceContext(repository, session, workspaceSlug, "viewer");
-  const recipients = await filterRecipients(repository, workspace.id, input);
-  const event = await repository.upsertNotificationEvent({
+  return createNotificationForWorkspace(repository, {
     workspaceId: workspace.id,
+    ...input
+  });
+}
+
+export async function createNotificationForWorkspace(
+  repository: NotificationRepository,
+  input: CreateNotificationForSourceInput & Pick<CreateNotificationEventInput, "workspaceId">
+): Promise<CreateNotificationResult> {
+  const recipients = await filterRecipients(repository, input.workspaceId, input);
+  const event = await repository.upsertNotificationEvent({
+    workspaceId: input.workspaceId,
     projectId: input.projectId ?? null,
     workItemId: input.workItemId ?? null,
     sourceType: input.sourceType,
@@ -138,7 +149,7 @@ export async function createNotificationForSource(
     event,
     recipients: await repository.insertNotificationRecipients({
       eventId: event.id,
-      workspaceId: workspace.id,
+      workspaceId: input.workspaceId,
       recipients
     })
   };

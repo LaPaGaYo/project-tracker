@@ -11,7 +11,9 @@ import {
   projects,
   taskGithubStatus,
   tasks,
-  workItemGithubLinks
+  workItemGithubLinks,
+  workspaces,
+  workspaceMembers
 } from "@the-platform/db";
 import type {
   GithubCheckRollupStatus,
@@ -26,7 +28,12 @@ import type {
 import { insertActivityLogEntry } from "../activity/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
 
-import type { GithubConnectionRepository, ProjectGithubConnectionView } from "./types";
+import type {
+  GithubConnectionRepository,
+  GithubNotificationTarget,
+  GithubRepositoryNotificationContext,
+  ProjectGithubConnectionView
+} from "./types";
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;
@@ -86,6 +93,28 @@ function serializeGithubWebhookDelivery(row: typeof githubWebhookDeliveries.$inf
     receivedAt: row.receivedAt.toISOString(),
     processedAt: toIso(row.processedAt),
     errorMessage: row.errorMessage
+  };
+}
+
+function serializeGithubNotificationTarget(row: {
+  workspaceId: string;
+  workspaceSlug: string;
+  projectId: string;
+  projectKey: string;
+  workItemId: string;
+  workItemIdentifier: string | null;
+  workItemTitle: string;
+  assigneeId: string | null;
+}): GithubNotificationTarget {
+  return {
+    workspaceId: row.workspaceId,
+    workspaceSlug: row.workspaceSlug,
+    projectId: row.projectId,
+    projectKey: row.projectKey,
+    workItemId: row.workItemId,
+    workItemIdentifier: row.workItemIdentifier,
+    workItemTitle: row.workItemTitle,
+    assigneeId: row.assigneeId
   };
 }
 
@@ -399,6 +428,31 @@ async function rebuildProjectTaskGithubStatuses(
   }
 }
 
+async function listGithubNotificationTargetsByHeadSha(
+  repositoryId: string,
+  headSha: string
+): Promise<GithubNotificationTarget[]> {
+  const rows = await db
+    .select({
+      workspaceId: projects.workspaceId,
+      workspaceSlug: workspaces.slug,
+      projectId: projects.id,
+      projectKey: projects.key,
+      workItemId: tasks.id,
+      workItemIdentifier: tasks.identifier,
+      workItemTitle: tasks.title,
+      assigneeId: tasks.assigneeId
+    })
+    .from(githubPullRequests)
+    .innerJoin(workItemGithubLinks, eq(githubPullRequests.id, workItemGithubLinks.pullRequestId))
+    .innerJoin(tasks, eq(workItemGithubLinks.workItemId, tasks.id))
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
+    .where(and(eq(githubPullRequests.repositoryId, repositoryId), eq(githubPullRequests.headSha, headSha)));
+
+  return rows.map(serializeGithubNotificationTarget);
+}
+
 export function createGithubConnectionRepository(): GithubConnectionRepository {
   const workspaceRepository = createWorkspaceRepository();
 
@@ -491,6 +545,48 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
         .returning();
 
       return delivery ? serializeGithubWebhookDelivery(delivery) : null;
+    },
+
+    async getGithubRepositoryNotificationContext(repositoryId) {
+      const [row] = await db
+        .select({
+          workspaceId: projects.workspaceId,
+          workspaceSlug: workspaces.slug,
+          projectId: projects.id,
+          projectKey: projects.key,
+          repositoryFullName: githubRepositories.fullName
+        })
+        .from(projectGithubConnections)
+        .innerJoin(githubRepositories, eq(projectGithubConnections.repositoryId, githubRepositories.id))
+        .innerJoin(projects, eq(projectGithubConnections.projectId, projects.id))
+        .innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
+        .where(eq(projectGithubConnections.repositoryId, repositoryId))
+        .limit(1);
+
+      if (!row) {
+        return null;
+      }
+
+      const adminRows = await db
+        .select({
+          userId: workspaceMembers.userId
+        })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, row.workspaceId),
+            inArray(workspaceMembers.role, ["owner", "admin"])
+          )
+        );
+
+      return {
+        workspaceId: row.workspaceId,
+        workspaceSlug: row.workspaceSlug,
+        projectId: row.projectId,
+        projectKey: row.projectKey,
+        repositoryFullName: row.repositoryFullName,
+        adminRecipientIds: adminRows.map((admin) => admin.userId)
+      } satisfies GithubRepositoryNotificationContext;
     },
 
     async createProjectGithubConnection(input) {
@@ -670,6 +766,39 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
       });
     },
 
+    async listGithubNotificationTargetsForPullRequest(repositoryId, providerPullRequestId) {
+      const [pullRequest] = await db
+        .select({
+          headSha: githubPullRequests.headSha
+        })
+        .from(githubPullRequests)
+        .where(
+          and(
+            eq(githubPullRequests.repositoryId, repositoryId),
+            eq(githubPullRequests.providerPullRequestId, providerPullRequestId)
+          )
+        )
+        .limit(1);
+
+      if (!pullRequest) {
+        return [];
+      }
+
+      return listGithubNotificationTargetsByHeadSha(repositoryId, pullRequest.headSha);
+    },
+
+    async getGithubCheckRollupStatus(repositoryId, headSha) {
+      const [rollup] = await db
+        .select({
+          status: githubCheckRollups.status
+        })
+        .from(githubCheckRollups)
+        .where(and(eq(githubCheckRollups.repositoryId, repositoryId), eq(githubCheckRollups.headSha, headSha)))
+        .limit(1);
+
+      return rollup?.status ?? null;
+    },
+
     async applyCheckRollupWebhookProjection(input) {
       await db.transaction(async (tx) => {
         await tx
@@ -701,6 +830,10 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
 
         await rebuildProjectTaskGithubStatuses(tx, binding.project.id, binding.connection);
       });
+    },
+
+    async listGithubNotificationTargetsForHeadSha(repositoryId, headSha) {
+      return listGithubNotificationTargetsByHeadSha(repositoryId, headSha);
     },
 
     async applyDeploymentWebhookProjection(input) {

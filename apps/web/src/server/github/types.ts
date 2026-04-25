@@ -11,6 +11,7 @@ import type {
   ProjectRecord
 } from "@the-platform/shared";
 
+import type { NotificationRepository } from "../notifications/types";
 import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateProjectGithubConnectionInput {
@@ -27,6 +28,30 @@ export interface CreateProjectGithubConnectionInput {
 export interface ProjectGithubConnectionView {
   connection: ProjectGithubConnectionRecord;
   repository: GithubRepositoryRecord;
+}
+
+export interface GithubNotificationDependencies {
+  notificationRepository?: NotificationRepository;
+}
+
+export interface GithubNotificationTarget {
+  workspaceId: string;
+  workspaceSlug: string;
+  projectId: string;
+  projectKey: string;
+  workItemId: string;
+  workItemIdentifier: string | null;
+  workItemTitle: string;
+  assigneeId: string | null;
+}
+
+export interface GithubRepositoryNotificationContext {
+  workspaceId: string;
+  workspaceSlug: string;
+  projectId: string;
+  projectKey: string;
+  repositoryFullName: string;
+  adminRecipientIds: string[];
 }
 
 export interface GithubWebhookRepository {
@@ -49,6 +74,9 @@ export interface GithubWebhookRepository {
       errorMessage?: string | null;
     }
   ): Promise<GithubWebhookDeliveryRecord | null>;
+  getGithubRepositoryNotificationContext(
+    repositoryId: string
+  ): Promise<GithubRepositoryNotificationContext | null>;
 }
 
 export interface GithubConnectionRepository
@@ -90,6 +118,14 @@ export interface GithubConnectionRepository
     bodyIdentifiers: string[];
     branchIdentifiers: string[];
   }): Promise<void>;
+  listGithubNotificationTargetsForPullRequest(
+    repositoryId: string,
+    providerPullRequestId: string
+  ): Promise<GithubNotificationTarget[]>;
+  getGithubCheckRollupStatus(
+    repositoryId: string,
+    headSha: string
+  ): Promise<GithubCheckRollupStatus | null>;
   applyCheckRollupWebhookProjection(input: {
     repositoryId: string;
     headSha: string;
@@ -98,6 +134,10 @@ export interface GithubConnectionRepository
     checkCount: number;
     completedAt: string | null;
   }): Promise<void>;
+  listGithubNotificationTargetsForHeadSha(
+    repositoryId: string,
+    headSha: string
+  ): Promise<GithubNotificationTarget[]>;
   applyDeploymentWebhookProjection(input: {
     repositoryId: string;
     providerDeploymentId: string;
