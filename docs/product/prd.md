@@ -1,142 +1,168 @@
-# PRD: Phase 5 — Detail & Comments
+# PRD: Phase 6 - Live Engineering Integration
 
 ## Overview
 
-Add work item detail panel with inline editing, markdown descriptions with version history, comments, and a unified activity timeline.
+Replace the seeded/manual engineering status projection with a real GitHub integration. Phase 6 connects a project to a GitHub repository, ingests PR/check/deploy events, derives the local work-item engineering read model, and surfaces that state in the project workspace.
 
 ## Scope Sections
 
-### 5.1 Slide-over Detail Panel
+### 6.1 Repository Connection
 
-A right-side panel that opens when clicking any work item from board or list views.
-
-**Requirements:**
-- Panel slides in from the right, overlaying the current view (board or list stays visible underneath with a dimmed backdrop)
-- URL updates to `/workspaces/[slug]/projects/[key]/items/[identifier]`
-- Direct URL navigation opens the panel over the default project view
-- Close button and Escape key dismiss the panel
-- Panel width: ~600px on desktop, full-width on mobile
-- Panel shows: title, description, metadata sidebar, timeline
-
-**Layout:**
-- Top: title (editable inline)
-- Left column: description + timeline
-- Right sidebar: metadata fields (type, priority, assignee, state, parent, labels, created/updated dates)
-
-### 5.2 Inline Field Editing
-
-All metadata fields and title are editable directly on the detail panel.
+A project can be associated with one primary GitHub repository.
 
 **Requirements:**
-- Click-to-edit on title (text input)
-- Dropdown selectors for: type, priority, assignee, workflow state
-- Parent work item selector (search/select from same project)
-- Optimistic UI updates with server reconciliation
-- Debounced save for title (500ms after last keystroke)
-- Immediate save on dropdown selections
-- Activity log entry created for each field change
-- RBAC: only Member+ can edit
+- Store GitHub repository metadata locally: provider id, owner, name, full name, default branch, installation id, and active state.
+- Store the project-to-repository connection with staging and production environment labels.
+- Enforce one primary repository per project.
+- Allow only owner/admin roles to create or update the connection.
+- Surface repository connection status in the project workspace projection.
 
-### 5.3 Markdown Description
+### 6.2 Webhook Verification and Delivery Receipts
 
-Full markdown editor for work item descriptions with preview and version history.
+GitHub events enter through a server-side webhook route.
 
 **Requirements:**
-- Textarea with markdown input
-- Toggle between "Write" and "Preview" modes
-- Preview renders GitHub-flavored markdown (headings, bold, italic, code blocks, links, lists, tables)
-- `@username` text renders with visual highlight in preview (stub, no autocomplete)
-- Save button commits description changes
-- Each save creates a new version in `description_versions` table
-- "History" toggle shows list of previous versions with timestamps and authors
-- Clicking a version shows diff against current (added lines in green, removed in red)
-- RBAC: only Member+ can edit
+- Add `POST /api/webhooks/github`.
+- Verify `X-Hub-Signature-256` using the configured webhook secret.
+- Reject invalid signatures before any domain write.
+- Persist verified delivery receipts with delivery id, event name, action, status, payload, and error summary.
+- Treat duplicate delivery ids as idempotent duplicates.
 
-**Data model:**
+### 6.3 Normalized GitHub Domain Model
+
+Persist GitHub data in durable tables before deriving UI state.
+
+**Requirements:**
+- Add normalized records for repositories, project connections, pull requests, check rollups, deployments, work item links, and webhook deliveries.
+- Upsert pull request events by repository and PR number/provider id.
+- Upsert check rollups by repository and head SHA.
+- Upsert deployments by repository, SHA, environment, and provider deployment id.
+- Preserve `task_github_status` as the UI-facing read model.
+
+### 6.4 Work Item Auto-linking
+
+Automatically associate GitHub activity with work items when safe.
+
+**Requirements:**
+- Parse work item identifiers from PR title, PR body, and branch name.
+- Link only when the identifier resolves to exactly one work item in the project.
+- Store link source, confidence, branch, repository, and PR relationship in `work_item_github_links`.
+- Leave ambiguous or missing matches unlinked.
+- Recalculate `task_github_status` after link-affecting events.
+
+### 6.5 Worker Reconciliation
+
+The worker repairs and backfills engineering state outside request handlers.
+
+**Requirements:**
+- Replace the placeholder worker entrypoint with real reconciliation modes.
+- Support repository backfill after connection.
+- Support failed delivery replay.
+- Support linked repository resync.
+- Keep all worker paths safe to re-run.
+- Provide explicit logs for what was reconciled.
+
+### 6.6 Project Workspace UI
+
+Expose live engineering state where users make execution decisions.
+
+**Requirements:**
+- Board cards show compact `PR / CI / Deploy` chips when engineering data exists.
+- List rows show the same signals in dense form.
+- Issue detail shows read-only repository, branch, PR, check, and deployment context.
+- The `Engineering` view shows repository sync health, linked PRs, failing checks, deployments, and issue summaries.
+- Existing create, edit, comment, and timeline behavior remains unchanged.
+
+### 6.7 Verification
+
+Automated coverage must prove the integration chain without requiring live GitHub network access.
+
+**Requirements:**
+- Shared contract typecheck passes.
+- DB schema and migration tests pass.
+- GitHub connection RBAC and project mapping tests pass.
+- Webhook signature, dedupe, and persistence tests pass.
+- Projection tests cover PR/check/deploy rollups and work item linking.
+- Worker tests cover backfill, failed delivery replay, and linked repository resync.
+- UI tests cover board/list chips, issue detail engineering context, and engineering view sections.
+- Full repo lint, typecheck, test, and build pass.
+
+## Data Model
+
 ```
-description_versions:
+github_repositories:
   id: uuid PK
-  work_item_id: uuid FK -> work_items.id
-  content: text
-  author_id: text (Clerk user ID)
-  created_at: timestamp
-```
+  workspace_id: uuid FK
+  provider: text
+  provider_repository_id: text
+  owner: text
+  name: text
+  full_name: text
+  default_branch: text
+  installation_id: text
+  is_active: boolean
 
-### 5.4 Comments
-
-First-class comment entities on work items.
-
-**Requirements:**
-- Comment input area at bottom of timeline with markdown support
-- Submit creates comment with author attribution
-- Each comment shows: author, timestamp, rendered markdown content
-- Edit own comments (inline edit mode, same markdown input)
-- Delete own comments (with confirmation)
-- Admin/Owner can delete any comment
-- Activity log entry for: comment_created, comment_edited, comment_deleted
-- Comments ordered chronologically (oldest first)
-- RBAC: only Member+ can add/edit/delete comments
-
-**Data model:**
-```
-comments:
+project_github_connections:
   id: uuid PK
-  work_item_id: uuid FK -> work_items.id
-  author_id: text (Clerk user ID)
-  content: text (markdown)
-  created_at: timestamp
-  updated_at: timestamp
-  deleted_at: timestamp (soft delete)
+  project_id: uuid FK
+  repository_id: uuid FK
+  is_primary: boolean
+  staging_environment: text
+  production_environment: text
+
+github_pull_requests:
+  id: uuid PK
+  repository_id: uuid FK
+  provider_pull_request_id: text
+  number: integer
+  title: text
+  body_excerpt: text
+  url: text
+  state: text
+  draft: boolean
+  base_branch: text
+  head_branch: text
+  head_sha: text
+
+github_check_rollups:
+  id: uuid PK
+  repository_id: uuid FK
+  head_sha: text
+  status: text
+  conclusion: text
+  url: text
+
+github_deployments:
+  id: uuid PK
+  repository_id: uuid FK
+  provider_deployment_id: text
+  environment: text
+  sha: text
+  state: text
+  url: text
+
+work_item_github_links:
+  id: uuid PK
+  work_item_id: uuid FK
+  repository_id: uuid FK
+  pull_request_id: uuid FK nullable
+  branch_name: text nullable
+  source: text
+  confidence: text
+
+github_webhook_deliveries:
+  id: uuid PK
+  delivery_id: text unique
+  event_name: text
+  action: text
+  status: text
+  payload: jsonb
+  error_summary: text nullable
 ```
-
-### 5.5 Unified Activity Timeline
-
-Single chronological feed mixing activity log entries and comments.
-
-**Requirements:**
-- Fetch activity log entries + comments for the work item
-- Merge and sort by timestamp (ascending, oldest first)
-- Activity entries render as compact one-liners: "[User] changed [field] from [old] to [new]"
-- Comments render with full markdown content, author avatar placeholder, and timestamp
-- Infinite scroll or "load more" for items with many entries
-- New entries appear at the bottom
-
-### 5.6 Navigation Integration
-
-Wire the detail panel into existing board and list views.
-
-**Requirements:**
-- Board view: clicking a card opens the detail panel
-- List view: clicking a row opens the detail panel
-- Panel respects existing filter/sort state (underlying view unchanged)
-- Browser back button closes panel (URL history management)
-- Keyboard: Escape closes panel
-
-### 5.7 Contract Tests
-
-Automated tests covering the new functionality.
-
-**Requirements:**
-- Comment CRUD operations (create, read, update, soft-delete)
-- Permission boundaries (Viewer cannot comment, Member can, Admin can delete any)
-- Description versioning (save creates version, versions are retrievable)
-- Field update creates activity log entry
-- Timeline merging (activity + comments sorted correctly)
-
-## Technical Notes
-
-- New database tables: `comments`, `description_versions`
-- New Drizzle migration for both tables
-- New server modules: `apps/web/src/server/comments/` (repository, service, types)
-- Extend work-items service with description versioning
-- React components: `DetailPanel`, `DescriptionEditor`, `CommentList`, `CommentInput`, `Timeline`, `MetadataSidebar`, `DiffViewer`
-- Markdown rendering: `react-markdown` with `remark-gfm` plugin
-- Diff rendering: `diff` npm package for computing text diffs
-- Panel routing: Next.js intercepting routes or client-side state with URL sync
 
 ## Exit Criteria
 
-- All 11 success criteria from the decision brief are met
-- Contract tests pass in CI
-- No regression in existing board/list functionality
-- RBAC boundaries verified in tests
+- All 11 success criteria from the decision brief are met.
+- Phase 6 tests pass without live GitHub network access.
+- Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+- Product docs identify Phase 7 as notifications and collaboration follow-ons.

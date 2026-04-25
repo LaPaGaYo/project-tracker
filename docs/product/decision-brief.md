@@ -1,80 +1,89 @@
-# Decision Brief: Phase 5 — Detail & Comments
+# Decision Brief: Phase 6 - Live Engineering Integration
 
 ## Context
 
-Phase 4 shipped board and list views. Users can see and organize work items but cannot open them to read descriptions, leave comments, or edit fields. Phase 5 adds the detail experience that makes work items usable.
+Phase 5 completed the functional project workspace: board/list execution, work item detail, comments, planning, overview, docs, and engineering views all live under `/workspaces/[slug]/projects/[key]`. Phase 6 makes the engineering layer real by connecting project work items to GitHub repository activity.
+
+The product direction remains: Jira for execution structure, GitHub for live engineering status, and Notion-like lightness for planning and docs.
 
 ## Key Decisions
 
-### 1. Slide-over Panel (not full-page navigation)
+### 1. Webhook-first GitHub integration
 
-Work item detail opens as a right-side panel overlaying the current view (board or list). The URL updates for deep linking. Closing the panel returns to the underlying view without a page reload.
+GitHub events enter through `POST /api/webhooks/github`. The route verifies the webhook signature, persists a delivery receipt, and then hands off to domain projection logic.
 
-**Why:** Linear proved this pattern. Users stay oriented in their board/list context while working on individual items. No back-button confusion.
+**Why:** Webhooks give fast updates without calling GitHub during page render. Persisted receipts make delivery idempotency, replay, and operator diagnosis possible.
 
-**Implementation:** Next.js parallel routes or intercepting routes pattern. Panel component renders over current page content.
+### 2. Local Postgres read model
 
-### 2. Markdown for Descriptions and Comments
+The UI reads local tables, with `task_github_status` kept as the compact work-item summary model. Normalized GitHub tables sit beneath it and drive recalculation.
 
-Both descriptions and comments support GitHub-flavored markdown. Rendered with react-markdown or similar.
+**Why:** Board, detail, and engineering pages need predictable load times and should keep working from the last known state when GitHub is unavailable.
 
-**Why:** Developers expect markdown. Code blocks, links, lists are table stakes for a project management tool targeting engineering teams.
+### 3. One primary repository per project
 
-### 3. @mentions Stubbed (visual only)
+Phase 6 supports a single primary GitHub repository connection per project.
 
-`@username` text renders with visual styling (highlight color, distinct font weight) but no autocomplete dropdown, no user lookup, no notification dispatch.
+**Why:** This keeps the first live integration shippable while preserving a clear path to multi-repo orchestration later.
 
-**Why:** Full @mentions requires notification infrastructure (Phase 7). Stubbing the visual treatment now means we don't have to redesign comments later.
+### 4. Unambiguous identifier auto-linking
 
-### 4. Description Edit History with Diffs
+Work items link to GitHub activity when an identifier appears in PR title, PR body, or branch name and resolves to exactly one work item.
 
-Store previous description versions. Show what changed between edits (added/removed lines).
+**Why:** Automatic linking creates the product value. Refusing ambiguous matches protects trust in the board.
 
-**Why:** Accountability and context. When someone changes a spec, the team needs to see what moved.
+### 5. Worker-backed reconciliation
 
-**Implementation:** `description_versions` table storing previous content + timestamp + author. Diff computed client-side with a lightweight diff library.
+The worker owns backfill, failed delivery replay, and linked repository resync.
 
-### 5. Comments Table (not activity log entries)
+**Why:** Webhooks are the fast path, but production integrations need a repair path. Reconciliation must be safe to re-run.
 
-Comments are a first-class entity with their own table, not just a type of activity log entry. Activity log records "comment added/edited/deleted" events separately.
+### 6. Read-only engineering facts in the UI
 
-**Why:** Comments need edit/delete, markdown content, and potentially threading later. Mixing them into the activity log makes queries and permissions awkward.
+Board cards, list rows, issue detail, and the engineering page display GitHub state. Editing GitHub records from the product UI is out of scope for Phase 6.
 
-### 6. Unified Timeline
+**Why:** The product should expose engineering truth without pretending to be a GitHub replacement.
 
-The detail page shows one chronological timeline mixing activity log entries and comments. Comments are visually distinct (full content rendered) vs. activity entries (one-line summaries).
+## Non-Goals
 
-**Why:** Users want one place to see "what happened on this item" without switching tabs.
-
-## Non-Goals (Phase 5)
-
-- File/image attachments
-- Real-time collaborative editing or live updates
-- @mention autocomplete or notifications
-- Emoji reactions on comments
-- Nested comment threads (replies to replies)
-- Bulk editing from detail view
-- Rich text WYSIWYG editor (markdown textarea + preview is sufficient)
+- Multi-repository projects
+- Manual PR/link management UI for ambiguous matches
+- Browser-side GitHub API calls
+- Editable docs/wiki system
+- Notifications and mention dispatch
+- Real-time collaborative editing
+- Portfolio reporting
 
 ## RBAC Rules
 
-| Role | Read Detail | Edit Fields | Add Comments | Edit Own Comments | Delete Own Comments |
-|------|-------------|-------------|--------------|-------------------|---------------------|
-| Viewer | Yes | No | No | No | No |
-| Member | Yes | Yes | Yes | Yes | Yes |
-| Admin | Yes | Yes | Yes | Yes | Yes (+ delete any) |
-| Owner | Yes | Yes | Yes | Yes | Yes (+ delete any) |
+| Role | Read Engineering State | Connect Repository | Process Webhooks | Edit Work Item Fields |
+|------|------------------------|--------------------|------------------|-----------------------|
+| Viewer | Yes | No | No | No |
+| Member | Yes | No | No | Yes |
+| Admin | Yes | Yes | No | Yes |
+| Owner | Yes | Yes | No | Yes |
+| System/Webhook | No UI access | No | Yes | Derived writes only |
 
 ## Success Criteria
 
-1. Click any work item from board or list -> slide-over panel opens with full detail
-2. URL updates to `/workspaces/[slug]/projects/[key]/items/[identifier]` when panel opens
-3. Direct URL navigation renders the detail panel over the default view
-4. Edit title, description, type, priority, assignee, state inline with optimistic UI
-5. Description supports markdown with live preview
-6. Description edit history shows diffs between versions
-7. Add/edit/delete comments with markdown support
-8. Unified timeline shows activity + comments chronologically
-9. RBAC enforced on all mutations
-10. All changes create activity log entries
-11. Contract tests cover comment CRUD, permission boundaries, description versioning
+1. A project has one primary repository connection with owner/admin mutation rules.
+2. GitHub webhook signatures are verified before any domain write.
+3. Verified deliveries are persisted and duplicate deliveries are idempotent.
+4. Pull request, check, and deployment payloads update normalized GitHub records.
+5. Work items auto-link to GitHub activity when identifier matching is unambiguous.
+6. `task_github_status` updates from normalized GitHub state.
+7. Board cards and list rows show compact `PR / CI / Deploy` chips.
+8. Issue detail shows repository, branch, PR, check, and deploy context.
+9. The engineering page shows repository sync health, linked PRs, failing checks, deployments, and issue summaries.
+10. Worker reconciliation can backfill, replay failed deliveries, and resync linked repository state safely.
+11. Existing Phase 5 create/edit/comment behavior remains intact.
+
+## Next Phase
+
+Phase 7 should focus on notifications and collaboration follow-ons:
+
+- mention notification dispatch
+- activity notifications for comments, assignments, status changes, PR/check/deploy changes
+- real-time or near-real-time UI refresh
+- manual handling for ambiguous GitHub links
+- persisted docs/collaboration improvements if notifications are stable
