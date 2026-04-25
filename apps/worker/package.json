@@ -8,6 +8,7 @@
     "dev": "tsx src/index.ts",
     "lint": "eslint src --max-warnings=0",
     "start": "tsx src/index.ts",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
