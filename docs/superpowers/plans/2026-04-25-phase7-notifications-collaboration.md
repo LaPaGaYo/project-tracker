@@ -67,7 +67,7 @@
 - Create: `apps/web/src/server/notifications/service.ts`
 - Create: `tests/phase7-notifications-service.test.mjs`
 
-- [ ] Define repository methods for:
+- [x] Define repository methods for:
   - `upsertNotificationEvent`
   - `insertNotificationRecipients`
   - `getNotificationPreferences`
@@ -77,21 +77,21 @@
   - `markAllNotificationsReadForUser`
   - `listWorkspaceMembers`
   - `getWorkItemParticipants`
-- [ ] Implement serialization helpers that return shared notification record types.
-- [ ] Implement service methods:
+- [x] Implement serialization helpers that return shared notification record types.
+- [x] Implement service methods:
   - `createNotificationForSource`
   - `listNotificationsForUser`
   - `markNotificationReadForUser`
   - `markAllNotificationsReadForUser`
   - `getNotificationPreferencesForUser`
   - `updateNotificationPreferencesForUser`
-- [ ] Implement preference filtering before recipient rows are inserted.
-- [ ] Prevent self-notifications by removing the actor from the resolved recipient list.
-- [ ] Enforce workspace membership for every read or mutation.
-- [ ] Add contract tests for idempotency, preference filtering, self-notification suppression, and cross-workspace isolation.
-- [ ] Run: `node --import tsx --test tests/phase7-notifications-service.test.mjs`
-- [ ] Expected: PASS with the service usable independently from comments or GitHub.
-- [ ] Commit: `feat: add notification service`
+- [x] Implement preference filtering before recipient rows are inserted.
+- [x] Prevent self-notifications by removing the actor from the resolved recipient list.
+- [x] Enforce workspace membership for every read or mutation.
+- [x] Add contract tests for idempotency, preference filtering, self-notification suppression, and cross-workspace isolation.
+- [x] Run: `node --import tsx --test tests/phase7-notifications-service.test.mjs`
+- [x] Expected: PASS with the service usable independently from comments or GitHub.
+- [x] Commit: `feat: add notification service`
 
 ### Task 4: Emit Notifications From Comments and Mentions
 
