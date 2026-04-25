@@ -1,5 +1,7 @@
-import type { PlanItemRecord, ProjectStageRecord, WorkItemRecord } from "@the-platform/shared";
+import type { PlanItemRecord, ProjectRecord, ProjectStageRecord, WorkItemRecord } from "@the-platform/shared";
 
+import { createNotificationForSource } from "../notifications/service";
+import type { NotificationRecipientInput, NotificationRepository } from "../notifications/types";
 import { hasMinimumRole, WorkspaceError } from "../workspaces/core";
 import {
   normalizeLabels,
@@ -19,8 +21,148 @@ import type {
   ListWorkItemFilters,
   MoveWorkItemInput,
   UpdateWorkItemInput,
+  WorkItemNotificationDependencies,
   WorkItemRepository
 } from "./types";
+
+function workItemUrl(workspaceSlug: string, projectKey: string, workItem: WorkItemRecord) {
+  return `/workspaces/${workspaceSlug}/projects/${projectKey}/items/${workItem.identifier ?? workItem.id}`;
+}
+
+function workItemChangeSourceId(workItem: WorkItemRecord, changeKind: string, value: string | null) {
+  return `${workItem.id}:${changeKind}:${value ?? "none"}:${workItem.updatedAt}`;
+}
+
+function uniqueRecipients(recipients: NotificationRecipientInput[]) {
+  const seen = new Set<string>();
+
+  return recipients.filter((recipient) => {
+    const key = `${recipient.recipientId}:${recipient.reason}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function participantRecipients(assigneeId: string | null, participantIds: string[]) {
+  return uniqueRecipients([
+    ...(assigneeId
+      ? [
+          {
+            recipientId: assigneeId,
+            reason: "assigned" as const
+          }
+        ]
+      : []),
+    ...participantIds
+      .filter((participantId) => participantId !== assigneeId)
+      .map(
+        (participantId): NotificationRecipientInput => ({
+          recipientId: participantId,
+          reason: "participant"
+        })
+      )
+  ]);
+}
+
+async function emitWorkItemChangeNotifications(
+  notificationRepository: NotificationRepository | undefined,
+  session: AppSession,
+  workspaceSlug: string,
+  project: ProjectRecord,
+  current: WorkItemRecord,
+  updated: WorkItemRecord
+) {
+  if (!notificationRepository) {
+    return;
+  }
+
+  const url = workItemUrl(workspaceSlug, project.key, updated);
+  const metadata = {
+    identifier: updated.identifier,
+    before: {
+      assigneeId: current.assigneeId,
+      workflowStateId: current.workflowStateId,
+      priority: current.priority
+    },
+    after: {
+      assigneeId: updated.assigneeId,
+      workflowStateId: updated.workflowStateId,
+      priority: updated.priority
+    }
+  };
+
+  if (current.assigneeId !== updated.assigneeId && updated.assigneeId) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "assignment", updated.assigneeId),
+      eventType: "assignment_changed",
+      actorId: session.userId,
+      priority: "normal",
+      title: `${updated.identifier ?? updated.title} assigned to you`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients: [
+        {
+          recipientId: updated.assigneeId,
+          reason: "assigned"
+        }
+      ]
+    });
+  }
+
+  const shouldNotifyStateChange = current.workflowStateId !== updated.workflowStateId;
+  const shouldNotifyPriorityRaised = current.priority !== "urgent" && updated.priority === "urgent";
+  if (!shouldNotifyStateChange && !shouldNotifyPriorityRaised) {
+    return;
+  }
+
+  const participants = await notificationRepository.getWorkItemParticipants(updated.id);
+  const recipients = participantRecipients(updated.assigneeId, participants);
+  if (recipients.length === 0) {
+    return;
+  }
+
+  if (shouldNotifyStateChange) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "state", updated.workflowStateId),
+      eventType: "state_changed",
+      actorId: session.userId,
+      priority: "normal",
+      title: `${updated.identifier ?? updated.title} changed state`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients
+    });
+  }
+
+  if (shouldNotifyPriorityRaised) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "priority", updated.priority),
+      eventType: "priority_raised",
+      actorId: session.userId,
+      priority: "high",
+      title: `${updated.identifier ?? updated.title} is urgent`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients
+    });
+  }
+}
 
 async function resolveProjectContext(
   repository: WorkItemRepository,
@@ -297,7 +439,8 @@ export async function moveWorkItemForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: MoveWorkItemInput
+  input: MoveWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -326,6 +469,15 @@ export async function moveWorkItemForUser(
     throw new WorkspaceError(404, "work item not found.");
   }
 
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    current,
+    updated
+  );
+
   return updated;
 }
 
@@ -335,7 +487,8 @@ export async function moveWorkItemsForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: MoveWorkItemInput
+  input: MoveWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -361,6 +514,11 @@ export async function moveWorkItemsForUser(
   );
 
   const currentByIdentifier = new Map(currentItems.map((item) => [item.identifier, item]));
+  const primaryCurrent = currentByIdentifier.get(identifier);
+  if (!primaryCurrent) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
   const normalizedUpdates = await Promise.all(
     rawUpdates.map(async (entry) => {
       const current = currentByIdentifier.get(requireIdentifier(entry.identifier));
@@ -393,6 +551,15 @@ export async function moveWorkItemsForUser(
   if (!updated) {
     throw new WorkspaceError(404, "work item not found.");
   }
+
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    primaryCurrent,
+    updated
+  );
 
   return updated;
 }
@@ -450,7 +617,8 @@ export async function updateWorkItemForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: UpdateWorkItemInput
+  input: UpdateWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey, "member");
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -506,6 +674,15 @@ export async function updateWorkItemForUser(
   if (!updated) {
     throw new WorkspaceError(404, "work item not found.");
   }
+
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    current,
+    updated
+  );
 
   return updated;
 }

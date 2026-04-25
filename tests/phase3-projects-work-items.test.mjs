@@ -11,6 +11,7 @@ import {
 } from "../apps/web/src/server/projects/service.ts";
 import { createProjectRepository } from "../apps/web/src/server/projects/repository.ts";
 import { handleListProjects } from "../apps/web/src/server/api/project-handlers.ts";
+import { createNotificationRepository } from "../apps/web/src/server/notifications/repository.ts";
 import {
   createWorkItemForUser,
   deleteWorkItemForUser,
@@ -65,6 +66,7 @@ function createNamedSession(prefix) {
 function createRepositories() {
   return {
     activityRepository: createActivityRepository(),
+    notificationRepository: createNotificationRepository(),
     projectRepository: createProjectRepository(),
     workItemRepository: createWorkItemRepository(),
     workflowStateRepository: createWorkflowStateRepository(),
@@ -77,6 +79,7 @@ function createProjectHandlerDependencies(session, repositories) {
     getSession: async () => session,
     projectRepository: repositories.projectRepository,
     workItemRepository: repositories.workItemRepository,
+    notificationRepository: repositories.notificationRepository,
     workflowStateRepository: repositories.workflowStateRepository,
     activityRepository: repositories.activityRepository
   };

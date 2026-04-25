@@ -127,16 +127,16 @@
 - Modify: `tests/phase3-projects-work-items.test.mjs`
 - Create: `tests/phase7-work-item-notifications.test.mjs`
 
-- [ ] Add notification dependencies to work item update flows after the repository mutation succeeds.
-- [ ] Emit `assignment_changed` when a user is assigned or reassigned.
-- [ ] Emit `state_changed` for assignees and participants when workflow state changes.
-- [ ] Emit `priority_raised` when priority moves to `urgent`.
-- [ ] Resolve participants from assignee, creator activity, and prior commenters.
-- [ ] Keep existing activity log entries unchanged.
-- [ ] Add tests for assignment, state change, urgent priority, participant resolution, and no self-notification.
-- [ ] Run: `node --import tsx --test tests/phase3-projects-work-items.test.mjs tests/phase7-work-item-notifications.test.mjs`
-- [ ] Expected: PASS with notification generation layered onto current work item mutation behavior.
-- [ ] Commit: `feat: notify users from work item changes`
+- [x] Add notification dependencies to work item update flows after the repository mutation succeeds.
+- [x] Emit `assignment_changed` when a user is assigned or reassigned.
+- [x] Emit `state_changed` for assignees and participants when workflow state changes.
+- [x] Emit `priority_raised` when priority moves to `urgent`.
+- [x] Resolve participants from assignee, creator activity, and prior commenters.
+- [x] Keep existing activity log entries unchanged.
+- [x] Add tests for assignment, state change, urgent priority, participant resolution, and no self-notification.
+- [x] Run: `node --import tsx --test tests/phase3-projects-work-items.test.mjs tests/phase7-work-item-notifications.test.mjs`
+- [x] Expected: PASS with notification generation layered onto current work item mutation behavior.
+- [x] Commit: `feat: notify users from work item changes`
 
 ### Task 6: Emit Notifications From GitHub Engineering Changes
 

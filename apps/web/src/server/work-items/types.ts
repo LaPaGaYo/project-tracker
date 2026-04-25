@@ -7,6 +7,7 @@ import type {
   WorkItemRecord
 } from "@the-platform/shared";
 
+import type { NotificationRepository } from "../notifications/types";
 import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateWorkItemInput {
@@ -58,6 +59,10 @@ export interface ListWorkItemFilters {
   assigneeId?: string;
   workflowStateIds?: string[];
   sort?: WorkItemSort;
+}
+
+export interface WorkItemNotificationDependencies {
+  notificationRepository?: NotificationRepository;
 }
 
 export interface WorkItemRepository

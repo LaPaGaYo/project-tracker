@@ -326,7 +326,7 @@ export function createNotificationRepository(): NotificationRepository {
             userId: activityLog.actorId
           })
           .from(activityLog)
-          .where(eq(activityLog.entityId, workItemId))
+          .where(and(eq(activityLog.entityId, workItemId), eq(activityLog.action, "created")))
       ]);
 
       return Array.from(new Set([...commentRows, ...activityRows].map((row) => row.userId)));
