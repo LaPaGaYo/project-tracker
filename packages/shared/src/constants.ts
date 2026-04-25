@@ -110,6 +110,37 @@ export const githubWebhookDeliveryStatuses = ["pending", "processed", "ignored",
   ...string[]
 ];
 
+export const notificationSourceTypes = ["comment", "work_item", "github", "system"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
+export const notificationEventTypes = [
+  "comment_created",
+  "mention_created",
+  "assignment_changed",
+  "state_changed",
+  "priority_raised",
+  "github_pr_changed",
+  "github_check_changed",
+  "github_deploy_changed",
+  "github_webhook_failed"
+] as const satisfies readonly [string, ...string[]];
+
+export const notificationPriorities = ["low", "normal", "high"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
+export const notificationRecipientReasons = [
+  "mention",
+  "assigned",
+  "participant",
+  "owner",
+  "github",
+  "system"
+] as const satisfies readonly [string, ...string[]];
+
 export const workflowStateCategories = ["backlog", "active", "done"] as const satisfies readonly [
   string,
   ...string[]
@@ -136,4 +167,8 @@ export type GithubDeploymentStatus = (typeof githubDeploymentStatuses)[number];
 export type WorkItemGithubLinkSource = (typeof workItemGithubLinkSources)[number];
 export type GithubWebhookEventName = (typeof githubWebhookEventNames)[number];
 export type GithubWebhookDeliveryStatus = (typeof githubWebhookDeliveryStatuses)[number];
+export type NotificationSourceType = (typeof notificationSourceTypes)[number];
+export type NotificationEventType = (typeof notificationEventTypes)[number];
+export type NotificationPriority = (typeof notificationPriorities)[number];
+export type NotificationRecipientReason = (typeof notificationRecipientReasons)[number];
 export type WorkflowStateCategory = (typeof workflowStateCategories)[number];

@@ -6,6 +6,10 @@ import {
   githubRepositoryProviders,
   githubWebhookDeliveryStatuses,
   githubWebhookEventNames,
+  notificationEventTypes,
+  notificationPriorities,
+  notificationRecipientReasons,
+  notificationSourceTypes,
   workItemGithubLinkSources
 } from "./constants";
 import type {
@@ -16,6 +20,10 @@ import type {
   GithubRepositoryProvider,
   GithubWebhookDeliveryStatus,
   GithubWebhookEventName,
+  NotificationEventType,
+  NotificationPriority,
+  NotificationRecipientReason,
+  NotificationSourceType,
   WorkItemGithubLinkSource
 } from "./constants";
 import type {
@@ -24,6 +32,10 @@ import type {
   GithubPullRequestRecord,
   GithubRepositoryRecord,
   GithubWebhookDeliveryRecord,
+  NotificationEventRecord,
+  NotificationInboxItem,
+  NotificationPreferenceRecord,
+  NotificationRecipientRecord,
   ProjectGithubConnectionRecord,
   WorkItemGithubLinkRecord
 } from "./types";
@@ -45,6 +57,10 @@ export const sharedGithubContractValues = {
   githubRepositoryProviders,
   githubWebhookDeliveryStatuses,
   githubWebhookEventNames,
+  notificationEventTypes,
+  notificationPriorities,
+  notificationRecipientReasons,
+  notificationSourceTypes,
   workItemGithubLinkSources
 } as const;
 
@@ -170,5 +186,72 @@ export type SharedGithubContractAssertions = [
     >
   >,
   Expect<Equal<GithubWebhookDeliveryRecord["status"], GithubWebhookDeliveryStatus>>,
-  Expect<Equal<GithubWebhookDeliveryRecord["eventName"], GithubWebhookEventName>>
+  Expect<Equal<GithubWebhookDeliveryRecord["eventName"], GithubWebhookEventName>>,
+  Expect<Equal<(typeof notificationSourceTypes)[number], NotificationSourceType>>,
+  Expect<Equal<(typeof notificationEventTypes)[number], NotificationEventType>>,
+  Expect<Equal<(typeof notificationPriorities)[number], NotificationPriority>>,
+  Expect<Equal<(typeof notificationRecipientReasons)[number], NotificationRecipientReason>>,
+  Expect<
+    Equal<
+      keyof NotificationEventRecord,
+      | "id"
+      | "workspaceId"
+      | "projectId"
+      | "workItemId"
+      | "sourceType"
+      | "sourceId"
+      | "eventType"
+      | "actorId"
+      | "priority"
+      | "title"
+      | "body"
+      | "url"
+      | "metadata"
+      | "createdAt"
+    >
+  >,
+  Expect<Equal<NotificationEventRecord["sourceType"], NotificationSourceType>>,
+  Expect<Equal<NotificationEventRecord["eventType"], NotificationEventType>>,
+  Expect<Equal<NotificationEventRecord["priority"], NotificationPriority>>,
+  Expect<
+    Equal<
+      keyof NotificationRecipientRecord,
+      | "id"
+      | "eventId"
+      | "workspaceId"
+      | "recipientId"
+      | "reason"
+      | "readAt"
+      | "dismissedAt"
+      | "createdAt"
+    >
+  >,
+  Expect<Equal<NotificationRecipientRecord["reason"], NotificationRecipientReason>>,
+  Expect<
+    Equal<
+      keyof NotificationPreferenceRecord,
+      | "workspaceId"
+      | "userId"
+      | "commentsEnabled"
+      | "mentionsEnabled"
+      | "assignmentsEnabled"
+      | "githubEnabled"
+      | "stateChangesEnabled"
+      | "createdAt"
+      | "updatedAt"
+    >
+  >,
+  Expect<
+    Equal<
+      keyof NotificationInboxItem,
+      | "event"
+      | "recipient"
+      | "workItemIdentifier"
+      | "projectKey"
+      | "workspaceSlug"
+      | "isUnread"
+    >
+  >,
+  Expect<Equal<NotificationInboxItem["event"], NotificationEventRecord>>,
+  Expect<Equal<NotificationInboxItem["recipient"], NotificationRecipientRecord>>
 ];

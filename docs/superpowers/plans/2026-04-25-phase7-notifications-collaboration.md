@@ -17,21 +17,21 @@
 - Modify: `packages/shared/src/types.ts`
 - Modify: `packages/shared/src/types.test.ts`
 
-- [ ] Add `notificationSourceTypes = ["comment", "work_item", "github", "system"]`.
-- [ ] Add `notificationEventTypes = ["comment_created", "mention_created", "assignment_changed", "state_changed", "priority_raised", "github_pr_changed", "github_check_changed", "github_deploy_changed", "github_webhook_failed"]`.
-- [ ] Add `notificationPriorities = ["low", "normal", "high"]`.
-- [ ] Add `notificationRecipientReasons = ["mention", "assigned", "participant", "owner", "github", "system"]`.
-- [ ] Export matching TypeScript union types.
-- [ ] Add shared interfaces:
+- [x] Add `notificationSourceTypes = ["comment", "work_item", "github", "system"]`.
+- [x] Add `notificationEventTypes = ["comment_created", "mention_created", "assignment_changed", "state_changed", "priority_raised", "github_pr_changed", "github_check_changed", "github_deploy_changed", "github_webhook_failed"]`.
+- [x] Add `notificationPriorities = ["low", "normal", "high"]`.
+- [x] Add `notificationRecipientReasons = ["mention", "assigned", "participant", "owner", "github", "system"]`.
+- [x] Export matching TypeScript union types.
+- [x] Add shared interfaces:
   - `NotificationEventRecord`
   - `NotificationRecipientRecord`
   - `NotificationPreferenceRecord`
   - `NotificationInboxItem`
-- [ ] Extend `packages/shared/src/types.test.ts` to assert the notification enum values and record shape stay aligned.
-- [ ] Run: `npm run typecheck --workspace @the-platform/shared`
-- [ ] Run: `npm run test --workspace @the-platform/shared`
-- [ ] Expected: PASS with notification contracts available to web, db, and worker.
-- [ ] Commit: `feat: add shared notification contracts`
+- [x] Extend `packages/shared/src/types.test.ts` to assert the notification enum values and record shape stay aligned.
+- [x] Run: `npm run typecheck --workspace @the-platform/shared`
+- [x] Run: `npm run test --workspace @the-platform/shared`
+- [x] Expected: PASS with notification contracts available to web, db, and worker.
+- [x] Commit: `feat: add shared notification contracts`
 
 ### Task 2: Add Durable Notification Schema
 

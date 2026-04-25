@@ -7,6 +7,10 @@ import type {
   GithubWebhookDeliveryStatus,
   GithubWebhookEventName,
   InvitationStatus,
+  NotificationEventType,
+  NotificationPriority,
+  NotificationRecipientReason,
+  NotificationSourceType,
   PlanItemStatus,
   ProjectStage,
   StageStatus,
@@ -190,6 +194,55 @@ export interface GithubWebhookDeliveryRecord {
   receivedAt: string;
   processedAt: string | null;
   errorMessage: string | null;
+}
+
+export interface NotificationEventRecord {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  workItemId: string | null;
+  sourceType: NotificationSourceType;
+  sourceId: string;
+  eventType: NotificationEventType;
+  actorId: string | null;
+  priority: NotificationPriority;
+  title: string;
+  body: string | null;
+  url: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NotificationRecipientRecord {
+  id: string;
+  eventId: string;
+  workspaceId: string;
+  recipientId: string;
+  reason: NotificationRecipientReason;
+  readAt: string | null;
+  dismissedAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreferenceRecord {
+  workspaceId: string;
+  userId: string;
+  commentsEnabled: boolean;
+  mentionsEnabled: boolean;
+  assignmentsEnabled: boolean;
+  githubEnabled: boolean;
+  stateChangesEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationInboxItem {
+  event: NotificationEventRecord;
+  recipient: NotificationRecipientRecord;
+  workItemIdentifier: string | null;
+  projectKey: string | null;
+  workspaceSlug: string;
+  isUnread: boolean;
 }
 
 export interface WorkspaceRecord {
