@@ -1,8 +1,12 @@
 import type {
+  GithubCheckRollupStatus,
+  GithubDeploymentEnvironment,
+  GithubDeploymentStatus,
   GithubRepositoryRecord,
   GithubWebhookDeliveryRecord,
   GithubWebhookDeliveryStatus,
   GithubWebhookEventName,
+  GithubPullRequestState,
   ProjectGithubConnectionRecord,
   ProjectRecord
 } from "@the-platform/shared";
@@ -65,4 +69,42 @@ export interface GithubConnectionRepository
     productionEnvironmentName: string | null;
     actorId: string;
   }): Promise<ProjectGithubConnectionView>;
+  applyPullRequestWebhookProjection(input: {
+    repositoryId: string;
+    providerPullRequestId: string;
+    number: number;
+    title: string;
+    body: string | null;
+    url: string;
+    state: GithubPullRequestState;
+    isDraft: boolean;
+    authorLogin: string | null;
+    baseBranch: string;
+    headBranch: string;
+    headSha: string;
+    createdAt: string;
+    updatedAt: string;
+    mergedAt: string | null;
+    closedAt: string | null;
+    titleIdentifiers: string[];
+    bodyIdentifiers: string[];
+    branchIdentifiers: string[];
+  }): Promise<void>;
+  applyCheckRollupWebhookProjection(input: {
+    repositoryId: string;
+    headSha: string;
+    status: GithubCheckRollupStatus;
+    url: string | null;
+    checkCount: number;
+    completedAt: string | null;
+  }): Promise<void>;
+  applyDeploymentWebhookProjection(input: {
+    repositoryId: string;
+    providerDeploymentId: string;
+    headSha: string;
+    environmentName: string | null;
+    environment: GithubDeploymentEnvironment;
+    status: GithubDeploymentStatus;
+    url: string | null;
+  }): Promise<void>;
 }

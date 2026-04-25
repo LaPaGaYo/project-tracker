@@ -1,4 +1,4 @@
-import type { GithubWebhookEventName } from "@the-platform/shared";
+import type { GithubRepositoryRecord, GithubWebhookEventName } from "@the-platform/shared";
 
 import type { GithubWebhookRepository } from "./types";
 import { verifyGithubWebhookSignature } from "./signature";
@@ -21,6 +21,13 @@ export interface SyncGithubWebhookRequestOptions {
   secret?: string;
   now?: () => Date;
   verifySignature?: (payload: string, signature: string | null, secret: string) => boolean;
+  processDelivery?: (input: {
+    repository: GithubRepositoryRecord;
+    deliveryId: string;
+    eventName: GithubWebhookEventName;
+    payload: Record<string, unknown>;
+    receivedAt: string;
+  }) => Promise<void>;
 }
 
 export async function syncGithubWebhookRequest(
@@ -85,11 +92,33 @@ export async function syncGithubWebhookRequest(
     errorMessage: null
   });
 
-  await repository.updateGithubWebhookDelivery(deliveryId, {
-    status: "processed",
-    processedAt: timestamp,
-    errorMessage: null
-  });
+  try {
+    if (repositoryRecord && options.processDelivery) {
+      await options.processDelivery({
+        repository: repositoryRecord,
+        deliveryId,
+        eventName,
+        payload: parsedBody,
+        receivedAt: timestamp
+      });
+    }
+
+    await repository.updateGithubWebhookDelivery(deliveryId, {
+      status: "processed",
+      processedAt: timestamp,
+      errorMessage: null
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "failed to process GitHub webhook.";
+
+    await repository.updateGithubWebhookDelivery(deliveryId, {
+      status: "failed",
+      processedAt: timestamp,
+      errorMessage: message
+    });
+
+    return json({ error: message }, 500);
+  }
 
   return json({ processed: true });
 }

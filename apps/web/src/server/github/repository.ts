@@ -1,7 +1,22 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 
-import { db, githubRepositories, githubWebhookDeliveries, projectGithubConnections, projects } from "@the-platform/db";
+import {
+  db,
+  githubCheckRollups,
+  githubDeployments,
+  githubPullRequests,
+  githubRepositories,
+  githubWebhookDeliveries,
+  projectGithubConnections,
+  projects,
+  taskGithubStatus,
+  tasks,
+  workItemGithubLinks
+} from "@the-platform/db";
 import type {
+  GithubCheckRollupStatus,
+  GithubDeploymentEnvironment,
+  GithubDeploymentStatus,
   GithubRepositoryRecord,
   GithubWebhookDeliveryRecord,
   ProjectGithubConnectionRecord,
@@ -72,6 +87,316 @@ function serializeGithubWebhookDelivery(row: typeof githubWebhookDeliveries.$inf
     processedAt: toIso(row.processedAt),
     errorMessage: row.errorMessage
   };
+}
+
+function normalizeIdentifierList(values: string[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+}
+
+function includesIdentifier(values: string[], identifier: string) {
+  return values.some((value) => value.toUpperCase() === identifier.toUpperCase());
+}
+
+function matchesEnvironmentName(environmentName: string | null, targetName: string | null) {
+  if (!environmentName || !targetName) {
+    return false;
+  }
+
+  return environmentName.trim().toLowerCase() === targetName.trim().toLowerCase();
+}
+
+function toTaskPrStatus(states: Array<"open" | "closed" | "merged" | null>) {
+  if (states.some((state) => state === "merged")) {
+    return "Merged" as const;
+  }
+
+  if (states.some((state) => state === "open")) {
+    return "Open PR" as const;
+  }
+
+  return "No PR" as const;
+}
+
+function toTaskCiStatus(statuses: Array<GithubCheckRollupStatus | null>) {
+  if (statuses.some((status) => status === "failing" || status === "cancelled")) {
+    return "Failing" as const;
+  }
+
+  if (statuses.some((status) => status === "passing" || status === "skipped")) {
+    return "Passing" as const;
+  }
+
+  return "Unknown" as const;
+}
+
+function isProductionDeployment(
+  deployment: {
+    deploymentEnvironment: GithubDeploymentEnvironment | null;
+    deploymentEnvironmentName: string | null;
+    deploymentStatus: GithubDeploymentStatus | null;
+  },
+  connection: { productionEnvironmentName: string | null }
+) {
+  if (deployment.deploymentStatus !== "success") {
+    return false;
+  }
+
+  return (
+    deployment.deploymentEnvironment === "production" ||
+    matchesEnvironmentName(deployment.deploymentEnvironmentName, connection.productionEnvironmentName)
+  );
+}
+
+function isStagingDeployment(
+  deployment: {
+    deploymentEnvironment: GithubDeploymentEnvironment | null;
+    deploymentEnvironmentName: string | null;
+    deploymentStatus: GithubDeploymentStatus | null;
+  },
+  connection: { stagingEnvironmentName: string | null; productionEnvironmentName: string | null }
+) {
+  if (deployment.deploymentStatus !== "success" || isProductionDeployment(deployment, connection)) {
+    return false;
+  }
+
+  return (
+    deployment.deploymentEnvironment === "staging" ||
+    deployment.deploymentEnvironment === "preview" ||
+    deployment.deploymentEnvironment === "development" ||
+    matchesEnvironmentName(deployment.deploymentEnvironmentName, connection.stagingEnvironmentName) ||
+    Boolean(deployment.deploymentEnvironmentName)
+  );
+}
+
+async function resolveProjectBindingForRepository(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  repositoryId: string
+) {
+  const [row] = await tx
+    .select({
+      project: projects,
+      connection: projectGithubConnections
+    })
+    .from(projectGithubConnections)
+    .innerJoin(projects, eq(projectGithubConnections.projectId, projects.id))
+    .where(eq(projectGithubConnections.repositoryId, repositoryId))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return row;
+}
+
+async function replaceAutomaticPullRequestLinks(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: {
+    projectId: string;
+    repositoryId: string;
+    pullRequestId: string;
+    branchName: string;
+    titleIdentifiers: string[];
+    bodyIdentifiers: string[];
+    branchIdentifiers: string[];
+  }
+) {
+  await tx
+    .delete(workItemGithubLinks)
+    .where(
+      and(
+        eq(workItemGithubLinks.pullRequestId, input.pullRequestId),
+        or(
+          eq(workItemGithubLinks.source, "pr_title"),
+          eq(workItemGithubLinks.source, "pr_body"),
+          eq(workItemGithubLinks.source, "branch_name")
+        )
+      )
+    );
+
+  const candidateIdentifiers = normalizeIdentifierList([
+    ...input.titleIdentifiers,
+    ...input.bodyIdentifiers,
+    ...input.branchIdentifiers
+  ]);
+  if (candidateIdentifiers.length === 0) {
+    return;
+  }
+
+  const matchedTasks = await tx
+    .select({
+      id: tasks.id,
+      identifier: tasks.identifier
+    })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, input.projectId), inArray(tasks.identifier, candidateIdentifiers)));
+
+  if (matchedTasks.length === 0) {
+    return;
+  }
+
+  const matchedIdentifiers = matchedTasks
+    .map((task) => task.identifier)
+    .filter((identifier): identifier is string => Boolean(identifier));
+  const distinctMatches = Array.from(new Set(matchedIdentifiers));
+
+  if (distinctMatches.length !== 1) {
+    return;
+  }
+
+  const identifier = distinctMatches[0];
+  if (!identifier) {
+    return;
+  }
+
+  const matchedTask = matchedTasks.find((task) => task.identifier === identifier);
+  if (!matchedTask) {
+    return;
+  }
+
+  const source = includesIdentifier(input.titleIdentifiers, identifier)
+    ? "pr_title"
+    : includesIdentifier(input.bodyIdentifiers, identifier)
+      ? "pr_body"
+      : "branch_name";
+  const confidence = source === "pr_title" ? 100 : source === "pr_body" ? 90 : 80;
+
+  await tx
+    .insert(workItemGithubLinks)
+    .values({
+      workItemId: matchedTask.id,
+      repositoryId: input.repositoryId,
+      pullRequestId: input.pullRequestId,
+      branchName: input.branchName,
+      source,
+      confidence,
+      linkedAt: new Date()
+    })
+    .onConflictDoUpdate({
+      target: [workItemGithubLinks.workItemId, workItemGithubLinks.pullRequestId],
+      set: {
+        repositoryId: input.repositoryId,
+        branchName: input.branchName,
+        source,
+        confidence,
+        linkedAt: new Date()
+      }
+    });
+}
+
+async function rebuildProjectTaskGithubStatuses(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: string,
+  connection: {
+    stagingEnvironmentName: string | null;
+    productionEnvironmentName: string | null;
+  }
+) {
+  const projectTaskRows = await tx
+    .select({
+      id: tasks.id
+    })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId));
+
+  const projectTaskIds = projectTaskRows.map((row) => row.id);
+  if (projectTaskIds.length === 0) {
+    return;
+  }
+
+  const rows = await tx
+    .select({
+      workItemId: workItemGithubLinks.workItemId,
+      pullRequestState: githubPullRequests.state,
+      checkStatus: githubCheckRollups.status,
+      deploymentEnvironment: githubDeployments.environment,
+      deploymentEnvironmentName: githubDeployments.environmentName,
+      deploymentStatus: githubDeployments.status
+    })
+    .from(workItemGithubLinks)
+    .innerJoin(tasks, eq(workItemGithubLinks.workItemId, tasks.id))
+    .leftJoin(githubPullRequests, eq(workItemGithubLinks.pullRequestId, githubPullRequests.id))
+    .leftJoin(
+      githubCheckRollups,
+      and(
+        eq(githubPullRequests.repositoryId, githubCheckRollups.repositoryId),
+        eq(githubPullRequests.headSha, githubCheckRollups.headSha)
+      )
+    )
+    .leftJoin(
+      githubDeployments,
+      and(
+        eq(githubPullRequests.repositoryId, githubDeployments.repositoryId),
+        eq(githubPullRequests.headSha, githubDeployments.headSha)
+      )
+    )
+    .where(eq(tasks.projectId, projectId));
+
+  const grouped = new Map<
+    string,
+    Array<{
+      pullRequestState: "open" | "closed" | "merged" | null;
+      checkStatus: GithubCheckRollupStatus | null;
+      deploymentEnvironment: GithubDeploymentEnvironment | null;
+      deploymentEnvironmentName: string | null;
+      deploymentStatus: GithubDeploymentStatus | null;
+    }>
+  >();
+
+  for (const row of rows) {
+    const existing = grouped.get(row.workItemId) ?? [];
+    existing.push({
+      pullRequestState: row.pullRequestState,
+      checkStatus: row.checkStatus,
+      deploymentEnvironment: row.deploymentEnvironment,
+      deploymentEnvironmentName: row.deploymentEnvironmentName,
+      deploymentStatus: row.deploymentStatus
+    });
+    grouped.set(row.workItemId, existing);
+  }
+
+  const nextTaskIds = Array.from(grouped.keys());
+  if (nextTaskIds.length === 0) {
+    await tx.delete(taskGithubStatus).where(inArray(taskGithubStatus.taskId, projectTaskIds));
+    return;
+  }
+
+  await tx
+    .delete(taskGithubStatus)
+    .where(and(inArray(taskGithubStatus.taskId, projectTaskIds), notInArray(taskGithubStatus.taskId, nextTaskIds)));
+
+  for (const [taskId, entries] of grouped) {
+    const prStatus = toTaskPrStatus(entries.map((entry) => entry.pullRequestState));
+    const ciStatus = toTaskCiStatus(entries.map((entry) => entry.checkStatus));
+    const deployStatus = entries.some((entry) => isProductionDeployment(entry, connection))
+      ? "Production"
+      : entries.some((entry) => isStagingDeployment(entry, connection))
+        ? "Staging"
+        : "Not deployed";
+
+    await tx
+      .insert(taskGithubStatus)
+      .values({
+        taskId,
+        prStatus,
+        ciStatus,
+        deployStatus
+      })
+      .onConflictDoUpdate({
+        target: [taskGithubStatus.taskId],
+        set: {
+          prStatus,
+          ciStatus,
+          deployStatus
+        }
+      });
+  }
 }
 
 export function createGithubConnectionRepository(): GithubConnectionRepository {
@@ -277,6 +602,139 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
           connection: serializeProjectGithubConnection(connection),
           repository: serializeGithubRepository(repository)
         } satisfies ProjectGithubConnectionView;
+      });
+    },
+
+    async applyPullRequestWebhookProjection(input) {
+      await db.transaction(async (tx) => {
+        const [pullRequest] = await tx
+          .insert(githubPullRequests)
+          .values({
+            repositoryId: input.repositoryId,
+            providerPullRequestId: input.providerPullRequestId,
+            number: input.number,
+            title: input.title,
+            body: input.body,
+            url: input.url,
+            state: input.state,
+            isDraft: input.isDraft,
+            authorLogin: input.authorLogin,
+            baseBranch: input.baseBranch,
+            headBranch: input.headBranch,
+            headSha: input.headSha,
+            createdAt: new Date(input.createdAt),
+            updatedAt: new Date(input.updatedAt),
+            mergedAt: input.mergedAt ? new Date(input.mergedAt) : null,
+            closedAt: input.closedAt ? new Date(input.closedAt) : null
+          })
+          .onConflictDoUpdate({
+            target: [githubPullRequests.repositoryId, githubPullRequests.providerPullRequestId],
+            set: {
+              number: input.number,
+              title: input.title,
+              body: input.body,
+              url: input.url,
+              state: input.state,
+              isDraft: input.isDraft,
+              authorLogin: input.authorLogin,
+              baseBranch: input.baseBranch,
+              headBranch: input.headBranch,
+              headSha: input.headSha,
+              updatedAt: new Date(input.updatedAt),
+              mergedAt: input.mergedAt ? new Date(input.mergedAt) : null,
+              closedAt: input.closedAt ? new Date(input.closedAt) : null
+            }
+          })
+          .returning();
+
+        if (!pullRequest) {
+          throw new Error("failed to upsert GitHub pull request.");
+        }
+
+        const binding = await resolveProjectBindingForRepository(tx, input.repositoryId);
+        if (!binding) {
+          return;
+        }
+
+        await replaceAutomaticPullRequestLinks(tx, {
+          projectId: binding.project.id,
+          repositoryId: input.repositoryId,
+          pullRequestId: pullRequest.id,
+          branchName: input.headBranch,
+          titleIdentifiers: input.titleIdentifiers,
+          bodyIdentifiers: input.bodyIdentifiers,
+          branchIdentifiers: input.branchIdentifiers
+        });
+
+        await rebuildProjectTaskGithubStatuses(tx, binding.project.id, binding.connection);
+      });
+    },
+
+    async applyCheckRollupWebhookProjection(input) {
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(githubCheckRollups)
+          .values({
+            repositoryId: input.repositoryId,
+            headSha: input.headSha,
+            status: input.status,
+            url: input.url,
+            checkCount: input.checkCount,
+            completedAt: input.completedAt ? new Date(input.completedAt) : null,
+            updatedAt: new Date()
+          })
+          .onConflictDoUpdate({
+            target: [githubCheckRollups.repositoryId, githubCheckRollups.headSha],
+            set: {
+              status: input.status,
+              url: input.url,
+              checkCount: input.checkCount,
+              completedAt: input.completedAt ? new Date(input.completedAt) : null,
+              updatedAt: new Date()
+            }
+          });
+
+        const binding = await resolveProjectBindingForRepository(tx, input.repositoryId);
+        if (!binding) {
+          return;
+        }
+
+        await rebuildProjectTaskGithubStatuses(tx, binding.project.id, binding.connection);
+      });
+    },
+
+    async applyDeploymentWebhookProjection(input) {
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(githubDeployments)
+          .values({
+            repositoryId: input.repositoryId,
+            providerDeploymentId: input.providerDeploymentId,
+            headSha: input.headSha,
+            environmentName: input.environmentName,
+            environment: input.environment,
+            status: input.status,
+            url: input.url,
+            updatedAt: new Date()
+          })
+          .onConflictDoUpdate({
+            target: [githubDeployments.repositoryId, githubDeployments.providerDeploymentId],
+            set: {
+              headSha: input.headSha,
+              environmentName: input.environmentName,
+              environment: input.environment,
+              status: input.status,
+              url: input.url,
+              updatedAt: new Date()
+            }
+          });
+
+        const binding = await resolveProjectBindingForRepository(tx, input.repositoryId);
+        if (!binding) {
+          return;
+        }
+
+        await rebuildProjectTaskGithubStatuses(tx, binding.project.id, binding.connection);
       });
     }
   };
