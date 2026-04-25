@@ -178,6 +178,7 @@ export async function ProjectDetailContent({
                   projectKey={projectKey}
                   basePath={basePath}
                   items={items}
+                  itemEngineering={workspaceView.engineering.items}
                   members={members}
                   states={states}
                   selectedItem={selectedItem}

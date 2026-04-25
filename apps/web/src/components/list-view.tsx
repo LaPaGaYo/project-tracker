@@ -4,17 +4,26 @@ import type { WorkspaceMemberRecord, WorkflowStateRecord, WorkItemRecord } from 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, type ReactNode, useState, useTransition } from "react";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
 import { ListRow } from "./list-row";
 
 interface ListViewProps {
   items: WorkItemRecord[];
+  itemEngineering?: ProjectWorkspaceEngineeringItemView[];
   members: WorkspaceMemberRecord[];
   states: WorkflowStateRecord[];
   disableHooks?: boolean;
   onOpenItem?: (identifier: string) => void;
 }
 
-export function ListView({ items, members, states, disableHooks, onOpenItem }: ListViewProps) {
+export function ListView({
+  items,
+  itemEngineering = [],
+  members,
+  states,
+  disableHooks,
+  onOpenItem
+}: ListViewProps) {
   const pathname = disableHooks ? "/" : usePathname();
   const router = disableHooks ? null : useRouter();
   const searchParams = disableHooks ? new URLSearchParams() : useSearchParams();
@@ -25,6 +34,7 @@ export function ListView({ items, members, states, disableHooks, onOpenItem }: L
 
   const stateNames = new Map(states.map((state) => [state.id, state.name]));
   const assigneeLabels = new Map(members.map((member) => [member.userId, member.userId]));
+  const engineeringByTaskId = new Map(itemEngineering.map((entry) => [entry.taskId, entry]));
   const childrenByParent = new Map<string, WorkItemRecord[]>();
   const itemIds = new Set(items.map((item) => item.id));
 
@@ -79,6 +89,7 @@ export function ListView({ items, members, states, disableHooks, onOpenItem }: L
         <Fragment key={item.id}>
           <ListRow
             item={item}
+            engineering={engineeringByTaskId.get(item.id) ?? null}
             depth={depth}
             hasChildren={children.length > 0}
             isCollapsed={isCollapsed}

@@ -4,8 +4,12 @@ import type { WorkItemRecord } from "@the-platform/shared";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import { WorkItemEngineeringChips } from "./work-item-engineering-chips";
+
 interface WorkItemCardProps {
   item: WorkItemRecord;
+  engineering?: ProjectWorkspaceEngineeringItemView | null;
   assigneeLabel: string;
   subtaskCount: number;
   onOpen?: (identifier: string) => void;
@@ -20,7 +24,13 @@ function initialsFromValue(value: string) {
     .join("");
 }
 
-export function WorkItemCard({ item, assigneeLabel, subtaskCount, onOpen }: WorkItemCardProps) {
+export function WorkItemCard({
+  item,
+  engineering,
+  assigneeLabel,
+  subtaskCount,
+  onOpen
+}: WorkItemCardProps) {
   const {
     attributes,
     listeners,
@@ -64,6 +74,9 @@ export function WorkItemCard({ item, assigneeLabel, subtaskCount, onOpen }: Work
       {item.description ? (
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-planka-text-muted">{item.description}</p>
       ) : null}
+      <div className="mt-4">
+        <WorkItemEngineeringChips engineering={engineering ?? null} />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">

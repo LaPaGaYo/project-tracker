@@ -13,6 +13,7 @@ import type {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
 import { CommentInput } from "./comment-input";
 import { CommentList } from "./comment-list";
 import { DescriptionEditor } from "./description-editor";
@@ -30,6 +31,7 @@ interface DetailPanelProps {
   projectKey: string;
   basePath: string;
   item: WorkItemRecord;
+  itemEngineering?: ProjectWorkspaceEngineeringItemView | null;
   comments: CommentRecord[];
   versions: DescriptionVersionRecord[];
   timeline: TimelineEntry[];
@@ -50,6 +52,7 @@ export function DetailPanel({
   projectKey,
   basePath,
   item,
+  itemEngineering,
   comments,
   versions,
   timeline,
@@ -329,6 +332,93 @@ export function DetailPanel({
 
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="grid gap-6">
+            {itemEngineering ? (
+              <section className="grid gap-4 rounded-3xl border border-white/8 bg-black/15 p-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-accent">
+                    Engineering context
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-planka-text">Repository and live status</h3>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-planka-text-muted">
+                      Repository
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-planka-text">
+                      {itemEngineering.repository ?? "Not connected yet"}
+                    </p>
+                    <p className="mt-2 text-xs text-planka-text-muted">
+                      Default branch: {itemEngineering.defaultBranch ?? "unknown"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-planka-text-muted">
+                      Branch
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-planka-text">
+                      {itemEngineering.branchName ?? "No linked branch"}
+                    </p>
+                    <p className="mt-2 text-xs text-planka-text-muted">{itemEngineering.stageLabel}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-planka-text-muted">
+                      Pull request
+                    </p>
+                    {itemEngineering.pullRequestUrl ? (
+                      <a
+                        href={itemEngineering.pullRequestUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-sm font-semibold text-planka-text transition hover:text-white"
+                      >
+                        {itemEngineering.pullRequestLabel}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold text-planka-text">{itemEngineering.pullRequestLabel}</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-planka-text-muted">
+                      Checks
+                    </p>
+                    {itemEngineering.checkUrl ? (
+                      <a
+                        href={itemEngineering.checkUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-sm font-semibold text-planka-text transition hover:text-white"
+                      >
+                        {itemEngineering.checkLabel}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold text-planka-text">{itemEngineering.checkLabel}</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-black/20 p-4 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-planka-text-muted">
+                      Deploy
+                    </p>
+                    {itemEngineering.deployUrl ? (
+                      <a
+                        href={itemEngineering.deployUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-sm font-semibold text-planka-text transition hover:text-white"
+                      >
+                        {itemEngineering.deployLabel}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold text-planka-text">{itemEngineering.deployLabel}</p>
+                    )}
+                    <p className="mt-2 text-xs text-planka-text-muted">
+                      Environment: {itemEngineering.deployEnvironment ?? "not deployed"}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             <DescriptionEditor
               value={localItem.description}
               canEdit={canEdit}

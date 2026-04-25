@@ -13,6 +13,7 @@ import type {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
 import { BoardView } from "./board-view";
 import { DetailPanel } from "./detail-panel";
 import {
@@ -28,6 +29,7 @@ interface ViewToggleProps {
   projectKey: string;
   basePath: string;
   items: WorkItemRecord[];
+  itemEngineering?: ProjectWorkspaceEngineeringItemView[];
   members: WorkspaceMemberRecord[];
   states: WorkflowStateRecord[];
   selectedItem?: WorkItemRecord | null;
@@ -61,6 +63,7 @@ export function ViewToggle({
   projectKey,
   basePath,
   items,
+  itemEngineering = [],
   members,
   states,
   selectedItem,
@@ -76,6 +79,7 @@ export function ViewToggle({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const itemEngineeringByTaskId = new Map(itemEngineering.map((entry) => [entry.taskId, entry]));
 
   useEffect(() => {
     const queryView = searchParams.get("view");
@@ -150,12 +154,19 @@ export function ViewToggle({
           workspaceSlug={workspaceSlug}
           projectKey={projectKey}
           items={items}
+          itemEngineering={itemEngineering}
           members={members}
           states={states}
           onOpenItem={openItem}
         />
       ) : (
-        <ListView items={items} members={members} states={states} onOpenItem={openItem} />
+        <ListView
+          items={items}
+          itemEngineering={itemEngineering}
+          members={members}
+          states={states}
+          onOpenItem={openItem}
+        />
       )}
 
       {selectedItem ? (
@@ -164,6 +175,7 @@ export function ViewToggle({
           projectKey={projectKey}
           basePath={basePath}
           item={selectedItem}
+          itemEngineering={itemEngineeringByTaskId.get(selectedItem.id) ?? null}
           comments={comments}
           versions={versions}
           timeline={timeline}

@@ -1,7 +1,11 @@
 import type { WorkItemRecord } from "@the-platform/shared";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import { WorkItemEngineeringChips } from "./work-item-engineering-chips";
+
 interface ListRowProps {
   item: WorkItemRecord;
+  engineering?: ProjectWorkspaceEngineeringItemView | null;
   depth: number;
   hasChildren: boolean;
   isCollapsed: boolean;
@@ -13,6 +17,7 @@ interface ListRowProps {
 
 export function ListRow({
   item,
+  engineering,
   depth,
   hasChildren,
   isCollapsed,
@@ -46,6 +51,9 @@ export function ListRow({
           <div>
             <p className="font-semibold text-planka-text">{item.title}</p>
             <p className="mt-1 text-xs text-planka-text-muted">{item.description || "No description yet."}</p>
+            <div className="mt-2">
+              <WorkItemEngineeringChips engineering={engineering ?? null} compact />
+            </div>
           </div>
         </div>
       </td>

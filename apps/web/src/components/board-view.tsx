@@ -13,12 +13,14 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { startTransition, useEffect, useState } from "react";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
 import { BoardColumn } from "./board-column";
 
 interface BoardViewProps {
   workspaceSlug: string;
   projectKey: string;
   items: WorkItemRecord[];
+  itemEngineering?: ProjectWorkspaceEngineeringItemView[];
   members: WorkspaceMemberRecord[];
   states: WorkflowStateRecord[];
   onOpenItem?: (identifier: string) => void;
@@ -52,8 +54,17 @@ function collectChangedItems(previousItems: WorkItemRecord[], nextItems: WorkIte
   });
 }
 
-export function BoardView({ workspaceSlug, projectKey, items, members, states, onOpenItem }: BoardViewProps) {
+export function BoardView({
+  workspaceSlug,
+  projectKey,
+  items,
+  itemEngineering = [],
+  members,
+  states,
+  onOpenItem
+}: BoardViewProps) {
   const [localItems, setLocalItems] = useState(items);
+  const engineeringByTaskId = new Map(itemEngineering.map((entry) => [entry.taskId, entry]));
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -221,6 +232,7 @@ export function BoardView({ workspaceSlug, projectKey, items, members, states, o
               key={column.state.id}
               state={column.state}
               items={column.items}
+              engineeringByTaskId={engineeringByTaskId}
               members={members}
               childCounts={childCounts}
               {...(onOpenItem ? { onOpenItem } : {})}

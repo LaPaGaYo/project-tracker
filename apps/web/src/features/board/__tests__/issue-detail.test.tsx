@@ -122,6 +122,28 @@ const timeline: TimelineEntry[] = [
   }
 ];
 
+const itemEngineering = {
+  taskId: "item-1",
+  identifier: "OPS-1",
+  title: "Build board shell",
+  repository: "the-platform/platform-ops",
+  defaultBranch: "main",
+  branchName: "ops-1-board-shell",
+  pullRequestLabel: "PR Open",
+  pullRequestUrl: "https://github.com/the-platform/platform-ops/pull/128",
+  pullRequestNumber: 128,
+  checkLabel: "CI Failing",
+  checkUrl: "https://github.com/the-platform/platform-ops/actions/runs/128",
+  deployLabel: "Deploy Staging",
+  deployUrl: "https://staging.the-platform.dev",
+  deployEnvironment: "staging",
+  stageLabel: "Phase 2: Live Engineering",
+  summary: "OPS-1 · open · failing · phase 2",
+  hasPullRequest: true,
+  hasFailingChecks: true,
+  hasDeploy: true
+};
+
 describe("DetailPanel", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -158,6 +180,41 @@ describe("DetailPanel", () => {
     expect(screen.getByLabelText("Assignee")).toHaveValue("henry");
     expect(screen.getByText("Pair with the CI owner before merging.")).toBeInTheDocument();
     expect(screen.getByText("Assigned to henry")).toBeInTheDocument();
+  });
+
+  it("renders read-only engineering context for the selected issue", () => {
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        itemEngineering={itemEngineering}
+        comments={comments}
+        versions={versions}
+        timeline={timeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    expect(screen.getByText("Engineering context")).toBeInTheDocument();
+    expect(screen.getByText("the-platform/platform-ops")).toBeInTheDocument();
+    expect(screen.getByText("ops-1-board-shell")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PR Open" })).toHaveAttribute(
+      "href",
+      "https://github.com/the-platform/platform-ops/pull/128"
+    );
+    expect(screen.getByRole("link", { name: "CI Failing" })).toHaveAttribute(
+      "href",
+      "https://github.com/the-platform/platform-ops/actions/runs/128"
+    );
+    expect(screen.getByRole("link", { name: "Deploy Staging" })).toHaveAttribute(
+      "href",
+      "https://staging.the-platform.dev"
+    );
   });
 
   it("lets editors switch the title into edit mode on demand", () => {

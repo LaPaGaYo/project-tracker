@@ -106,6 +106,9 @@ function createProjectionDependencies({ project, stages, planItems, tasks, githu
       async listTaskGithubStatuses() {
         return githubStatuses;
       },
+      async listWorkItemEngineering() {
+        return [];
+      },
       async getProjectGithubConnection() {
         return null;
       }

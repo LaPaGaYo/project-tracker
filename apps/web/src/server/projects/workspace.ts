@@ -6,11 +6,15 @@ import type {
   WorkItemRecord
 } from "@the-platform/shared";
 
+import type {
+  ProjectWorkspaceEngineeringItemView,
+  ProjectWorkspaceEngineeringView
+} from "../../features/workspace/project-workspace-view";
 import { resolveWorkspaceContext } from "../work-management/utils";
 import { WorkspaceError } from "../workspaces/core";
 import type { AppSession } from "../workspaces/types";
 
-import type { ProjectRepository } from "./types";
+import type { ProjectRepository, ProjectWorkItemEngineeringRecord } from "./types";
 import type { WorkItemRepository } from "../work-items/types";
 
 interface ProjectWorkspaceDependencies {
@@ -22,6 +26,7 @@ interface ProjectWorkspaceDependencies {
     | "listProjectStages"
     | "listPlanItems"
     | "listTaskGithubStatuses"
+    | "listWorkItemEngineering"
     | "getProjectGithubConnection"
   >;
   workItemRepository: Pick<WorkItemRepository, "listWorkItems">;
@@ -80,15 +85,7 @@ export interface ProjectWorkspaceView {
     health: string[];
     milestones: ProjectWorkspaceOverviewMilestone[];
   };
-  engineering: {
-    repository: string;
-    connectionStatus: string;
-    defaultBranch: string | null;
-    pullRequests: string;
-    checks: string;
-    deploys: string;
-    issueSummary: string[];
-  };
+  engineering: ProjectWorkspaceEngineeringView;
 }
 
 async function resolveProjectContext(
@@ -166,6 +163,19 @@ function toPullRequestLabel(prStatus: string) {
   }
 }
 
+function toPullRequestChipLabel(prStatus: string) {
+  switch (prStatus) {
+    case "Open PR":
+      return "PR Open";
+    case "Review requested":
+      return "PR Review";
+    case "Merged":
+      return "PR Merged";
+    default:
+      return "PR None";
+  }
+}
+
 function toCheckLabel(ciStatus: string) {
   switch (ciStatus) {
     case "Failing":
@@ -174,6 +184,28 @@ function toCheckLabel(ciStatus: string) {
       return "Passing";
     default:
       return "None";
+  }
+}
+
+function toCheckChipLabel(ciStatus: string) {
+  switch (ciStatus) {
+    case "Failing":
+      return "CI Failing";
+    case "Passing":
+      return "CI Passing";
+    default:
+      return "CI Unknown";
+  }
+}
+
+function toDeployChipLabel(deployStatus: string) {
+  switch (deployStatus) {
+    case "Production":
+      return "Deploy Production";
+    case "Staging":
+      return "Deploy Staging";
+    default:
+      return "Deploy None";
   }
 }
 
@@ -258,6 +290,54 @@ function buildHealthSummary(tasks: WorkItemRecord[], githubStatuses: TaskGithubS
   ];
 }
 
+function buildEngineeringItems(
+  tasks: WorkItemRecord[],
+  stageById: Map<string, ProjectStageRecord>,
+  githubStatuses: TaskGithubStatusRecord[],
+  engineeringRecords: ProjectWorkItemEngineeringRecord[],
+  githubConnection: Awaited<ReturnType<ProjectWorkspaceDependencies["projectRepository"]["getProjectGithubConnection"]>>
+): ProjectWorkspaceEngineeringItemView[] {
+  const githubStatusByTaskId = new Map(githubStatuses.map((status) => [status.taskId, status]));
+  const engineeringRecordByTaskId = new Map(engineeringRecords.map((record) => [record.taskId, record]));
+
+  return tasks.map((task) => {
+    const stage = task.stageId ? stageById.get(task.stageId) : undefined;
+    const githubStatus = githubStatusByTaskId.get(task.id);
+    const engineeringRecord = engineeringRecordByTaskId.get(task.id);
+    const pullRequestStatus = githubStatus?.prStatus ?? "No PR";
+    const ciStatus = githubStatus?.ciStatus ?? "Unknown";
+    const deployStatus = githubStatus?.deployStatus ?? "Not deployed";
+    const summary = [
+      task.identifier ?? "unknown",
+      toPullRequestLabel(pullRequestStatus).toLowerCase(),
+      toCheckLabel(ciStatus).toLowerCase(),
+      (stage ? toStagePrefix(stage.title) : "No stage").toLowerCase()
+    ].join(" · ");
+
+    return {
+      taskId: task.id,
+      identifier: task.identifier ?? "unknown",
+      title: task.title,
+      repository: engineeringRecord?.repository ?? githubConnection?.repository.fullName ?? null,
+      defaultBranch: engineeringRecord?.defaultBranch ?? githubConnection?.repository.defaultBranch ?? null,
+      branchName: engineeringRecord?.branchName ?? null,
+      pullRequestLabel: toPullRequestChipLabel(pullRequestStatus),
+      pullRequestUrl: engineeringRecord?.pullRequestUrl ?? null,
+      pullRequestNumber: engineeringRecord?.pullRequestNumber ?? null,
+      checkLabel: toCheckChipLabel(ciStatus),
+      checkUrl: engineeringRecord?.checkUrl ?? null,
+      deployLabel: toDeployChipLabel(deployStatus),
+      deployUrl: engineeringRecord?.deploymentUrl ?? null,
+      deployEnvironment: engineeringRecord?.deploymentEnvironment ?? null,
+      stageLabel: stage ? stage.title : "No stage",
+      summary,
+      hasPullRequest: pullRequestStatus !== "No PR",
+      hasFailingChecks: ciStatus === "Failing",
+      hasDeploy: deployStatus !== "Not deployed"
+    };
+  });
+}
+
 export async function getProjectWorkspaceForUser(
   dependencies: ProjectWorkspaceDependencies,
   session: AppSession,
@@ -266,11 +346,12 @@ export async function getProjectWorkspaceForUser(
 ): Promise<ProjectWorkspaceView> {
   const { project } = await resolveProjectContext(dependencies.projectRepository, session, workspaceSlug, projectKey);
 
-  const [stages, planItems, tasks, githubStatuses, githubConnection] = await Promise.all([
+  const [stages, planItems, tasks, githubStatuses, engineeringRecords, githubConnection] = await Promise.all([
     dependencies.projectRepository.listProjectStages(project.id),
     dependencies.projectRepository.listPlanItems(project.id),
     dependencies.workItemRepository.listWorkItems(project.id),
     dependencies.projectRepository.listTaskGithubStatuses(project.id),
+    dependencies.projectRepository.listWorkItemEngineering(project.id),
     dependencies.projectRepository.getProjectGithubConnection(project.id)
   ]);
 
@@ -291,7 +372,6 @@ export async function getProjectWorkspaceForUser(
   const currentStage = selectCurrentStage(sortedStages);
   const currentStageIndex = currentStage ? sortedStages.findIndex((stage) => stage.id === currentStage.id) : 0;
   const stageById = new Map(sortedStages.map((stage) => [stage.id, stage]));
-  const githubStatusByTaskId = new Map(githubStatuses.map((status) => [status.taskId, status]));
   const issuesByPlanItemId = new Map<string, WorkItemRecord[]>();
   const issuesByStageId = new Map<string, WorkItemRecord[]>();
 
@@ -325,6 +405,13 @@ export async function getProjectWorkspaceForUser(
   });
 
   const currentStageCard = buildCurrentStage(project, sortedStages, currentStage, currentStageIndex, planItems);
+  const engineeringItems = buildEngineeringItems(
+    sortedTasks,
+    stageById,
+    githubStatuses,
+    engineeringRecords,
+    githubConnection
+  );
 
   return {
     project: {
@@ -359,17 +446,8 @@ export async function getProjectWorkspaceForUser(
       pullRequests: `${githubStatuses.filter((status) => status.prStatus === "Open PR" || status.prStatus === "Review requested").length} open`,
       checks: `${githubStatuses.filter((status) => status.ciStatus === "Failing").length} failing`,
       deploys: summarizeDeploys(githubStatuses),
-      issueSummary: sortedTasks.map((task) => {
-        const stage = task.stageId ? stageById.get(task.stageId) : undefined;
-        const githubStatus = githubStatusByTaskId.get(task.id);
-
-        return [
-          task.identifier ?? "unknown",
-          toPullRequestLabel(githubStatus?.prStatus ?? "No PR").toLowerCase(),
-          toCheckLabel(githubStatus?.ciStatus ?? "Unknown").toLowerCase(),
-          (stage ? toStagePrefix(stage.title) : "No stage").toLowerCase()
-        ].join(" · ");
-      })
+      issueSummary: engineeringItems.map((item) => item.summary),
+      items: engineeringItems
     }
   };
 }

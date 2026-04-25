@@ -3,6 +3,7 @@ import type { WorkspaceMemberRecord, WorkflowStateRecord, WorkItemRecord } from 
 import { describe, expect, it, vi } from "vitest";
 
 import { BoardView } from "../../../components/board-view";
+import { ListView } from "../../../components/list-view";
 import { render } from "../../../test/render";
 
 const members: WorkspaceMemberRecord[] = [
@@ -87,8 +88,32 @@ const items: WorkItemRecord[] = [
   }
 ];
 
+const itemEngineering = [
+  {
+    taskId: "item-1",
+    identifier: "OPS-1",
+    title: "Build board shell",
+    repository: "the-platform/platform-ops",
+    defaultBranch: "main",
+    branchName: "ops-1-board-shell",
+    pullRequestLabel: "PR Open",
+    pullRequestUrl: "https://github.com/the-platform/platform-ops/pull/128",
+    pullRequestNumber: 128,
+    checkLabel: "CI Failing",
+    checkUrl: "https://github.com/the-platform/platform-ops/actions/runs/128",
+    deployLabel: "Deploy Staging",
+    deployUrl: "https://staging.the-platform.dev",
+    deployEnvironment: "staging",
+    stageLabel: "Phase 2: Live Engineering",
+    summary: "OPS-1 · open · failing · phase 2",
+    hasPullRequest: true,
+    hasFailingChecks: true,
+    hasDeploy: true
+  }
+];
+
 describe("BoardView", () => {
-  it("renders workflow columns and opens the clicked card", () => {
+  it("renders workflow columns, engineering chips, and opens the clicked card", () => {
     const onOpenItem = vi.fn();
 
     render(
@@ -96,6 +121,7 @@ describe("BoardView", () => {
         workspaceSlug="platform-ops"
         projectKey="OPS"
         items={items}
+        itemEngineering={itemEngineering}
         members={members}
         states={states}
         onOpenItem={onOpenItem}
@@ -110,10 +136,29 @@ describe("BoardView", () => {
     expect(within(backlogColumn).getByText("OPS-1")).toBeInTheDocument();
     expect(within(backlogColumn).getByText("Build board shell")).toBeInTheDocument();
     expect(within(backlogColumn).getByText("1 subtasks")).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("PR Open")).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("CI Failing")).toBeInTheDocument();
+    expect(within(backlogColumn).getByText("Deploy Staging")).toBeInTheDocument();
     expect(within(activeColumn).getByText("No items here yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Build board shell"));
 
     expect(onOpenItem).toHaveBeenCalledWith("OPS-1");
+  });
+
+  it("renders the same compact engineering chips in list rows", () => {
+    render(
+      <ListView
+        items={items}
+        itemEngineering={itemEngineering}
+        members={members}
+        states={states}
+        disableHooks
+      />
+    );
+
+    expect(screen.getByText("PR Open")).toBeInTheDocument();
+    expect(screen.getByText("CI Failing")).toBeInTheDocument();
+    expect(screen.getByText("Deploy Staging")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  GithubPullRequestState,
   PlanItemRecord,
   ProjectRecord,
   ProjectStage,
@@ -32,6 +33,21 @@ export interface ProjectWithCounts extends ProjectRecord {
   doneItemCount: number;
 }
 
+export interface ProjectWorkItemEngineeringRecord {
+  taskId: string;
+  repository: string | null;
+  defaultBranch: string | null;
+  branchName: string | null;
+  pullRequestNumber: number | null;
+  pullRequestTitle: string | null;
+  pullRequestUrl: string | null;
+  pullRequestState: GithubPullRequestState | null;
+  checkUrl: string | null;
+  checkCount: number | null;
+  deploymentUrl: string | null;
+  deploymentEnvironment: string | null;
+}
+
 export interface ProjectRepository extends Pick<WorkspaceRepository, "findWorkspaceBySlug" | "getMembership"> {
   createProject(input: {
     workspaceId: string;
@@ -60,6 +76,7 @@ export interface ProjectRepository extends Pick<WorkspaceRepository, "findWorksp
   listProjectStages(projectId: string): Promise<ProjectStageRecord[]>;
   listPlanItems(projectId: string): Promise<PlanItemRecord[]>;
   listTaskGithubStatuses(projectId: string): Promise<TaskGithubStatusRecord[]>;
+  listWorkItemEngineering(projectId: string): Promise<ProjectWorkItemEngineeringRecord[]>;
   getProjectGithubConnection(projectId: string): Promise<ProjectGithubConnectionView | null>;
   createProjectGithubConnection(input: {
     projectId: string;

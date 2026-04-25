@@ -4,17 +4,26 @@ import type { WorkspaceMemberRecord, WorkflowStateRecord, WorkItemRecord } from 
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
 import { WorkItemCard } from "./work-item-card";
 
 interface BoardColumnProps {
   state: WorkflowStateRecord;
   items: WorkItemRecord[];
+  engineeringByTaskId: Map<string, ProjectWorkspaceEngineeringItemView>;
   members: WorkspaceMemberRecord[];
   childCounts: Map<string, number>;
   onOpenItem?: (identifier: string) => void;
 }
 
-export function BoardColumn({ state, items, members, childCounts, onOpenItem }: BoardColumnProps) {
+export function BoardColumn({
+  state,
+  items,
+  engineeringByTaskId,
+  members,
+  childCounts,
+  onOpenItem
+}: BoardColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: `column:${state.id}`
   });
@@ -48,6 +57,7 @@ export function BoardColumn({ state, items, members, childCounts, onOpenItem }: 
               <WorkItemCard
                 key={item.id}
                 item={item}
+                engineering={engineeringByTaskId.get(item.id) ?? null}
                 assigneeLabel={item.assigneeId ? memberLabels.get(item.assigneeId) ?? item.assigneeId : "unassigned"}
                 subtaskCount={childCounts.get(item.id) ?? 0}
                 {...(onOpenItem ? { onOpen: onOpenItem } : {})}
