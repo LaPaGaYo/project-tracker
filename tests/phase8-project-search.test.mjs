@@ -187,6 +187,95 @@ async function createProjectWithSearchData(harness, owner, workspace, projectKey
   return { project, item };
 }
 
+async function createProjectWithWorkItemOnly(harness, owner, workspace, projectKey, title) {
+  await createProjectForUser(harness.repositories.projectRepository, owner, workspace.slug, {
+    name: `${projectKey} Search`,
+    key: projectKey
+  });
+
+  const project = await getProjectForUser(
+    harness.repositories.projectRepository,
+    owner,
+    workspace.slug,
+    projectKey
+  );
+
+  const item = await createWorkItemForUser(
+    harness.repositories.workItemRepository,
+    owner,
+    workspace.slug,
+    projectKey,
+    {
+      title,
+      description: `${title} description`,
+      type: "task",
+      priority: "medium",
+      position: 0
+    }
+  );
+
+  return { project, item };
+}
+
+async function addPullRequestLink(workspace, item, label) {
+  const suffix = uniqueSuffix();
+  const [repository] = await sql`
+    insert into github_repositories (
+      workspace_id,
+      provider_repository_id,
+      owner,
+      name,
+      full_name,
+      default_branch,
+      installation_id
+    )
+    values (
+      ${workspace.id},
+      ${`${label.toLowerCase()}-${suffix}`},
+      'platform',
+      ${`${label.toLowerCase()}-repo-${suffix}`},
+      ${`platform/${label.toLowerCase()}-repo-${suffix}`},
+      'main',
+      ${`${label.toLowerCase()}-installation-${suffix}`}
+    )
+    returning id
+  `;
+
+  const [pullRequest] = await sql`
+    insert into github_pull_requests (
+      repository_id,
+      provider_pull_request_id,
+      number,
+      title,
+      url,
+      base_branch,
+      head_branch,
+      head_sha
+    )
+    values (
+      ${repository.id},
+      ${`${label.toLowerCase()}-pr-${suffix}`},
+      1,
+      ${`${label} rollout wiring`},
+      ${`https://example.com/${label.toLowerCase()}/${suffix}`},
+      'main',
+      ${`${label.toLowerCase()}-rollout-${suffix}`},
+      ${`${label.toLowerCase()}${suffix}abcdef1234567890`}
+    )
+    returning id
+  `;
+
+  await sql`
+    insert into work_item_github_links (work_item_id, repository_id, pull_request_id, branch_name)
+    values (
+      ${item.id},
+      ${repository.id},
+      ${pullRequest.id},
+      ${`${label.toLowerCase()}-rollout-${suffix}`}
+    )
+  `;
+}
+
 test.after(async () => {
   await sql.end({ timeout: 0 });
 });
@@ -278,4 +367,72 @@ test("project readiness search enforces workspace membership and project scope",
       ),
     (error) => error instanceof Error && "status" in error && error.status === 404
   );
+});
+
+test("project readiness search does not synthesize engineering results for plain task matches", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-plain-task");
+  const workspace = await harness.createWorkspace(owner, "search-plain-task");
+  const { project } = await createProjectWithWorkItemOnly(
+    harness,
+    owner,
+    workspace,
+    "PLN",
+    "Plain release pipeline task"
+  );
+
+  const results = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "release pipeline"
+  );
+
+  assert.deepEqual(results.results.map((result) => result.type), ["work_item"]);
+});
+
+test("project readiness search returns one engineering result per multi-link task", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-multi-link");
+  const workspace = await harness.createWorkspace(owner, "search-multi-link");
+  const { project, item } = await createProjectWithWorkItemOnly(
+    harness,
+    owner,
+    workspace,
+    "MLT",
+    "Prepare rollout task"
+  );
+
+  await addPullRequestLink(workspace, item, "Rollout");
+  await addPullRequestLink(workspace, item, "Rollout");
+
+  const results = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "rollout"
+  );
+  const engineeringResults = results.results.filter((result) => result.type === "engineering");
+
+  assert.equal(engineeringResults.length, 1);
+  assert.equal(new Set(engineeringResults.map((result) => result.id)).size, engineeringResults.length);
+});
+
+test("project readiness search treats LIKE wildcards as literal query text", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-wildcard");
+  const workspace = await harness.createWorkspace(owner, "search-wildcard");
+  const { project } = await createProjectWithSearchData(harness, owner, workspace, "WLD", "");
+
+  const results = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "%%"
+  );
+
+  assert.deepEqual(results, { query: "%%", results: [] });
 });

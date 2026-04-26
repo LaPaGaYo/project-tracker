@@ -1,4 +1,4 @@
-import { and, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import {
   comments,
@@ -41,6 +41,57 @@ function workItemTitle(item: { identifier: string | null; title: string }) {
   return `${item.identifier ?? "Work item"} ${item.title}`;
 }
 
+function escapeLikeQuery(query: string) {
+  return query.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+function ilikeLiteral(column: Parameters<typeof ilike>[0], pattern: string) {
+  return sql`${column} ilike ${pattern} escape '\\'`;
+}
+
+function engineeringScore(row: {
+  prTitle: string | null;
+  headBranch: string | null;
+  branchName: string | null;
+  ciStatus: string | null;
+}) {
+  if (row.ciStatus === "Failing") {
+    return 0;
+  }
+
+  if (row.prTitle) {
+    return 1;
+  }
+
+  if (row.headBranch || row.branchName) {
+    return 2;
+  }
+
+  return 3;
+}
+
+function dedupeEngineeringRows<TRow extends { id: string; title: string; prTitle: string | null; headBranch: string | null; branchName: string | null; ciStatus: string | null }>(
+  rows: TRow[]
+) {
+  const byTaskId = new Map<string, TRow>();
+
+  for (const row of rows) {
+    const current = byTaskId.get(row.id);
+    if (
+      !current ||
+      engineeringScore(row) < engineeringScore(current) ||
+      (engineeringScore(row) === engineeringScore(current) &&
+        (row.prTitle ?? row.headBranch ?? row.branchName ?? row.title).localeCompare(
+          current.prTitle ?? current.headBranch ?? current.branchName ?? current.title
+        ) < 0)
+    ) {
+      byTaskId.set(row.id, row);
+    }
+  }
+
+  return [...byTaskId.values()];
+}
+
 export async function searchProjectForUser(
   dependencies: SearchProjectDependencies,
   session: AppSession,
@@ -65,7 +116,7 @@ export async function searchProjectForUser(
     throw new WorkspaceError(404, "project not found.");
   }
 
-  const pattern = `%${trimmed}%`;
+  const pattern = `%${escapeLikeQuery(trimmed)}%`;
   const baseHref = `/workspaces/${workspace.slug}/projects/${project.key}`;
 
   const workItemRows = await db
@@ -81,7 +132,11 @@ export async function searchProjectForUser(
     .where(
       and(
         eq(tasks.projectId, project.id),
-        or(ilike(tasks.identifier, pattern), ilike(tasks.title, pattern), ilike(tasks.description, pattern))
+        or(
+          ilikeLiteral(tasks.identifier, pattern),
+          ilikeLiteral(tasks.title, pattern),
+          ilikeLiteral(tasks.description, pattern)
+        )
       )
     );
 
@@ -95,7 +150,7 @@ export async function searchProjectForUser(
     })
     .from(comments)
     .innerJoin(tasks, eq(comments.workItemId, tasks.id))
-    .where(and(eq(tasks.projectId, project.id), isNull(comments.deletedAt), ilike(comments.content, pattern)));
+    .where(and(eq(tasks.projectId, project.id), isNull(comments.deletedAt), ilikeLiteral(comments.content, pattern)));
 
   const planRows = await db
     .select({
@@ -114,12 +169,12 @@ export async function searchProjectForUser(
       and(
         eq(projectStages.projectId, project.id),
         or(
-          ilike(planItems.title, pattern),
-          ilike(planItems.outcome, pattern),
-          ilike(planItems.blocker, pattern),
-          ilike(projectStages.title, pattern),
-          ilike(projectStages.goal, pattern),
-          ilike(projectStages.gateStatus, pattern)
+          ilikeLiteral(planItems.title, pattern),
+          ilikeLiteral(planItems.outcome, pattern),
+          ilikeLiteral(planItems.blocker, pattern),
+          ilikeLiteral(projectStages.title, pattern),
+          ilikeLiteral(projectStages.goal, pattern),
+          ilikeLiteral(projectStages.gateStatus, pattern)
         )
       )
     );
@@ -143,11 +198,13 @@ export async function searchProjectForUser(
     .where(
       and(
         eq(tasks.projectId, project.id),
+        or(isNotNull(taskGithubStatus.id), isNotNull(workItemGithubLinks.id), isNotNull(githubPullRequests.id)),
         or(
-          ilike(tasks.identifier, pattern),
-          ilike(tasks.title, pattern),
-          ilike(githubPullRequests.title, pattern),
-          ilike(githubPullRequests.headBranch, pattern)
+          ilikeLiteral(tasks.identifier, pattern),
+          ilikeLiteral(tasks.title, pattern),
+          ilikeLiteral(githubPullRequests.title, pattern),
+          ilikeLiteral(githubPullRequests.headBranch, pattern),
+          ilikeLiteral(workItemGithubLinks.branchName, pattern)
         )
       )
     );
@@ -184,7 +241,7 @@ export async function searchProjectForUser(
       chip: plan.blocker ? "Blocked plan" : plan.gateStatus,
       rank: plan.blocker ? 20 : 40
     })),
-    ...engineeringRows.map((engineering): ProjectSearchResult => {
+    ...dedupeEngineeringRows(engineeringRows).map((engineering): ProjectSearchResult => {
       const branch = engineering.headBranch ?? engineering.branchName ?? "No branch";
 
       return {
