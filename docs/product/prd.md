@@ -1,158 +1,121 @@
-# PRD: Phase 7 - Notifications and Collaboration Foundation
+# PRD: Phase 8 - Readiness Command Center
 
 ## Overview
 
-Add a durable in-app notification foundation for comments, mentions, assignments, work item changes, and GitHub engineering updates. Phase 7 makes collaboration actionable without adding external delivery channels or real-time transport.
+Add a lead-first Readiness Command Center to the project workspace Overview. Phase 8 synthesizes plan progress, work item state, GitHub engineering signals, and notification attention into deterministic readiness reporting, source-linked team actions, scoped readiness search, and readiness-critical polish.
 
 ## Scope Sections
 
-### 7.1 Shared Notification Contracts
+### 8.1 Readiness Projection
 
-Notification concepts must be shared across web, DB, worker, and tests.
-
-**Requirements:**
-- Define source types for comment, work item, GitHub, and system events.
-- Define event types for comments, mentions, assignments, state changes, priority raises, GitHub PR/check/deploy changes, and webhook failures.
-- Define priorities and recipient reasons.
-- Export shared record types for events, recipients, preferences, and inbox items.
-
-### 7.2 Durable Notification Schema
-
-Persist notifications locally before rendering or repairing them.
+Readiness must be derived from local project state using deterministic server-side rules.
 
 **Requirements:**
-- Add `notification_events` with workspace, project, work item, source identity, event type, actor, priority, title, body, URL, metadata, and created timestamp.
-- Add `notification_recipients` with event id, workspace id, recipient id, reason, read timestamp, dismiss timestamp, and created timestamp.
-- Add `notification_preferences` keyed by workspace id and user id.
-- Enforce event uniqueness by workspace, source type, source id, and event type.
-- Enforce recipient uniqueness by event, recipient, and reason.
-- Add indexes for current-user inbox reads.
+- Add a pure readiness projection for project stage, plan items, work items, GitHub signals, engineering state, and inbox rows.
+- Return readiness status as `Ready`, `Ready with risk`, or `Blocked`.
+- Return a plain-language narrative explaining the status.
+- Return metrics for plan, issues, GitHub, and notifications.
+- Return decision cues including ship gate and primary blocker state.
+- Return source-linked actions for blockers, review needs, urgent work, high-priority notifications, and incomplete current-stage plan work.
 
-### 7.3 Notification Service and API
+### 8.2 Workspace Integration
 
-Centralize notification rules and expose current-user operations.
-
-**Requirements:**
-- Create notifications from source events with recipient resolution and preference filtering.
-- Suppress actor self-notifications.
-- Keep recipient insertion idempotent.
-- Enforce workspace membership for inbox reads and preference reads/writes.
-- Add API routes to list inbox notifications, mark one notification read, mark all read, read preferences, and update preferences.
-- Return 404 when a user tries to mark another user's recipient row.
-
-### 7.4 Comment and Mention Notifications
-
-Comments should direct attention to valid teammates.
+The project workspace loader must include readiness data in the Overview view model.
 
 **Requirements:**
-- Parse deterministic `@userId` mentions from comment content.
-- Notify valid mentioned workspace members with reason `mention`.
-- Notify assignees and prior participants with reason `participant` when not already mentioned.
-- Ignore unknown mentions and actor self-notifications.
-- Do not emit notifications for comment edits or deletes in Phase 7.
+- Add readiness data to `ProjectWorkspaceView["overview"]`.
+- Use project-scoped notification inbox rows for readiness signals.
+- Preserve existing board, list, plan, engineering, docs, and notification shell behavior.
+- Keep readiness links stable for project-scoped routes.
 
-### 7.5 Work Item Change Notifications
+### 8.3 Overview Readiness UI
 
-Important execution changes should notify affected users.
-
-**Requirements:**
-- Notify newly assigned users on assignment changes.
-- Notify assignees and participants on workflow state changes.
-- Notify assignees and participants when priority is raised to urgent.
-- Resolve participants from assignee, creator activity, and prior commenters.
-- Preserve existing activity log behavior.
-
-### 7.6 GitHub Engineering Notifications
-
-Engineering changes should reach users attached to linked work items.
+Overview should become the primary Phase 8 decision surface.
 
 **Requirements:**
-- Notify linked item followers when PRs open, request review, merge, or close.
-- Notify linked item followers when check rollups fail or recover.
-- Notify linked item followers when deployments reach staging or production.
-- Notify project owners/admins when a connected repository webhook delivery fails processing.
-- Rely on notification event uniqueness to keep webhook replay duplicate-safe.
+- Render `Readiness command center`.
+- Show readiness status, tone, and narrative prominently.
+- Show signal cards for plan, issues, GitHub, and notifications.
+- Show decision cues.
+- Show deterministic team actions with source labels and links.
+- Keep milestone roadmap visible as supporting context.
+- Avoid duplicate page-level headings inside the project shell.
 
-### 7.7 In-App Notification UI
+### 8.4 Project-Scoped Readiness Search
 
-The project shell should expose a lightweight inbox.
-
-**Requirements:**
-- Extend the project page loader with recent inbox rows, unread count, and current preferences.
-- Add a compact notification bell to the project shell header.
-- Show unread count as a badge.
-- Open an inbox panel with recent notifications.
-- Render source label, title, context/body, work item identifier, timestamp, unread state, and link.
-- Add mark-read and mark-all-read controls using the notification API.
-- Add preference checkboxes for comments, mentions, assignments, GitHub, and state changes.
-
-### 7.8 Worker Notification Repair
-
-The worker should repair notification gaps safely.
+Project search should support readiness work without introducing global search infrastructure.
 
 **Requirements:**
-- Add a `repair-notifications` worker mode.
-- Find notification events missing recipient rows.
-- Rebuild recipients using the same membership, preference, self-notification, and participant semantics as the web notification service.
-- Add an explicitly enabled recent-activity backfill path.
-- Keep repair idempotent through event and recipient uniqueness.
-- Emit summary logs with repaired events and inserted recipient counts.
+- Search work items, current-stage plan items, comments, GitHub engineering signals, and notification signals.
+- Enforce workspace membership and project scoping.
+- Ignore queries shorter than two characters at the service/API level.
+- Escape SQL wildcard characters for literal matching.
+- Return stable result types, titles, snippets, hrefs, chips, and ranks.
+- Deduplicate engineering results deterministically per task.
 
-### 7.9 Verification
+### 8.5 Search API
 
-Automated coverage must prove notification contracts, domain behavior, UI behavior, and worker repair.
+Expose readiness search through a project-scoped API route.
 
 **Requirements:**
-- Shared contract tests pass.
-- DB schema tests pass.
-- Notification service tests cover idempotency, preference filtering, self-notification suppression, and cross-workspace isolation.
-- Comment, work item, GitHub, and API integration tests pass.
-- UI tests cover unread badge, inbox rows, mark-read, mark-all-read, and preference toggles.
-- Worker tests cover missing recipients, preference filtering, duplicate-safe re-run, and recent activity backfill.
-- Full repo lint, typecheck, test, and build pass.
+- Add `GET /api/workspaces/[slug]/projects/[key]/search?q=...`.
+- Return 401 when no session exists.
+- Return 403 for non-members.
+- Return 404 when the project is missing or inaccessible.
+- Return an empty result set for short queries.
+- Return malformed-body and failed-request errors safely to the UI.
+
+### 8.6 Scoped Search UI
+
+Overview should provide a lightweight readiness search box.
+
+**Requirements:**
+- Add an accessible `Readiness search` searchbox.
+- Fetch from the project-scoped search API.
+- Guard stale responses from replacing newer results.
+- Clear stale results when a new valid query starts.
+- Show short-query guidance: `Search across blockers, PRs, comments, plan items, and notifications.`
+- Show no-result copy: `No readiness signals found for "{query}".`
+- Show failure copy: `Search failed. Try again from the project overview.`
+
+### 8.7 Readiness-Critical Polish
+
+Polish is limited to states that affect readiness comprehension.
+
+**Requirements:**
+- Show explicit empty action copy when no readiness actions exist.
+- Show a no-GitHub-repository engineering setup state: `Connect GitHub to populate engineering readiness signals.`
+- Keep linked PR, failing checks, deployment, and issue summary sections intact.
+- Keep search short-query, pending, no-result, and error states mutually clear.
+
+### 8.8 Verification
+
+Automated and browser coverage must prove readiness behavior and phase stability.
+
+**Requirements:**
+- Readiness projection tests pass.
+- Project search service tests pass.
+- Search API tests pass.
+- Overview and Engineering UI tests pass.
+- Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+- Browser smoke check verifies the Overview readiness surface, action links, search states, and engineering setup state.
 
 ## Data Model
 
-```
-notification_events:
-  id: uuid PK
-  workspace_id: uuid FK
-  project_id: uuid FK nullable
-  work_item_id: uuid FK nullable
-  source_type: enum
-  source_id: text
-  event_type: enum
-  actor_id: text nullable
-  priority: enum
-  title: text
-  body: text nullable
-  url: text
-  metadata: jsonb nullable
-  created_at: timestamp
+Phase 8 does not add durable readiness tables. Readiness is a server-side projection over existing project, stage, plan, work item, GitHub, engineering, comment, and notification data.
 
-notification_recipients:
-  id: uuid PK
-  event_id: uuid FK
-  workspace_id: uuid FK
-  recipient_id: text
-  reason: enum
-  read_at: timestamp nullable
-  dismissed_at: timestamp nullable
-  created_at: timestamp
+## Non-Goals
 
-notification_preferences:
-  workspace_id: uuid FK
-  user_id: text
-  comments_enabled: boolean
-  mentions_enabled: boolean
-  assignments_enabled: boolean
-  github_enabled: boolean
-  state_changes_enabled: boolean
-```
+- Global portfolio dashboard
+- Analytics warehouse
+- AI-generated recommendations
+- Full-text infrastructure
+- Global command palette
+- External reporting or BI integrations
 
 ## Exit Criteria
 
-- All 10 success criteria from the decision brief are met.
-- Phase 7 tests pass without external delivery services.
-- Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
-- Product docs identify Phase 8 as reporting, search, and polish.
+- All success criteria from the Phase 8 decision brief are met.
+- Product docs identify Phase 8 as the Readiness Command Center with lead-first Overview reporting, deterministic team actions, scoped readiness search, and readiness-critical polish.
+- Phase 8 non-goals remain explicit.
+- Targeted tests, full repo verification, and browser smoke check pass.

@@ -34,7 +34,7 @@
 - Create: `apps/web/src/server/projects/readiness.ts`
 - Create: `tests/phase8-readiness-projection.test.mjs`
 
-- [ ] **Step 1: Write failing tests for readiness status rules**
+- [x] **Step 1: Write failing tests for readiness status rules**
 
 Add `tests/phase8-readiness-projection.test.mjs` with three pure projection tests:
 
@@ -202,7 +202,7 @@ test("readiness projection marks stable projects ready", () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing test**
+- [x] **Step 2: Run the failing test**
 
 Run:
 
@@ -212,7 +212,7 @@ node --import tsx --test tests/phase8-readiness-projection.test.mjs
 
 Expected: FAIL because `apps/web/src/server/projects/readiness.ts` does not exist.
 
-- [ ] **Step 3: Implement readiness types and projection**
+- [x] **Step 3: Implement readiness types and projection**
 
 Create `apps/web/src/server/projects/readiness.ts` with these exported types and functions:
 
@@ -281,7 +281,7 @@ Implement `buildProjectReadiness(input: BuildProjectReadinessInput): ProjectRead
 - Sort actions by priority order: failing checks, blocked work items, urgent work, review PRs, unread high-priority notifications, incomplete current-stage plan items.
 - Cap `actions` at five entries.
 
-- [ ] **Step 4: Run the readiness projection test**
+- [x] **Step 4: Run the readiness projection test**
 
 Run:
 
@@ -291,7 +291,7 @@ node --import tsx --test tests/phase8-readiness-projection.test.mjs
 
 Expected: PASS with 3 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -309,7 +309,7 @@ git commit -m "feat: add project readiness projection"
 - Modify: `apps/web/src/app/workspaces/[slug]/projects/[key]/project-page-data.ts`
 - Modify: `tests/phase4-project-workspace.test.mjs`
 
-- [ ] **Step 1: Extend workspace projection tests**
+- [x] **Step 1: Extend workspace projection tests**
 
 In `tests/phase4-project-workspace.test.mjs`, update the first workspace projection test after the existing `workspaceView.overview.health` assertion:
 
@@ -402,7 +402,7 @@ test("project workspace overview includes readiness signals from the current use
 });
 ```
 
-- [ ] **Step 2: Run the failing workspace projection test**
+- [x] **Step 2: Run the failing workspace projection test**
 
 Run:
 
@@ -412,7 +412,7 @@ node --import tsx --test tests/phase4-project-workspace.test.mjs
 
 Expected: FAIL because `overview.readiness` is not defined and `getProjectWorkspaceForUser` does not accept notification inbox options.
 
-- [ ] **Step 3: Update workspace view model**
+- [x] **Step 3: Update workspace view model**
 
 In `apps/web/src/server/projects/workspace.ts`:
 
@@ -450,7 +450,7 @@ readiness: buildProjectReadiness({
 })
 ```
 
-- [ ] **Step 4: Pass inbox rows from the project page loader**
+- [x] **Step 4: Pass inbox rows from the project page loader**
 
 In `apps/web/src/app/workspaces/[slug]/projects/[key]/project-page-data.ts`, fetch notifications before calling `getProjectWorkspaceForUser`:
 
@@ -480,7 +480,7 @@ const [workspaceView, projectStages, planItems] = await Promise.all([
 
 Keep the existing `notificationInbox` object shape returned from `loadProjectPageData`.
 
-- [ ] **Step 5: Run workspace projection tests**
+- [x] **Step 5: Run workspace projection tests**
 
 Run:
 
@@ -490,7 +490,7 @@ node --import tsx --test tests/phase4-project-workspace.test.mjs
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -510,7 +510,7 @@ git commit -m "feat: wire readiness into project overview data"
 - Create: `apps/web/src/features/overview/readiness-action-list.tsx`
 - Modify: `apps/web/src/features/overview/__tests__/overview-view.test.tsx`
 
-- [ ] **Step 1: Replace the Overview UI test with readiness expectations**
+- [x] **Step 1: Replace the Overview UI test with readiness expectations**
 
 Update `apps/web/src/features/overview/__tests__/overview-view.test.tsx` so the fixture includes `overview.readiness`:
 
@@ -565,7 +565,7 @@ expect(screen.getByRole("link", { name: /Review OPS-4 pull request/i })).toHaveA
 expect(screen.getByText("Milestone roadmap")).toBeInTheDocument();
 ```
 
-- [ ] **Step 2: Run the failing UI test**
+- [x] **Step 2: Run the failing UI test**
 
 Run:
 
@@ -575,7 +575,7 @@ npm run test --workspace @the-platform/web -- overview-view
 
 Expected: FAIL because the readiness components are not rendered.
 
-- [ ] **Step 3: Add `ReadinessSignalCard`**
+- [x] **Step 3: Add `ReadinessSignalCard`**
 
 Create `apps/web/src/features/overview/readiness-signal-card.tsx`:
 
@@ -600,7 +600,7 @@ export function ReadinessSignalCard({ metric }: { metric: ProjectReadinessMetric
 }
 ```
 
-- [ ] **Step 4: Add `ReadinessActionList`**
+- [x] **Step 4: Add `ReadinessActionList`**
 
 Create `apps/web/src/features/overview/readiness-action-list.tsx`:
 
@@ -656,7 +656,7 @@ export function ReadinessActionList({ actions }: { actions: ProjectReadinessActi
 }
 ```
 
-- [ ] **Step 5: Add `ReadinessSummary`**
+- [x] **Step 5: Add `ReadinessSummary`**
 
 Create `apps/web/src/features/overview/readiness-summary.tsx`:
 
@@ -710,7 +710,7 @@ export function ReadinessSummary({ readiness }: { readiness: ProjectReadinessVie
 }
 ```
 
-- [ ] **Step 6: Compose the new Overview**
+- [x] **Step 6: Compose the new Overview**
 
 Modify `apps/web/src/features/overview/overview-view.tsx`:
 
@@ -720,7 +720,7 @@ Modify `apps/web/src/features/overview/overview-view.tsx`:
 - Render `ReadinessActionList` in the right/lower area on desktop.
 - Keep the current milestone roadmap visible.
 
-- [ ] **Step 7: Run the Overview UI test**
+- [x] **Step 7: Run the Overview UI test**
 
 Run:
 
@@ -730,7 +730,7 @@ npm run test --workspace @the-platform/web -- overview-view
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -747,7 +747,7 @@ git commit -m "feat: add readiness overview UI"
 - Create: `apps/web/src/server/projects/search.ts`
 - Create: `tests/phase8-project-search.test.mjs`
 
-- [ ] **Step 1: Write failing search tests**
+- [x] **Step 1: Write failing search tests**
 
 Create `tests/phase8-project-search.test.mjs` that:
 
@@ -772,7 +772,7 @@ assert.ok(results.results.every((result) => result.href.startsWith(`/workspaces/
 assert.ok(!results.results.some((result) => result.title.includes("Other workspace")));
 ```
 
-- [ ] **Step 2: Run the failing search test**
+- [x] **Step 2: Run the failing search test**
 
 Run:
 
@@ -782,7 +782,7 @@ node --import tsx --test tests/phase8-project-search.test.mjs
 
 Expected: FAIL because `apps/web/src/server/projects/search.ts` does not exist.
 
-- [ ] **Step 3: Implement search result types**
+- [x] **Step 3: Implement search result types**
 
 Create `apps/web/src/server/projects/search.ts` with:
 
@@ -828,7 +828,7 @@ interface SearchProjectDependencies {
 }
 ```
 
-- [ ] **Step 4: Implement `searchProjectForUser`**
+- [x] **Step 4: Implement `searchProjectForUser`**
 
 Add:
 
@@ -959,7 +959,7 @@ export async function searchProjectForUser(
 
 If `ilike` rejects nullable columns during typecheck, wrap nullable text fields with `sql<string>` expressions in the implementation.
 
-- [ ] **Step 5: Run search tests**
+- [x] **Step 5: Run search tests**
 
 Run:
 
@@ -969,7 +969,7 @@ node --import tsx --test tests/phase8-project-search.test.mjs
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -986,7 +986,7 @@ git commit -m "feat: add project readiness search service"
 - Create: `apps/web/src/app/api/workspaces/[slug]/projects/[key]/search/route.ts`
 - Create: `tests/phase8-search-api.test.mjs`
 
-- [ ] **Step 1: Write failing API tests**
+- [x] **Step 1: Write failing API tests**
 
 Create `tests/phase8-search-api.test.mjs` with tests for:
 
@@ -997,7 +997,7 @@ Create `tests/phase8-search-api.test.mjs` with tests for:
 
 Use route-level request calls by importing `GET` from the route file and stubbing session through the same pattern used in existing API tests.
 
-- [ ] **Step 2: Run the failing API test**
+- [x] **Step 2: Run the failing API test**
 
 Run:
 
@@ -1007,7 +1007,7 @@ node --import tsx --test tests/phase8-search-api.test.mjs
 
 Expected: FAIL because the route file does not exist.
 
-- [ ] **Step 3: Implement the route**
+- [x] **Step 3: Implement the route**
 
 Create `apps/web/src/app/api/workspaces/[slug]/projects/[key]/search/route.ts`:
 
@@ -1067,7 +1067,7 @@ export async function GET(
 }
 ```
 
-- [ ] **Step 4: Run API tests**
+- [x] **Step 4: Run API tests**
 
 Run:
 
@@ -1077,7 +1077,7 @@ node --import tsx --test tests/phase8-search-api.test.mjs
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1095,7 +1095,7 @@ git commit -m "feat: add readiness search api"
 - Modify: `apps/web/src/features/overview/overview-view.tsx`
 - Modify: `apps/web/src/features/overview/__tests__/overview-view.test.tsx`
 
-- [ ] **Step 1: Extend Overview UI tests for search states**
+- [x] **Step 1: Extend Overview UI tests for search states**
 
 In `overview-view.test.tsx`, add a test that stubs `fetch`, types `pipeline`, and expects grouped results:
 
@@ -1139,7 +1139,7 @@ it("searches readiness signals from the overview", async () => {
 
 Import `fireEvent`, `waitFor`, and `vi` at the top of the test file.
 
-- [ ] **Step 2: Run the failing Overview search test**
+- [x] **Step 2: Run the failing Overview search test**
 
 Run:
 
@@ -1149,7 +1149,7 @@ npm run test --workspace @the-platform/web -- overview-view
 
 Expected: FAIL because `OverviewView` does not accept `workspaceSlug` and `projectKey`, and `ReadinessSearch` does not exist.
 
-- [ ] **Step 3: Create `ReadinessSearch`**
+- [x] **Step 3: Create `ReadinessSearch`**
 
 Create `apps/web/src/features/overview/readiness-search.tsx`:
 
@@ -1235,7 +1235,7 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: ReadinessSearchPr
 }
 ```
 
-- [ ] **Step 4: Wire search into `OverviewView`**
+- [x] **Step 4: Wire search into `OverviewView`**
 
 Change `OverviewView` props:
 
@@ -1257,7 +1257,7 @@ export function OverviewView({
 
 Update `apps/web/src/app/workspaces/[slug]/projects/[key]/overview/page.tsx` to pass `workspace.slug` and `project.key` from `loadProjectPageData`.
 
-- [ ] **Step 5: Run Overview UI tests**
+- [x] **Step 5: Run Overview UI tests**
 
 Run:
 
@@ -1267,7 +1267,7 @@ npm run test --workspace @the-platform/web -- overview-view
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -1287,7 +1287,7 @@ git commit -m "feat: add readiness search UI"
 - Modify: `apps/web/src/features/overview/__tests__/overview-view.test.tsx`
 - Modify: `apps/web/src/features/engineering/__tests__/engineering-view.test.tsx`
 
-- [ ] **Step 1: Add UI tests for empty and no-repository states**
+- [x] **Step 1: Add UI tests for empty and no-repository states**
 
 In `overview-view.test.tsx`, assert empty actions are explicit:
 
@@ -1314,7 +1314,7 @@ In `engineering-view.test.tsx`, assert no repository connected renders a clear s
 expect(screen.getByText("Connect GitHub to populate engineering readiness signals.")).toBeInTheDocument();
 ```
 
-- [ ] **Step 2: Run failing UI tests**
+- [x] **Step 2: Run failing UI tests**
 
 Run:
 
@@ -1324,7 +1324,7 @@ npm run test --workspace @the-platform/web -- overview-view engineering-view
 
 Expected: FAIL if the engineering no-repository state is not explicit.
 
-- [ ] **Step 3: Improve Engineering empty states**
+- [x] **Step 3: Improve Engineering empty states**
 
 In `apps/web/src/features/engineering/engineering-view.tsx`, when `engineering.connectionStatus === "Setup required"`, render:
 
@@ -1336,7 +1336,7 @@ In `apps/web/src/features/engineering/engineering-view.tsx`, when `engineering.c
 
 Keep current linked PR, failing checks, deployments, and issue summary sections intact.
 
-- [ ] **Step 4: Improve search empty and error copy**
+- [x] **Step 4: Improve search empty and error copy**
 
 In `ReadinessSearch`, keep three distinct states:
 
@@ -1344,7 +1344,7 @@ In `ReadinessSearch`, keep three distinct states:
 - no results: `No readiness signals found for "{query}".`
 - failed request: `Search failed. Try again from the project overview.`
 
-- [ ] **Step 5: Run UI tests**
+- [x] **Step 5: Run UI tests**
 
 Run:
 
@@ -1354,7 +1354,7 @@ npm run test --workspace @the-platform/web -- overview-view engineering-view
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -1373,7 +1373,7 @@ git commit -m "feat: polish readiness empty states"
 - Modify: `docs/product/prd.md`
 - Modify: `docs/superpowers/plans/2026-04-26-phase8-readiness-command-center.md`
 
-- [ ] **Step 1: Update product docs for Phase 8**
+- [x] **Step 1: Update product docs for Phase 8**
 
 Update product docs so they identify Phase 8 as:
 
@@ -1391,11 +1391,11 @@ Keep Phase 8 non-goals explicit:
 - no full-text infrastructure
 - no global command palette
 
-- [ ] **Step 2: Mark completed plan tasks**
+- [x] **Step 2: Mark completed plan tasks**
 
 In this plan file, check off completed task steps as implementation progresses.
 
-- [ ] **Step 3: Run targeted tests**
+- [x] **Step 3: Run targeted tests**
 
 Run:
 
@@ -1406,7 +1406,7 @@ npm run test --workspace @the-platform/web -- overview-view engineering-view
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -1419,7 +1419,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 5: Browser smoke check**
+- [x] **Step 5: Browser smoke check**
 
 Start the app from the Phase 8 worktree:
 
@@ -1436,7 +1436,9 @@ Open the local Next.js URL and verify:
 - Search query with no result shows the no-result state.
 - Engineering no-repository projects show the setup state.
 
-- [ ] **Step 6: Commit final docs**
+Smoke note: root `npm run dev` started web but the worker exited because local GitHub worker tokens are not configured (`GITHUB_TOKEN` or `GITHUB_APP_INSTALLATION_TOKEN`). Browser smoke used the Phase 8 worktree web server directly with `npm run dev --workspace @the-platform/web -- -p 3001`, reusing local Postgres/Redis. No DB reset was run; a local demo membership and `SETUP` no-repository smoke project were added to the existing development workspace.
+
+- [x] **Step 6: Commit final docs**
 
 Run:
 
