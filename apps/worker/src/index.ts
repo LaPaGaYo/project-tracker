@@ -12,18 +12,39 @@ import {
   type GithubReconcileRepository,
   type GithubReconcileSummary
 } from "./github-reconcile";
+import {
+  createNotificationRepairRepository,
+  runNotificationRepair,
+  type NotificationRepairSummary
+} from "./notification-repair";
 
-function parseWorkerMode(value: string | undefined): GithubReconcileMode {
+type WorkerMode = GithubReconcileMode | "repair-notifications";
+
+export function parseWorkerMode(value: string | undefined): WorkerMode {
   if (value === "backfill" || value === "replay-failed" || value === "resync-linked" || value === "cycle") {
+    return value;
+  }
+
+  if (value === "repair-notifications") {
     return value;
   }
 
   return "cycle";
 }
 
+function readWorkerMode() {
+  return parseWorkerMode(
+    process.env.NOTIFICATION_REPAIR_MODE ?? process.env.WORKER_MODE ?? process.env.GITHUB_RECONCILE_MODE
+  );
+}
+
 function readRepositoryScope() {
   const scopedRepository = process.env.GITHUB_REPOSITORY_FULL_NAME?.trim();
   return scopedRepository && scopedRepository.length > 0 ? scopedRepository : null;
+}
+
+function readNotificationRepairBackfillFlag() {
+  return process.env.NOTIFICATION_REPAIR_BACKFILL_ACTIVITY === "true";
 }
 
 function createScopedRepository(
@@ -71,8 +92,41 @@ export function formatGithubWorkerSummary(summary: GithubReconcileSummary) {
   return [...header, ...repositories].join("\n");
 }
 
+export function formatNotificationRepairSummary(summary: NotificationRepairSummary) {
+  const header = [
+    `${APP_NAME} worker notification repair`,
+    `Mode: ${summary.mode}`,
+    `Events repaired: ${summary.totals.eventsRepaired}`,
+    `Activity events backfilled: ${summary.totals.activityEventsBackfilled}`,
+    `Recipients inserted: ${summary.totals.recipientsInserted}`
+  ];
+
+  const events = summary.events.map((event) =>
+    [
+      `- ${event.eventId}`,
+      `eventType=${event.eventType}`,
+      `reason=${event.reason}`,
+      `recipients=${event.recipientsInserted}`
+    ].join(" ")
+  );
+
+  return [...header, ...events].join("\n");
+}
+
 export async function runWorkerFromEnvironment() {
-  const mode = parseWorkerMode(process.env.GITHUB_RECONCILE_MODE);
+  const mode = readWorkerMode();
+
+  if (mode === "repair-notifications") {
+    const summary = await runNotificationRepair({
+      repository: createNotificationRepairRepository(),
+      backfillRecentActivity: readNotificationRepairBackfillFlag(),
+      now: () => new Date()
+    });
+
+    console.info(formatNotificationRepairSummary(summary));
+    return summary;
+  }
+
   const repositoryScope = readRepositoryScope();
   const repository = createScopedRepository(createGithubReconcileRepository(), repositoryScope);
   const projector = createGithubConnectionRepository();
@@ -94,7 +148,7 @@ const isEntryPoint = Boolean(process.argv[1]) && import.meta.url === pathToFileU
 
 if (isEntryPoint) {
   void runWorkerFromEnvironment().catch((error) => {
-    console.error(`${APP_NAME} worker reconciliation failed`, error);
+    console.error(`${APP_NAME} worker failed`, error);
     process.exitCode = 1;
   });
 }

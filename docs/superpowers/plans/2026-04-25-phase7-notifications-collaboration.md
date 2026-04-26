@@ -212,16 +212,16 @@
 - Modify: `apps/worker/package.json`
 - Modify: `tests/phase1-foundation-contract.test.mjs`
 
-- [ ] Add `NOTIFICATION_REPAIR_MODE` or extend the existing worker mode parser with `repair-notifications`.
-- [ ] Implement a repair job that finds notification events missing recipient rows.
-- [ ] Rebuild recipients using the same resolver semantics as the web notification service.
-- [ ] Add an optional recent-activity backfill path for activity rows that have no matching notification event.
-- [ ] Ensure the repair job is idempotent by relying on event and recipient uniqueness.
-- [ ] Add worker tests for missing recipients, preference filtering, and duplicate-safe re-run.
-- [ ] Run: `npm run test --workspace @the-platform/worker`
-- [ ] Run: `node --import tsx --test tests/phase1-foundation-contract.test.mjs`
-- [ ] Expected: PASS with worker responsibility updated beyond GitHub reconciliation.
-- [ ] Commit: `feat: add notification repair worker`
+- [x] Add `NOTIFICATION_REPAIR_MODE` or extend the existing worker mode parser with `repair-notifications`.
+- [x] Implement a repair job that finds notification events missing recipient rows.
+- [x] Rebuild recipients using the same resolver semantics as the web notification service.
+- [x] Add an optional recent-activity backfill path for activity rows that have no matching notification event.
+- [x] Ensure the repair job is idempotent by relying on event and recipient uniqueness.
+- [x] Add worker tests for missing recipients, preference filtering, and duplicate-safe re-run.
+- [x] Run: `npm run test --workspace @the-platform/worker`
+- [x] Run: `node --import tsx --test tests/phase1-foundation-contract.test.mjs`
+- [x] Expected: PASS with worker responsibility updated beyond GitHub reconciliation.
+- [x] Commit: `feat: add notification repair worker`
 
 ### Task 10: Final Verification and Delivery
 
