@@ -180,20 +180,19 @@ export async function searchProjectForUser(
       type: "plan",
       title: plan.title,
       snippet: plan.outcome || plan.stageGoal || plan.status,
-      href: `${baseHref}?selected=plan-${plan.id}`,
+      href: `${baseHref}/plan`,
       chip: plan.blocker ? "Blocked plan" : plan.gateStatus,
       rank: plan.blocker ? 20 : 40
     })),
     ...engineeringRows.map((engineering): ProjectSearchResult => {
       const branch = engineering.headBranch ?? engineering.branchName ?? "No branch";
-      const selected = engineering.identifier ?? engineering.id;
 
       return {
         id: `engineering-${engineering.id}`,
         type: "engineering",
         title: engineering.prTitle ? `${engineering.identifier ?? "Work item"} ${engineering.prTitle}` : workItemTitle(engineering),
         snippet: `${branch} · ${engineering.prStatus ?? "No PR"} · ${engineering.ciStatus ?? "Unknown"}`,
-        href: `${baseHref}?selected=${selected}`,
+        href: `${baseHref}/engineering`,
         chip: engineering.ciStatus === "Failing" ? "CI failing" : (engineering.deployStatus ?? engineering.prStatus ?? "Engineering"),
         rank: engineering.ciStatus === "Failing" ? 20 : 50
       };

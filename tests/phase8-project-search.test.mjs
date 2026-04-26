@@ -221,6 +221,14 @@ test("project readiness search ranks grouped results and stays scoped to the req
       result.href.startsWith(`/workspaces/${workspace.slug}/projects/${project.key}`)
     )
   );
+  assert.equal(
+    results.results.find((result) => result.type === "plan")?.href,
+    `/workspaces/${workspace.slug}/projects/${project.key}/plan`
+  );
+  assert.equal(
+    results.results.find((result) => result.type === "engineering")?.href,
+    `/workspaces/${workspace.slug}/projects/${project.key}/engineering`
+  );
   assert.ok(!results.results.some((result) => result.title.includes("Other workspace")));
 });
 
