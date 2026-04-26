@@ -1,9 +1,26 @@
 import type {
+  GithubCheckRollupStatus,
+  GithubDeploymentEnvironment,
+  GithubDeploymentStatus,
+  GithubPullRequestState,
+  GithubRepositoryProvider,
+  GithubWebhookDeliveryStatus,
+  GithubWebhookEventName,
   InvitationStatus,
+  NotificationEventType,
+  NotificationPriority,
+  NotificationRecipientReason,
+  NotificationSourceType,
+  PlanItemStatus,
   ProjectStage,
+  StageStatus,
   TaskStatus,
+  TaskGithubCiStatus,
+  TaskGithubDeployStatus,
+  TaskGithubPrStatus,
   WorkflowStateCategory,
   WorkspaceRole,
+  WorkItemGithubLinkSource,
   WorkItemPriority,
   WorkItemType
 } from "./constants";
@@ -35,6 +52,8 @@ export interface WorkItemRecord {
   priority: WorkItemPriority;
   labels: string[] | null;
   workflowStateId: string | null;
+  stageId: string | null;
+  planItemId: string | null;
   position: number;
   blockedReason: string | null;
   dueDate: string | null;
@@ -54,6 +73,176 @@ export interface WorkflowStateRecord {
   color: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectStageRecord {
+  id: string;
+  projectId: string;
+  slug: string;
+  title: string;
+  goal: string;
+  status: StageStatus;
+  gateStatus: string;
+  sortOrder: number;
+}
+
+export interface PlanItemRecord {
+  id: string;
+  stageId: string;
+  title: string;
+  outcome: string;
+  status: PlanItemStatus;
+  blocker: string | null;
+  sortOrder: number;
+}
+
+export interface TaskGithubStatusRecord {
+  id: string;
+  taskId: string;
+  prStatus: TaskGithubPrStatus;
+  ciStatus: TaskGithubCiStatus;
+  deployStatus: TaskGithubDeployStatus;
+}
+
+export interface GithubRepositoryRecord {
+  id: string;
+  workspaceId: string;
+  provider: GithubRepositoryProvider;
+  providerRepositoryId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  installationId: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGithubConnectionRecord {
+  id: string;
+  projectId: string;
+  repositoryId: string;
+  stagingEnvironmentName: string | null;
+  productionEnvironmentName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubPullRequestRecord {
+  id: string;
+  repositoryId: string;
+  providerPullRequestId: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: GithubPullRequestState;
+  isDraft: boolean;
+  authorLogin: string | null;
+  baseBranch: string;
+  headBranch: string;
+  headSha: string;
+  mergedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubCheckRollupRecord {
+  id: string;
+  repositoryId: string;
+  headSha: string;
+  status: GithubCheckRollupStatus;
+  url: string | null;
+  checkCount: number;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GithubDeploymentRecord {
+  id: string;
+  repositoryId: string;
+  providerDeploymentId: string;
+  headSha: string;
+  environmentName: string | null;
+  environment: GithubDeploymentEnvironment;
+  status: GithubDeploymentStatus;
+  url: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkItemGithubLinkRecord {
+  id: string;
+  workItemId: string;
+  repositoryId: string;
+  pullRequestId: string | null;
+  branchName: string | null;
+  source: WorkItemGithubLinkSource;
+  confidence: number;
+  linkedAt: string;
+}
+
+export interface GithubWebhookDeliveryRecord {
+  id: string;
+  repositoryId: string | null;
+  deliveryId: string;
+  eventName: GithubWebhookEventName;
+  status: GithubWebhookDeliveryStatus;
+  receivedAt: string;
+  processedAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface NotificationEventRecord {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  workItemId: string | null;
+  sourceType: NotificationSourceType;
+  sourceId: string;
+  eventType: NotificationEventType;
+  actorId: string | null;
+  priority: NotificationPriority;
+  title: string;
+  body: string | null;
+  url: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NotificationRecipientRecord {
+  id: string;
+  eventId: string;
+  workspaceId: string;
+  recipientId: string;
+  reason: NotificationRecipientReason;
+  readAt: string | null;
+  dismissedAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreferenceRecord {
+  workspaceId: string;
+  userId: string;
+  commentsEnabled: boolean;
+  mentionsEnabled: boolean;
+  assignmentsEnabled: boolean;
+  githubEnabled: boolean;
+  stateChangesEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationInboxItem {
+  event: NotificationEventRecord;
+  recipient: NotificationRecipientRecord;
+  workItemIdentifier: string | null;
+  projectKey: string | null;
+  workspaceSlug: string;
+  isUnread: boolean;
 }
 
 export interface WorkspaceRecord {
@@ -94,5 +283,23 @@ export interface ActivityLogRecord {
   action: "created" | "updated" | "deleted" | "assigned" | "moved" | "state_changed";
   actorId: string;
   metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface CommentRecord {
+  id: string;
+  workItemId: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface DescriptionVersionRecord {
+  id: string;
+  workItemId: string;
+  content: string;
+  authorId: string;
   createdAt: string;
 }

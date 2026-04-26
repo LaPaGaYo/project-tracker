@@ -1,37 +1,82 @@
-# Idea Brief: Phase 4 - Views
+# Idea Brief: Phase 7 - Notifications and Collaboration Foundation
 
 ## Problem
 
-After Phase 3, users can create projects and work items with hierarchy, human-readable IDs, and workflow states. But the UI is minimal: a flat list grouped by state. There's no board/kanban view, no drag-and-drop, no filtering, and no way to switch between view modes. Every PM tool lives or dies by its views.
+The project workspace now has Jira-like execution, plan alignment, comments, and live GitHub engineering status. The remaining collaboration gap is attention: teammates still need to scan boards, comments, assignments, and engineering views to know what changed for them.
+
+Without a durable notification layer, the product can show project truth but cannot reliably direct each teammate to the work that needs their response.
 
 ## Goals
 
-1. **Board/Kanban view** - Columns per workflow state, cards for work items, drag-and-drop between columns to change state
-2. **List view** - Sortable table with columns for identifier, title, type, priority, assignee, state. Click to expand details inline.
-3. **View switching** - Toggle between Board and List views per project. Persist the user's preference.
-4. **Drag-and-drop** - Move cards between columns (state change), reorder within columns (position change). Must update both UI and database atomically.
-5. **Filtering and sorting** - Filter work items by type, priority, assignee, state. Sort by created date, priority, identifier.
+1. **Durable notification model** - Store notification source events separately from per-user recipient rows.
+
+2. **Source-driven notification creation** - Emit notifications from comments, mentions, assignments, work item state or priority changes, GitHub PR/check/deploy changes, and webhook failures.
+
+3. **In-app inbox** - Add a compact notification bell, unread count, inbox panel, mark-read, and mark-all-read controls to the project workspace shell.
+
+4. **Coarse preferences** - Let users tune comments, mentions, assignments, GitHub, and state-change notification categories per workspace.
+
+5. **Worker repair path** - Add a safe worker mode that rebuilds missing recipient rows and can explicitly backfill recent missed activity.
+
+6. **Local-first reads** - Keep the UI reading local Postgres notification state instead of relying on real-time transport in this phase.
 
 ## Constraints
 
-- Must work with Phase 3's existing workflow states, work items, and activity log
-- Drag-and-drop state changes must log activity entries
-- Board view needs to handle empty states gracefully (no items in a column)
-- Must not break existing Phase 3 contract tests (26 passing)
-- Mobile-responsive: board should stack columns vertically on small screens
+- Users can only read or mutate notification rows for workspaces where they are members.
+- Users can only mark their own recipient rows read.
+- Notification creation must not change existing comment, work item, or GitHub response shapes.
+- Self-notifications are suppressed.
+- Recipient creation must remain idempotent across webhook replay and worker repair.
+- Phase 7 does not add email, Slack, push, or global cross-workspace notification delivery.
 
-## Open Questions
+## Decisions
 
-- Should we support saved/named views (e.g., "My Items", "High Priority")? Leaning no for Phase 4, defer to Phase 8.
-- Should the board show subtasks inline under their parent task? Or keep them flat?
-- Should we add a timeline/gantt view in this phase? Leaning no, keep it to board + list.
+1. **Event plus recipient tables** - Notification events capture what happened; recipient rows capture who should see it and read state.
 
-## Nexus Execution Context
+2. **Domain services emit events** - Comments, work items, and GitHub services call the notification service after successful mutations. They do not write notification tables directly.
 
-- Run ID: run-2026-04-19T08-27-58-235Z
-- Command: discover
-- Stage: discover -> frame
-- Continuation mode: phase (from Phase 3 closeout)
-- Execution mode: governed_ccb
-- Primary provider: codex
-- Provider topology: multi_session
+3. **In-app first** - Phase 7 ships a project-workspace inbox before external delivery channels.
+
+4. **Coarse preference model** - Workspace-level category switches are enough for this phase. Per-project and per-issue preferences remain out of scope.
+
+5. **Repair worker** - The worker owns deterministic repair for missing recipients and optional recent activity backfill.
+
+## Non-Goals
+
+- Email, Slack, push, SMS, or mobile notifications
+- Real-time websocket delivery
+- Global cross-workspace notification center
+- Per-project or per-issue notification preferences
+- Manual ambiguous GitHub link management
+- Portfolio reporting or executive dashboards
+
+## Success Criteria
+
+- Shared notification contracts exist for source type, event type, priority, recipient reason, events, recipients, preferences, and inbox items.
+- Postgres has durable notification event, recipient, and preference tables with uniqueness and inbox lookup indexes.
+- Comments notify valid mentions, assignees, and prior participants without notifying the actor.
+- Work item assignment, state change, and urgent-priority changes notify the right users.
+- GitHub PR, check, deploy, and webhook failure events create relevant notifications without duplicate recipients on replay.
+- API routes list the current user's inbox, mark one notification read, mark all read, and update preferences with workspace scoping.
+- The project shell shows an unread badge and inbox panel with source, title, context, work item identifier, timestamp, read state, link, and preferences.
+- Worker notification repair can rebuild missing recipients safely and idempotently.
+
+## Technical Direction
+
+- Shared contracts: `packages/shared/src/constants.ts`, `packages/shared/src/types.ts`
+- Durable schema: `notification_events`, `notification_recipients`, `notification_preferences`
+- Web notification service: `apps/web/src/server/notifications/`
+- API routes: `apps/web/src/app/api/workspaces/[slug]/notifications/*`
+- UI components: `apps/web/src/components/notification-bell.tsx`, `notification-inbox.tsx`, `notification-preferences.tsx`
+- Worker repair: `apps/worker/src/notification-repair.ts`
+
+## Phase Position
+
+Phase 7 of 8. Builds on:
+- Phase 2: Auth and workspace membership
+- Phase 3: Projects and work items
+- Phase 4: Board/list execution views
+- Phase 5: Detail, comments, plan, overview, docs, and project workspace shell
+- Phase 6: Live GitHub engineering integration
+
+Next: Phase 8 should shift to reporting, search, and product polish now that execution, engineering status, and in-app notification foundations are in place.

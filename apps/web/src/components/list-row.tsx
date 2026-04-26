@@ -1,33 +1,46 @@
 import type { WorkItemRecord } from "@the-platform/shared";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import { WorkItemEngineeringChips } from "./work-item-engineering-chips";
+
 interface ListRowProps {
   item: WorkItemRecord;
+  engineering?: ProjectWorkspaceEngineeringItemView | null;
   depth: number;
   hasChildren: boolean;
   isCollapsed: boolean;
   assigneeLabel: string;
   stateLabel: string;
   onToggle: () => void;
+  onOpen?: () => void;
 }
 
 export function ListRow({
   item,
+  engineering,
   depth,
   hasChildren,
   isCollapsed,
   assigneeLabel,
   stateLabel,
-  onToggle
+  onToggle,
+  onOpen
 }: ListRowProps) {
   return (
-    <tr className="border-t border-white/6">
+    <tr
+      onClick={onOpen}
+      className={`border-t border-white/6 ${onOpen ? "cursor-pointer transition hover:bg-white/5" : ""}`}
+    >
       <td className="px-4 py-4 text-sm font-semibold text-planka-text">{item.identifier}</td>
       <td className="px-4 py-4 text-sm text-planka-text">
         <div className="flex items-start gap-3" style={{ paddingLeft: `${depth * 1.25}rem` }}>
           {hasChildren ? (
             <button
               type="button"
-              onClick={onToggle}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggle();
+              }}
               className="mt-0.5 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-planka-text-muted transition hover:border-white/24 hover:text-planka-text"
             >
               {isCollapsed ? "+" : "-"}
@@ -38,6 +51,9 @@ export function ListRow({
           <div>
             <p className="font-semibold text-planka-text">{item.title}</p>
             <p className="mt-1 text-xs text-planka-text-muted">{item.description || "No description yet."}</p>
+            <div className="mt-2">
+              <WorkItemEngineeringChips engineering={engineering ?? null} compact />
+            </div>
           </div>
         </div>
       </td>

@@ -23,6 +23,26 @@ function readFormString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function resolveProjectReturnTo(workspaceSlug: string, projectKey: string, value: FormDataEntryValue | null) {
+  const defaultPath = `/workspaces/${workspaceSlug}/projects/${projectKey}`;
+
+  if (typeof value !== "string") {
+    return defaultPath;
+  }
+
+  const normalized = value.trim();
+  if (!normalized.startsWith(defaultPath)) {
+    return defaultPath;
+  }
+
+  const nextCharacter = normalized.charAt(defaultPath.length);
+  if (nextCharacter && nextCharacter !== "/" && nextCharacter !== "?" && nextCharacter !== "#") {
+    return defaultPath;
+  }
+
+  return normalized;
+}
+
 async function requireSessionForAction() {
   const session = await getAppSession();
   if (!session) {
@@ -161,6 +181,7 @@ export async function createProjectAction(workspaceSlug: string, formData: FormD
 export async function createWorkItemAction(workspaceSlug: string, projectKey: string, formData: FormData) {
   const session = await requireSessionForAction();
   const repository = createWorkItemRepository();
+  const returnTo = resolveProjectReturnTo(workspaceSlug, projectKey, formData.get("returnTo"));
 
   await createWorkItemForUser(repository, session, workspaceSlug, projectKey, {
     title: formData.get("title"),
@@ -168,10 +189,12 @@ export async function createWorkItemAction(workspaceSlug: string, projectKey: st
     type: formData.get("type"),
     priority: formData.get("priority"),
     workflowStateId: formData.get("workflowStateId"),
+    stageId: formData.get("stageId"),
+    planItemId: formData.get("planItemId"),
     labels: formData.get("labels")
   });
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
   revalidatePath(`/workspaces/${workspaceSlug}/projects/${projectKey}`);
-  redirect(`/workspaces/${workspaceSlug}/projects/${projectKey}`);
+  redirect(returnTo);
 }

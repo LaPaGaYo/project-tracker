@@ -1,5 +1,13 @@
-import type { ProjectRecord, WorkflowStateRecord, WorkItemRecord } from "@the-platform/shared";
+import type {
+  DescriptionVersionRecord,
+  PlanItemRecord,
+  ProjectRecord,
+  ProjectStageRecord,
+  WorkflowStateRecord,
+  WorkItemRecord
+} from "@the-platform/shared";
 
+import type { NotificationRepository } from "../notifications/types";
 import type { WorkspaceRepository } from "../workspaces/types";
 
 export interface CreateWorkItemInput {
@@ -11,6 +19,8 @@ export interface CreateWorkItemInput {
   priority?: unknown;
   labels?: unknown;
   workflowStateId?: unknown;
+  stageId?: unknown;
+  planItemId?: unknown;
   dueDate?: unknown;
   blockedReason?: unknown;
   position?: unknown;
@@ -25,6 +35,8 @@ export interface UpdateWorkItemInput {
   priority?: unknown;
   labels?: unknown;
   workflowStateId?: unknown;
+  stageId?: unknown;
+  planItemId?: unknown;
   dueDate?: unknown;
   blockedReason?: unknown;
   position?: unknown;
@@ -49,11 +61,17 @@ export interface ListWorkItemFilters {
   sort?: WorkItemSort;
 }
 
+export interface WorkItemNotificationDependencies {
+  notificationRepository?: NotificationRepository;
+}
+
 export interface WorkItemRepository
   extends Pick<WorkspaceRepository, "findWorkspaceBySlug" | "getMembership" | "listMembers"> {
   getProjectByKey(workspaceId: string, projectKey: string): Promise<ProjectRecord | null>;
   listWorkflowStates(projectId: string): Promise<WorkflowStateRecord[]>;
   getWorkflowState(projectId: string, stateId: string): Promise<WorkflowStateRecord | null>;
+  getProjectStage(projectId: string, stageId: string): Promise<ProjectStageRecord | null>;
+  getPlanItem(projectId: string, planItemId: string): Promise<PlanItemRecord | null>;
   getWorkItemById(projectId: string, workItemId: string): Promise<WorkItemRecord | null>;
   getWorkItemByIdentifier(projectId: string, identifier: string): Promise<WorkItemRecord | null>;
   createWorkItem(input: {
@@ -67,6 +85,8 @@ export interface WorkItemRepository
     priority: WorkItemRecord["priority"];
     labels: string[] | null;
     workflowStateId: string | null;
+    stageId: string | null;
+    planItemId: string | null;
     dueDate: string | null;
     blockedReason: string | null;
     position: number;
@@ -86,6 +106,8 @@ export interface WorkItemRepository
       priority?: WorkItemRecord["priority"];
       labels?: string[] | null;
       workflowStateId?: string | null;
+      stageId?: string | null;
+      planItemId?: string | null;
       dueDate?: string | null;
       blockedReason?: string | null;
       position?: number;
@@ -121,4 +143,5 @@ export interface WorkItemRepository
   ): Promise<WorkItemRecord | null>;
   deleteWorkItem(projectId: string, identifier: string, workspaceId: string, actorId: string): Promise<boolean>;
   getWorkItemCreatorId(workItemId: string): Promise<string | null>;
+  listDescriptionVersions(workItemId: string): Promise<DescriptionVersionRecord[]>;
 }

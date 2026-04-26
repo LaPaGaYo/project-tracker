@@ -1,12 +1,37 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
-import { db, projects, tasks, workflowStates } from "@the-platform/db";
-import type { ProjectRecord, WorkflowStateRecord } from "@the-platform/shared";
+import {
+  db,
+  githubCheckRollups,
+  githubDeployments,
+  githubPullRequests,
+  githubRepositories,
+  planItems,
+  projectGithubConnections,
+  projectStages,
+  projects,
+  taskGithubStatus,
+  tasks,
+  workflowStates,
+  workItemGithubLinks
+} from "@the-platform/db";
+import type {
+  PlanItemRecord,
+  ProjectRecord,
+  ProjectStageRecord,
+  TaskGithubStatusRecord,
+  WorkflowStateRecord
+} from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../activity/repository";
+import { createGithubConnectionRepository } from "../github/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
 
-import type { ProjectRepository, ProjectWithCounts } from "./types";
+import type {
+  ProjectRepository,
+  ProjectWithCounts,
+  ProjectWorkItemEngineeringRecord
+} from "./types";
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;
@@ -40,6 +65,71 @@ function serializeWorkflowState(row: typeof workflowStates.$inferSelect): Workfl
   };
 }
 
+function serializeProjectStage(row: typeof projectStages.$inferSelect): ProjectStageRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    slug: row.slug,
+    title: row.title,
+    goal: row.goal,
+    status: row.status,
+    gateStatus: row.gateStatus,
+    sortOrder: row.sortOrder
+  };
+}
+
+function serializePlanItem(row: typeof planItems.$inferSelect): PlanItemRecord {
+  return {
+    id: row.id,
+    stageId: row.stageId,
+    title: row.title,
+    outcome: row.outcome,
+    status: row.status,
+    blocker: row.blocker,
+    sortOrder: row.sortOrder
+  };
+}
+
+function serializeTaskGithubStatus(row: typeof taskGithubStatus.$inferSelect): TaskGithubStatusRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    prStatus: row.prStatus,
+    ciStatus: row.ciStatus,
+    deployStatus: row.deployStatus
+  };
+}
+
+function serializeProjectWorkItemEngineering(row: {
+  taskId: string;
+  repository: string | null;
+  defaultBranch: string | null;
+  branchName: string | null;
+  pullRequestNumber: number | null;
+  pullRequestTitle: string | null;
+  pullRequestUrl: string | null;
+  pullRequestState: ProjectWorkItemEngineeringRecord["pullRequestState"];
+  checkUrl: string | null;
+  checkCount: number | null;
+  deploymentUrl: string | null;
+  deploymentEnvironment: string | null;
+}): ProjectWorkItemEngineeringRecord {
+  return {
+    taskId: row.taskId,
+    repository: row.repository,
+    defaultBranch: row.defaultBranch,
+    branchName: row.branchName,
+    pullRequestNumber: row.pullRequestNumber,
+    pullRequestTitle: row.pullRequestTitle,
+    pullRequestUrl: row.pullRequestUrl,
+    pullRequestState: row.pullRequestState,
+    checkUrl: row.checkUrl,
+    checkCount: row.checkCount,
+    deploymentUrl: row.deploymentUrl,
+    deploymentEnvironment: row.deploymentEnvironment
+  };
+}
+
 const defaultWorkflowStateTemplates: Array<{
   name: string;
   category: WorkflowStateRecord["category"];
@@ -64,9 +154,18 @@ function getEmptyCounts(project: ProjectRecord): ProjectWithCounts {
 
 export function createProjectRepository(): ProjectRepository {
   const workspaceRepository = createWorkspaceRepository();
+  const githubConnectionRepository = createGithubConnectionRepository();
 
   return {
     ...workspaceRepository,
+
+    async getProjectGithubConnection(projectId) {
+      return githubConnectionRepository.getProjectGithubConnection(projectId);
+    },
+
+    async createProjectGithubConnection(input) {
+      return githubConnectionRepository.createProjectGithubConnection(input);
+    },
 
     async createProject(input) {
       return db.transaction(async (tx) => {
@@ -255,6 +354,136 @@ export function createProjectRepository(): ProjectRepository {
         .orderBy(workflowStates.position, workflowStates.createdAt);
 
       return rows.map(serializeWorkflowState);
+    },
+
+    async listProjectStages(projectId) {
+      const rows = await db
+        .select()
+        .from(projectStages)
+        .where(eq(projectStages.projectId, projectId))
+        .orderBy(asc(projectStages.sortOrder), asc(projectStages.title));
+
+      return rows.map(serializeProjectStage);
+    },
+
+    async listPlanItems(projectId) {
+      const rows = await db
+        .select({
+          planItem: planItems
+        })
+        .from(planItems)
+        .innerJoin(projectStages, eq(planItems.stageId, projectStages.id))
+        .where(eq(projectStages.projectId, projectId))
+        .orderBy(asc(projectStages.sortOrder), asc(planItems.sortOrder), asc(planItems.title));
+
+      return rows.map((row) => serializePlanItem(row.planItem));
+    },
+
+    async listTaskGithubStatuses(projectId) {
+      const rows = await db
+        .select({
+          githubStatus: taskGithubStatus
+        })
+        .from(taskGithubStatus)
+        .innerJoin(tasks, eq(taskGithubStatus.taskId, tasks.id))
+        .where(eq(tasks.projectId, projectId));
+
+      return rows.map((row) => serializeTaskGithubStatus(row.githubStatus));
+    },
+
+    async listWorkItemEngineering(projectId) {
+      const rows = await db
+        .select({
+          taskId: tasks.id,
+          repository: githubRepositories.fullName,
+          defaultBranch: githubRepositories.defaultBranch,
+          branchName: workItemGithubLinks.branchName,
+          pullRequestNumber: githubPullRequests.number,
+          pullRequestTitle: githubPullRequests.title,
+          pullRequestUrl: githubPullRequests.url,
+          pullRequestState: githubPullRequests.state,
+          checkUrl: githubCheckRollups.url,
+          checkCount: githubCheckRollups.checkCount,
+          deploymentUrl: githubDeployments.url,
+          deploymentEnvironment: githubDeployments.environmentName
+        })
+        .from(tasks)
+        .leftJoin(workItemGithubLinks, eq(workItemGithubLinks.workItemId, tasks.id))
+        .leftJoin(githubRepositories, eq(workItemGithubLinks.repositoryId, githubRepositories.id))
+        .leftJoin(projectGithubConnections, eq(projectGithubConnections.repositoryId, githubRepositories.id))
+        .leftJoin(githubPullRequests, eq(workItemGithubLinks.pullRequestId, githubPullRequests.id))
+        .leftJoin(
+          githubCheckRollups,
+          and(
+            eq(githubPullRequests.repositoryId, githubCheckRollups.repositoryId),
+            eq(githubPullRequests.headSha, githubCheckRollups.headSha)
+          )
+        )
+        .leftJoin(
+          githubDeployments,
+          and(
+            eq(githubPullRequests.repositoryId, githubDeployments.repositoryId),
+            eq(githubPullRequests.headSha, githubDeployments.headSha)
+          )
+        )
+        .where(eq(tasks.projectId, projectId))
+        .orderBy(
+          desc(workItemGithubLinks.linkedAt),
+          desc(githubPullRequests.updatedAt),
+          desc(githubDeployments.updatedAt),
+          desc(githubCheckRollups.updatedAt)
+        );
+
+      const engineeringByTaskId = new Map<string, ProjectWorkItemEngineeringRecord>();
+
+      for (const row of rows) {
+        const current =
+          engineeringByTaskId.get(row.taskId) ??
+          serializeProjectWorkItemEngineering({
+            taskId: row.taskId,
+            repository: null,
+            defaultBranch: null,
+            branchName: null,
+            pullRequestNumber: null,
+            pullRequestTitle: null,
+            pullRequestUrl: null,
+            pullRequestState: null,
+            checkUrl: null,
+            checkCount: null,
+            deploymentUrl: null,
+            deploymentEnvironment: null
+          });
+
+        if (!current.repository && row.repository) {
+          current.repository = row.repository;
+          current.defaultBranch = row.defaultBranch;
+        }
+
+        if (!current.branchName && row.branchName) {
+          current.branchName = row.branchName;
+        }
+
+        if (!current.pullRequestUrl && row.pullRequestUrl) {
+          current.pullRequestNumber = row.pullRequestNumber;
+          current.pullRequestTitle = row.pullRequestTitle;
+          current.pullRequestUrl = row.pullRequestUrl;
+          current.pullRequestState = row.pullRequestState;
+        }
+
+        if (!current.checkUrl && (row.checkUrl || row.checkCount !== null)) {
+          current.checkUrl = row.checkUrl;
+          current.checkCount = row.checkCount;
+        }
+
+        if (!current.deploymentUrl && (row.deploymentUrl || row.deploymentEnvironment)) {
+          current.deploymentUrl = row.deploymentUrl;
+          current.deploymentEnvironment = row.deploymentEnvironment;
+        }
+
+        engineeringByTaskId.set(row.taskId, current);
+      }
+
+      return Array.from(engineeringByTaskId.values());
     }
   };
 }

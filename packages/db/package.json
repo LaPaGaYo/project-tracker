@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
     "db:seed": "node --import tsx src/seed.ts",
     "lint": "eslint src drizzle.config.ts --max-warnings=0",
+    "test": "node --import tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

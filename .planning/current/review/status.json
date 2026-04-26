@@ -1,0 +1,135 @@
+{
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "review",
+  "execution_mode": "governed_ccb",
+  "primary_provider": "codex",
+  "provider_topology": "multi_session",
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
+    "retirement_state": "active"
+  },
+  "session_root": {
+    "path": "/Users/henry/Documents/project-tracker",
+    "kind": "repo_root",
+    "source": "ccb_root"
+  },
+  "requested_execution_path": "codex-via-ccb",
+  "actual_execution_path": "codex-via-ccb",
+  "state": "completed",
+  "decision": "audit_recorded",
+  "ready": true,
+  "inputs": [
+    {
+      "kind": "json",
+      "path": ".planning/current/build/status.json"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/current/handoff/governed-handoff.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/current/plan/execution-readiness-packet.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/current/plan/sprint-contract.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/plan/verification-matrix.json"
+    }
+  ],
+  "outputs": [
+    {
+      "kind": "markdown",
+      "path": ".planning/audits/current/codex.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/audits/current/gemini.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/audits/current/synthesis.md"
+    },
+    {
+      "kind": "markdown",
+      "path": ".planning/audits/current/gate-decision.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/audits/current/meta.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/review/advisories.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/review/advisory-disposition.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/review/completion-advisor.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/review/status.json"
+    }
+  ],
+  "design_impact": "none",
+  "design_contract_required": false,
+  "design_contract_path": null,
+  "design_verified": null,
+  "started_at": "2026-04-20T14:52:36.783Z",
+  "completed_at": "2026-04-20T14:52:36.783Z",
+  "errors": [],
+  "requested_route": {
+    "command": "build",
+    "governed": true,
+    "execution_mode": "governed_ccb",
+    "primary_provider": "codex",
+    "provider_topology": "multi_session",
+    "planner": "claude+pm-gsd",
+    "generator": "codex-via-ccb",
+    "evaluator_a": "codex-via-ccb",
+    "evaluator_b": "gemini-via-ccb",
+    "synthesizer": "claude",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "fallback_policy": "disabled"
+  },
+  "actual_route": {
+    "provider": "codex",
+    "route": "codex-via-ccb",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "receipt_path": ".planning/current/build/adapter-output.json"
+  },
+  "review_scope": {
+    "mode": "bounded_fix_cycle",
+    "source_stage": "review",
+    "blocking_items": [
+      "The claim that `apps/web/src/components/detail-panel.tsx` uses `router.push()` for closing the panel is **not supported** by the repo-visible evidence. The `closePanel` function correctly utilizes `router.back()` or `router.replace(expectedOrigin)` based on session state, ensuring no additional history entries are created when closing.",
+      "Confirmed: `.planning/current/build/build-result.md` fails to meet the quality gate requirements. It records only route provenance and a \"ready for review\" status, but lacks the necessary repo-visible evidence that `turbo build`, `turbo lint`, `turbo typecheck`, or the Phase 5 contract tests actually passed as required by `.planning/current/plan/sprint-contract.md:30-37`."
+    ],
+    "advisory_policy": "out_of_scope_advisory"
+  },
+  "learning_candidates_path": null,
+  "learnings_recorded": false,
+  "advisories_path": ".planning/current/review/advisories.json",
+  "advisory_count": 2,
+  "advisory_disposition": null,
+  "advisory_disposition_path": ".planning/current/review/advisory-disposition.json",
+  "review_complete": true,
+  "audit_set_complete": true,
+  "provenance_consistent": true,
+  "gate_decision": "pass",
+  "archive_required": false,
+  "archive_state": "not_required"
+}

@@ -1,0 +1,12 @@
+{
+  "stage": "review",
+  "adapter": "ccb",
+  "kind": "backend_conflict",
+  "message": "[WATCHDOG] finalize nudge issued",
+  "canonical_paths": [],
+  "trace_paths": [
+    ".planning/current/review/adapter-request.json",
+    ".planning/current/review/adapter-output.json",
+    ".planning/current/review/normalization.json"
+  ]
+}

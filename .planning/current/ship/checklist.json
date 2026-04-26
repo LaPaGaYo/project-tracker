@@ -1,0 +1,10 @@
+{
+  "review_complete": true,
+  "qa_ready": true,
+  "merge_ready": true,
+  "design_impact": "none",
+  "design_contract_path": null,
+  "design_verified": null,
+  "design_verification_path": null,
+  "qa_perf_verification_path": null
+}

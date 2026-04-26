@@ -1,15 +1,15 @@
 {
-  "run_id": "run-2026-04-19T08-27-58-235Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
   "stage": "plan",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
   "workspace": {
-    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
     "kind": "worktree",
-    "branch": "codex/run-2026-04-19T08-27-58-235Z",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
     "source": "allocated:fresh_run",
-    "run_id": "run-2026-04-19T08-27-58-235Z",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
     "retirement_state": "active"
   },
   "session_root": {
@@ -19,10 +19,10 @@
   },
   "requested_execution_path": "codex-via-ccb",
   "actual_execution_path": null,
-  "design_impact": "material",
+  "design_impact": "none",
   "design_contract_required": false,
   "design_contract_path": null,
-  "design_verified": false,
+  "design_verified": null,
   "state": "completed",
   "decision": "ready",
   "ready": true,
@@ -47,10 +47,14 @@
     },
     {
       "kind": "json",
+      "path": ".planning/current/plan/completion-advisor.json"
+    },
+    {
+      "kind": "json",
       "path": ".planning/current/plan/status.json"
     }
   ],
-  "started_at": "2026-04-20T05:10:47.239Z",
-  "completed_at": "2026-04-20T05:10:47.239Z",
+  "started_at": "2026-04-20T13:50:49.827Z",
+  "completed_at": "2026-04-20T13:50:49.827Z",
   "errors": []
 }

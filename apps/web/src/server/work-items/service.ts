@@ -1,3 +1,7 @@
+import type { PlanItemRecord, ProjectRecord, ProjectStageRecord, WorkItemRecord } from "@the-platform/shared";
+
+import { createNotificationForSource } from "../notifications/service";
+import type { NotificationRecipientInput, NotificationRepository } from "../notifications/types";
 import { hasMinimumRole, WorkspaceError } from "../workspaces/core";
 import {
   normalizeLabels,
@@ -17,8 +21,148 @@ import type {
   ListWorkItemFilters,
   MoveWorkItemInput,
   UpdateWorkItemInput,
+  WorkItemNotificationDependencies,
   WorkItemRepository
 } from "./types";
+
+function workItemUrl(workspaceSlug: string, projectKey: string, workItem: WorkItemRecord) {
+  return `/workspaces/${workspaceSlug}/projects/${projectKey}/items/${workItem.identifier ?? workItem.id}`;
+}
+
+function workItemChangeSourceId(workItem: WorkItemRecord, changeKind: string, value: string | null) {
+  return `${workItem.id}:${changeKind}:${value ?? "none"}:${workItem.updatedAt}`;
+}
+
+function uniqueRecipients(recipients: NotificationRecipientInput[]) {
+  const seen = new Set<string>();
+
+  return recipients.filter((recipient) => {
+    const key = `${recipient.recipientId}:${recipient.reason}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function participantRecipients(assigneeId: string | null, participantIds: string[]) {
+  return uniqueRecipients([
+    ...(assigneeId
+      ? [
+          {
+            recipientId: assigneeId,
+            reason: "assigned" as const
+          }
+        ]
+      : []),
+    ...participantIds
+      .filter((participantId) => participantId !== assigneeId)
+      .map(
+        (participantId): NotificationRecipientInput => ({
+          recipientId: participantId,
+          reason: "participant"
+        })
+      )
+  ]);
+}
+
+async function emitWorkItemChangeNotifications(
+  notificationRepository: NotificationRepository | undefined,
+  session: AppSession,
+  workspaceSlug: string,
+  project: ProjectRecord,
+  current: WorkItemRecord,
+  updated: WorkItemRecord
+) {
+  if (!notificationRepository) {
+    return;
+  }
+
+  const url = workItemUrl(workspaceSlug, project.key, updated);
+  const metadata = {
+    identifier: updated.identifier,
+    before: {
+      assigneeId: current.assigneeId,
+      workflowStateId: current.workflowStateId,
+      priority: current.priority
+    },
+    after: {
+      assigneeId: updated.assigneeId,
+      workflowStateId: updated.workflowStateId,
+      priority: updated.priority
+    }
+  };
+
+  if (current.assigneeId !== updated.assigneeId && updated.assigneeId) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "assignment", updated.assigneeId),
+      eventType: "assignment_changed",
+      actorId: session.userId,
+      priority: "normal",
+      title: `${updated.identifier ?? updated.title} assigned to you`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients: [
+        {
+          recipientId: updated.assigneeId,
+          reason: "assigned"
+        }
+      ]
+    });
+  }
+
+  const shouldNotifyStateChange = current.workflowStateId !== updated.workflowStateId;
+  const shouldNotifyPriorityRaised = current.priority !== "urgent" && updated.priority === "urgent";
+  if (!shouldNotifyStateChange && !shouldNotifyPriorityRaised) {
+    return;
+  }
+
+  const participants = await notificationRepository.getWorkItemParticipants(updated.id);
+  const recipients = participantRecipients(updated.assigneeId, participants);
+  if (recipients.length === 0) {
+    return;
+  }
+
+  if (shouldNotifyStateChange) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "state", updated.workflowStateId),
+      eventType: "state_changed",
+      actorId: session.userId,
+      priority: "normal",
+      title: `${updated.identifier ?? updated.title} changed state`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients
+    });
+  }
+
+  if (shouldNotifyPriorityRaised) {
+    await createNotificationForSource(notificationRepository, session, workspaceSlug, {
+      projectId: project.id,
+      workItemId: updated.id,
+      sourceType: "work_item",
+      sourceId: workItemChangeSourceId(updated, "priority", updated.priority),
+      eventType: "priority_raised",
+      actorId: session.userId,
+      priority: "high",
+      title: `${updated.identifier ?? updated.title} is urgent`,
+      body: updated.title,
+      url,
+      metadata,
+      recipients
+    });
+  }
+}
 
 async function resolveProjectContext(
   repository: WorkItemRepository,
@@ -65,6 +209,96 @@ async function resolveWorkflowState(
   }
 
   return state;
+}
+
+async function resolveProjectStage(
+  repository: WorkItemRepository,
+  projectId: string,
+  stageId: unknown
+): Promise<ProjectStageRecord | null | undefined> {
+  if (stageId === undefined) {
+    return undefined;
+  }
+
+  if (stageId === null || stageId === "") {
+    return null;
+  }
+
+  if (typeof stageId !== "string") {
+    throw new WorkspaceError(400, "stageId is invalid.");
+  }
+
+  const stage = await repository.getProjectStage(projectId, stageId);
+  if (!stage) {
+    throw new WorkspaceError(404, "project stage not found.");
+  }
+
+  return stage;
+}
+
+async function resolvePlanItem(
+  repository: WorkItemRepository,
+  projectId: string,
+  planItemId: unknown
+): Promise<PlanItemRecord | null | undefined> {
+  if (planItemId === undefined) {
+    return undefined;
+  }
+
+  if (planItemId === null || planItemId === "") {
+    return null;
+  }
+
+  if (typeof planItemId !== "string") {
+    throw new WorkspaceError(400, "planItemId is invalid.");
+  }
+
+  const planItem = await repository.getPlanItem(projectId, planItemId);
+  if (!planItem) {
+    throw new WorkspaceError(404, "plan item not found.");
+  }
+
+  return planItem;
+}
+
+async function resolvePlanningSelection(
+  repository: WorkItemRepository,
+  projectId: string,
+  input: Pick<CreateWorkItemInput | UpdateWorkItemInput, "stageId" | "planItemId">,
+  current?: Pick<WorkItemRecord, "stageId" | "planItemId">
+) {
+  const [nextStage, nextPlanItem, currentPlanItem] = await Promise.all([
+    resolveProjectStage(repository, projectId, input.stageId),
+    resolvePlanItem(repository, projectId, input.planItemId),
+    current?.planItemId ? repository.getPlanItem(projectId, current.planItemId) : Promise.resolve(null)
+  ]);
+
+  let stageId = nextStage === undefined ? (current?.stageId ?? null) : nextStage?.id ?? null;
+  let planItemId = nextPlanItem === undefined ? (current?.planItemId ?? null) : nextPlanItem?.id ?? null;
+  const effectivePlanItem = nextPlanItem === undefined ? currentPlanItem : nextPlanItem;
+
+  if (effectivePlanItem) {
+    if (stageId === null) {
+      if (nextStage === undefined || nextPlanItem !== undefined) {
+        stageId = effectivePlanItem.stageId;
+      } else {
+        planItemId = null;
+      }
+    }
+
+    if (stageId !== null && effectivePlanItem.stageId !== stageId) {
+      if (nextPlanItem === undefined) {
+        planItemId = null;
+      } else {
+        throw new WorkspaceError(400, "plan item must belong to the selected stage.");
+      }
+    }
+  }
+
+  return {
+    stageId,
+    planItemId
+  };
 }
 
 async function validateAssignee(
@@ -138,6 +372,14 @@ function requireAffectedItems(value: unknown) {
   return value as Array<Record<string, unknown>>;
 }
 
+function normalizeDescriptionContent(value: unknown) {
+  if (typeof value !== "string") {
+    throw new WorkspaceError(400, "content is required.");
+  }
+
+  return value.trim();
+}
+
 export async function createWorkItemForUser(
   repository: WorkItemRepository,
   session: AppSession,
@@ -155,6 +397,7 @@ export async function createWorkItemForUser(
   const state = await resolveWorkflowState(repository, project.id, input.workflowStateId);
   const assigneeId = typeof input.assigneeId === "string" && input.assigneeId ? input.assigneeId : null;
   await validateAssignee(repository, workspace.id, assigneeId);
+  const planningSelection = await resolvePlanningSelection(repository, project.id, input);
 
   const position = typeof input.position === "number" ? input.position : 0;
 
@@ -169,6 +412,8 @@ export async function createWorkItemForUser(
     priority: requireWorkItemPriority(input.priority),
     labels: normalizeLabels(input.labels) ?? null,
     workflowStateId: state?.id ?? null,
+    stageId: planningSelection.stageId,
+    planItemId: planningSelection.planItemId,
     dueDate: normalizeOptionalDate(input.dueDate, "dueDate") ?? null,
     blockedReason: normalizeOptionalString(input.blockedReason) ?? null,
     position,
@@ -194,7 +439,8 @@ export async function moveWorkItemForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: MoveWorkItemInput
+  input: MoveWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -223,6 +469,15 @@ export async function moveWorkItemForUser(
     throw new WorkspaceError(404, "work item not found.");
   }
 
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    current,
+    updated
+  );
+
   return updated;
 }
 
@@ -232,7 +487,8 @@ export async function moveWorkItemsForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: MoveWorkItemInput
+  input: MoveWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -258,6 +514,11 @@ export async function moveWorkItemsForUser(
   );
 
   const currentByIdentifier = new Map(currentItems.map((item) => [item.identifier, item]));
+  const primaryCurrent = currentByIdentifier.get(identifier);
+  if (!primaryCurrent) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
   const normalizedUpdates = await Promise.all(
     rawUpdates.map(async (entry) => {
       const current = currentByIdentifier.get(requireIdentifier(entry.identifier));
@@ -291,6 +552,15 @@ export async function moveWorkItemsForUser(
     throw new WorkspaceError(404, "work item not found.");
   }
 
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    primaryCurrent,
+    updated
+  );
+
   return updated;
 }
 
@@ -311,13 +581,44 @@ export async function getWorkItemForUser(
   return item;
 }
 
+export async function listDescriptionVersionsForUser(
+  repository: WorkItemRepository,
+  session: AppSession,
+  workspaceSlug: string,
+  projectKey: string,
+  identifier: string
+) {
+  const { project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey);
+  const item = await repository.getWorkItemByIdentifier(project.id, identifier);
+
+  if (!item) {
+    throw new WorkspaceError(404, "work item not found.");
+  }
+
+  return repository.listDescriptionVersions(item.id);
+}
+
+export async function updateDescriptionForUser(
+  repository: WorkItemRepository,
+  session: AppSession,
+  workspaceSlug: string,
+  projectKey: string,
+  identifier: string,
+  input: { content?: unknown }
+) {
+  return updateWorkItemForUser(repository, session, workspaceSlug, projectKey, identifier, {
+    description: normalizeDescriptionContent(input.content)
+  });
+}
+
 export async function updateWorkItemForUser(
   repository: WorkItemRepository,
   session: AppSession,
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: UpdateWorkItemInput
+  input: UpdateWorkItemInput,
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   const { workspace, membership, project } = await resolveProjectContext(repository, session, workspaceSlug, projectKey, "member");
   requireRoleAtLeast(membership.role, "member", "only members and above can update work items.");
@@ -347,6 +648,10 @@ export async function updateWorkItemForUser(
   if (input.assigneeId !== undefined) {
     await validateAssignee(repository, workspace.id, assigneeId);
   }
+  const planningTouched = input.stageId !== undefined || input.planItemId !== undefined;
+  const planningSelection = planningTouched
+    ? await resolvePlanningSelection(repository, project.id, input, current)
+    : null;
 
   const updated = await repository.updateWorkItem(project.id, identifier, {
     ...(input.title !== undefined ? { title: requireNonEmptyString(input.title, "title") } : {}),
@@ -357,6 +662,7 @@ export async function updateWorkItemForUser(
     ...(input.priority !== undefined ? { priority: requireWorkItemPriority(input.priority) } : {}),
     ...(input.labels !== undefined ? { labels: normalizeLabels(input.labels) ?? null } : {}),
     ...(input.workflowStateId !== undefined ? { workflowStateId: state?.id ?? null } : {}),
+    ...(planningSelection ?? {}),
     ...(input.dueDate !== undefined ? { dueDate: normalizeOptionalDate(input.dueDate, "dueDate") ?? null } : {}),
     ...(input.blockedReason !== undefined ? { blockedReason: normalizeOptionalString(input.blockedReason) ?? null } : {}),
     ...(typeof input.position === "number" ? { position: input.position } : {}),
@@ -368,6 +674,15 @@ export async function updateWorkItemForUser(
   if (!updated) {
     throw new WorkspaceError(404, "work item not found.");
   }
+
+  await emitWorkItemChangeNotifications(
+    notificationDependencies.notificationRepository,
+    session,
+    workspaceSlug,
+    project,
+    current,
+    updated
+  );
 
   return updated;
 }

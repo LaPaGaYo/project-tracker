@@ -1,132 +1,158 @@
-# PRD: Phase 4 - Views
+# PRD: Phase 7 - Notifications and Collaboration Foundation
 
 ## Overview
 
-Add board/kanban view, list view, drag-and-drop, filtering, sorting, and view switching to The Platform's project detail page.
+Add a durable in-app notification foundation for comments, mentions, assignments, work item changes, and GitHub engineering updates. Phase 7 makes collaboration actionable without adding external delivery channels or real-time transport.
 
-## Dependencies
+## Scope Sections
 
-- Phase 3: Projects, work items, workflow states, activity log (complete)
-- Phase 2: Auth, workspaces, RBAC (complete)
+### 7.1 Shared Notification Contracts
 
-## Scope
+Notification concepts must be shared across web, DB, worker, and tests.
 
-### 4.1 Board/Kanban View
+**Requirements:**
+- Define source types for comment, work item, GitHub, and system events.
+- Define event types for comments, mentions, assignments, state changes, priority raises, GitHub PR/check/deploy changes, and webhook failures.
+- Define priorities and recipient reasons.
+- Export shared record types for events, recipients, preferences, and inbox items.
 
-**Component:** `apps/web/src/components/board-view.tsx`
+### 7.2 Durable Notification Schema
 
-- Render one column per workflow state, ordered by `position`
-- Each column shows work item cards (epics and tasks only, not subtasks)
-- Cards show: identifier badge, title, type icon, priority indicator, assignee avatar
-- Subtask count badge on cards that have children
-- Empty columns render with "No items" placeholder and valid drop target
-- Column headers show state name and item count
+Persist notifications locally before rendering or repairing them.
 
-**Drag-and-drop:** `@dnd-kit/core` + `@dnd-kit/sortable`
-- Cross-column drag: changes `workflow_state_id`, logs `state_changed` activity
-- Within-column drag: updates `position`, logs `moved` activity
-- Optimistic UI update, revert on API failure
-- Keyboard accessible (Enter to pick up, Arrow keys to move, Enter to drop)
+**Requirements:**
+- Add `notification_events` with workspace, project, work item, source identity, event type, actor, priority, title, body, URL, metadata, and created timestamp.
+- Add `notification_recipients` with event id, workspace id, recipient id, reason, read timestamp, dismiss timestamp, and created timestamp.
+- Add `notification_preferences` keyed by workspace id and user id.
+- Enforce event uniqueness by workspace, source type, source id, and event type.
+- Enforce recipient uniqueness by event, recipient, and reason.
+- Add indexes for current-user inbox reads.
 
-### 4.2 List View
+### 7.3 Notification Service and API
 
-**Component:** `apps/web/src/components/list-view.tsx`
+Centralize notification rules and expose current-user operations.
 
-- Sortable table with columns: identifier, title, type, priority, assignee, state, created
-- Click column header to sort (asc/desc toggle)
-- Subtasks shown indented under parent with collapse toggle
-- Row click navigates to work item detail (inline panel or future detail page)
+**Requirements:**
+- Create notifications from source events with recipient resolution and preference filtering.
+- Suppress actor self-notifications.
+- Keep recipient insertion idempotent.
+- Enforce workspace membership for inbox reads and preference reads/writes.
+- Add API routes to list inbox notifications, mark one notification read, mark all read, read preferences, and update preferences.
+- Return 404 when a user tries to mark another user's recipient row.
 
-### 4.3 View Switching
+### 7.4 Comment and Mention Notifications
 
-**Component:** `apps/web/src/components/view-toggle.tsx`
+Comments should direct attention to valid teammates.
 
-- Toggle between Board and List views
-- Preference stored in `localStorage` key: `view-preference-{projectKey}`
-- Default: Board view
-- Toggle renders as segmented control (Board | List)
+**Requirements:**
+- Parse deterministic `@userId` mentions from comment content.
+- Notify valid mentioned workspace members with reason `mention`.
+- Notify assignees and prior participants with reason `participant` when not already mentioned.
+- Ignore unknown mentions and actor self-notifications.
+- Do not emit notifications for comment edits or deletes in Phase 7.
 
-### 4.4 Filtering
+### 7.5 Work Item Change Notifications
 
-**Component:** `apps/web/src/components/filter-bar.tsx`
+Important execution changes should notify affected users.
 
-- Filter controls above the view area
-- Filters: type (epic/task/subtask), priority (urgent/high/medium/low/none), assignee (dropdown of workspace members), state (workflow states)
-- Filters stored as URL query params: `?type=task&priority=high&assignee=user_123`
-- Multiple values per filter: `?type=task,epic`
-- Clear all filters button
-- Active filter count badge
+**Requirements:**
+- Notify newly assigned users on assignment changes.
+- Notify assignees and participants on workflow state changes.
+- Notify assignees and participants when priority is raised to urgent.
+- Resolve participants from assignee, creator activity, and prior commenters.
+- Preserve existing activity log behavior.
 
-**API support:**
-- `GET /api/workspaces/[slug]/projects/[key]/items?type=task&priority=high&assignee=user_123&state=state_id`
-- Extend existing work items list endpoint with query param filtering
+### 7.6 GitHub Engineering Notifications
 
-### 4.5 Sorting (List View)
+Engineering changes should reach users attached to linked work items.
 
-- Sort params in URL: `?sort=priority&order=desc`
-- Sortable columns: identifier, priority, created date
-- Default sort: position (manual ordering)
-- API support: extend items endpoint with `sort` and `order` params
+**Requirements:**
+- Notify linked item followers when PRs open, request review, merge, or close.
+- Notify linked item followers when check rollups fail or recover.
+- Notify linked item followers when deployments reach staging or production.
+- Notify project owners/admins when a connected repository webhook delivery fails processing.
+- Rely on notification event uniqueness to keep webhook replay duplicate-safe.
 
-### 4.6 Position Management API
+### 7.7 In-App Notification UI
 
-**New/modified endpoints:**
-- `PATCH /api/workspaces/[slug]/projects/[key]/items/[identifier]/position` - update position and optionally workflow state
-  - Body: `{ position: number, workflowStateId?: string }`
-  - Atomically updates position, optionally changes state
-  - Logs activity entry in same transaction
-  - Returns updated item
+The project shell should expose a lightweight inbox.
 
-**Server action:**
-- `moveWorkItem(workspaceSlug, projectKey, identifier, { position, workflowStateId })` - validates membership (Member+), updates in transaction
+**Requirements:**
+- Extend the project page loader with recent inbox rows, unread count, and current preferences.
+- Add a compact notification bell to the project shell header.
+- Show unread count as a badge.
+- Open an inbox panel with recent notifications.
+- Render source label, title, context/body, work item identifier, timestamp, unread state, and link.
+- Add mark-read and mark-all-read controls using the notification API.
+- Add preference checkboxes for comments, mentions, assignments, GitHub, and state changes.
 
-### 4.7 Contract Tests
+### 7.8 Worker Notification Repair
 
-**File:** `tests/phase4-views.test.mjs`
+The worker should repair notification gaps safely.
 
-Test cases:
-1. Position update API changes item position
-2. Position update with state change updates both fields
-3. Activity log records state_changed on cross-column move
-4. Activity log records moved on within-column reorder
-5. Filter by type returns only matching items
-6. Filter by priority returns only matching items
-7. Filter by assignee returns only matching items
-8. Sort by priority returns items in correct order
-9. Sort by created date returns items in correct order
-10. Viewer role can read items but cannot update position (403)
+**Requirements:**
+- Add a `repair-notifications` worker mode.
+- Find notification events missing recipient rows.
+- Rebuild recipients using the same membership, preference, self-notification, and participant semantics as the web notification service.
+- Add an explicitly enabled recent-activity backfill path.
+- Keep repair idempotent through event and recipient uniqueness.
+- Emit summary logs with repaired events and inserted recipient counts.
 
-## Non-Goals
+### 7.9 Verification
 
-- Timeline/Gantt view
-- Saved/named views
-- Swimlanes (group by assignee/priority)
-- Bulk operations (select multiple, batch move)
-- Card hover preview
-- Custom card fields
-- Virtualization (defer unless >100 items per column)
+Automated coverage must prove notification contracts, domain behavior, UI behavior, and worker repair.
 
-## Success Criteria
+**Requirements:**
+- Shared contract tests pass.
+- DB schema tests pass.
+- Notification service tests cover idempotency, preference filtering, self-notification suppression, and cross-workspace isolation.
+- Comment, work item, GitHub, and API integration tests pass.
+- UI tests cover unread badge, inbox rows, mark-read, mark-all-read, and preference toggles.
+- Worker tests cover missing recipients, preference filtering, duplicate-safe re-run, and recent activity backfill.
+- Full repo lint, typecheck, test, and build pass.
 
-| # | Criterion | Verification |
-|---|-----------|-------------|
-| SC1 | Board renders columns per workflow state | Manual QA |
-| SC2 | Drag between columns changes state + logs activity | Contract test |
-| SC3 | Drag within column reorders position | Contract test |
-| SC4 | List view with sortable columns | Manual QA |
-| SC5 | Filter by type/priority/assignee/state | Contract test |
-| SC6 | Sort by priority/created/identifier | Contract test |
-| SC7 | View toggle persists in localStorage | Manual QA |
-| SC8 | Subtask badge on board cards, inline in list | Manual QA |
-| SC9 | Empty columns as valid drop targets | Manual QA |
-| SC10 | Optimistic DnD reverts on failure | Manual QA |
-| SC11 | Mobile responsive board | Manual QA |
-| SC12 | 10 contract tests pass | Contract test |
+## Data Model
 
-## Technical Notes
+```
+notification_events:
+  id: uuid PK
+  workspace_id: uuid FK
+  project_id: uuid FK nullable
+  work_item_id: uuid FK nullable
+  source_type: enum
+  source_id: text
+  event_type: enum
+  actor_id: text nullable
+  priority: enum
+  title: text
+  body: text nullable
+  url: text
+  metadata: jsonb nullable
+  created_at: timestamp
 
-- `@dnd-kit/core` and `@dnd-kit/sortable` added to `apps/web/package.json`
-- Position updates use the same `FOR UPDATE` transaction pattern from Phase 3
-- Filter/sort params parsed from `useSearchParams()` in client components
-- Board view is a client component (needs DnD interactivity), list view can be server component with client sort headers
-- Activity log writes happen in the position update transaction
+notification_recipients:
+  id: uuid PK
+  event_id: uuid FK
+  workspace_id: uuid FK
+  recipient_id: text
+  reason: enum
+  read_at: timestamp nullable
+  dismissed_at: timestamp nullable
+  created_at: timestamp
+
+notification_preferences:
+  workspace_id: uuid FK
+  user_id: text
+  comments_enabled: boolean
+  mentions_enabled: boolean
+  assignments_enabled: boolean
+  github_enabled: boolean
+  state_changes_enabled: boolean
+```
+
+## Exit Criteria
+
+- All 10 success criteria from the decision brief are met.
+- Phase 7 tests pass without external delivery services.
+- Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+- Product docs identify Phase 8 as reporting, search, and polish.

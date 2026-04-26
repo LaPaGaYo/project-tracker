@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "ship",
+  "generated_at": "2026-04-20T15:20:12.042Z",
+  "stage_outcome": "ready",
+  "summary": "Ship recorded the release gate. Close out the governed run or move into landing and deployment.",
+  "requires_user_choice": false,
+  "choice_reason": null,
+  "default_action_id": "run_closeout",
+  "primary_next_actions": [
+    {
+      "id": "run_closeout",
+      "kind": "canonical_stage",
+      "surface": "/closeout",
+      "invocation": "/closeout",
+      "label": "Run `/closeout`",
+      "description": "Conclude the governed run and archive its canonical artifacts.",
+      "recommended": true
+    },
+    {
+      "id": "run_land_and_deploy",
+      "kind": "support_skill",
+      "surface": "/land-and-deploy",
+      "invocation": "/land-and-deploy",
+      "label": "Run `/land-and-deploy`",
+      "description": "Merge, deploy, and verify the primary deploy surface using the ship handoff.",
+      "recommended": false
+    }
+  ],
+  "alternative_next_actions": [],
+  "recommended_side_skills": [
+    {
+      "id": "run_setup_deploy",
+      "kind": "support_skill",
+      "surface": "/setup-deploy",
+      "invocation": "/setup-deploy",
+      "label": "Run `/setup-deploy`",
+      "description": "Author the canonical deploy contract before landing and deployment.",
+      "recommended": false
+    },
+    {
+      "id": "run_document_release",
+      "kind": "support_skill",
+      "surface": "/document-release",
+      "invocation": "/document-release",
+      "label": "Run `/document-release`",
+      "description": "Sync release notes and docs to the shipped surface.",
+      "recommended": false
+    }
+  ],
+  "hidden_compat_aliases": [
+    "/office-hours",
+    "/autoplan",
+    "/plan-ceo-review",
+    "/plan-eng-review"
+  ],
+  "hidden_utility_skills": [
+    "/careful",
+    "/freeze",
+    "/guard",
+    "/unfreeze",
+    "/nexus-upgrade"
+  ]
+}

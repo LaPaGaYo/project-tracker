@@ -24,6 +24,7 @@ test("worker deployment has a dedicated workflow and runtime entrypoint", async 
   const workerPackage = await readJson("apps/worker/package.json");
   const workflowPath = new URL(".github/workflows/worker-deploy.yml", repoRoot);
   const flyConfigPath = new URL("apps/worker/fly.toml", repoRoot);
+  const workerEntrypoint = await readFile(new URL("apps/worker/src/index.ts", repoRoot), "utf8");
 
   await assert.doesNotReject(access(workflowPath));
   await assert.doesNotReject(access(flyConfigPath));
@@ -31,11 +32,20 @@ test("worker deployment has a dedicated workflow and runtime entrypoint", async 
   const workflow = await readFile(workflowPath, "utf8");
 
   assert.equal(typeof workerPackage.scripts.start, "string");
+  assert.equal(typeof workerPackage.scripts.test, "string");
   assert.match(workerPackage.scripts.start, /@the-platform\/worker|src\/index\.ts|dist\//);
+  assert.match(workerPackage.scripts.test, /node --import tsx --test/);
+  assert.equal(typeof workerPackage.scripts["repair:notifications"], "string");
+  assert.match(workerPackage.scripts["repair:notifications"], /repair-notifications/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /push:/);
   assert.match(workflow, /flyctl deploy/);
   assert.match(workflow, /apps\/worker/);
+  assert.doesNotMatch(workerEntrypoint, /worker placeholder/i);
+  assert.match(workerEntrypoint, /runGithubReconciliationCycle/);
+  assert.match(workerEntrypoint, /createGithubClient/);
+  assert.match(workerEntrypoint, /runNotificationRepair/);
+  assert.match(workerEntrypoint, /repair-notifications/);
 });
 
 test("web home page exposes Phase 2 auth and workspace entry surfaces", async () => {

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "build",
+  "generated_at": "2026-04-20T14:39:29.408Z",
+  "stage_outcome": "ready",
+  "summary": "Build is ready. Formal review is the canonical next stage.",
+  "requires_user_choice": false,
+  "choice_reason": null,
+  "default_action_id": "run_review",
+  "primary_next_actions": [
+    {
+      "id": "run_review",
+      "kind": "canonical_stage",
+      "surface": "/review",
+      "invocation": "/review",
+      "label": "Run `/review`",
+      "description": "Persist the formal audit set before moving deeper into the governed tail.",
+      "recommended": true
+    }
+  ],
+  "alternative_next_actions": [],
+  "recommended_side_skills": [],
+  "hidden_compat_aliases": [
+    "/office-hours",
+    "/autoplan",
+    "/plan-ceo-review",
+    "/plan-eng-review"
+  ],
+  "hidden_utility_skills": [
+    "/careful",
+    "/freeze",
+    "/guard",
+    "/unfreeze",
+    "/nexus-upgrade"
+  ]
+}

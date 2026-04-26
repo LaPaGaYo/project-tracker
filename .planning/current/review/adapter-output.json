@@ -1,0 +1,128 @@
+{
+  "discipline": {
+    "adapter_id": "superpowers",
+    "outcome": "success",
+    "raw_output": {
+      "discipline_summary": "Nexus-owned review guidance for governed dual-audit completion, synthesis, and explicit gate state.; run dual audits through Nexus-owned review completion; verify implementation and audit provenance consistency; synthesize the audit set and record the gate decision; Advance to `/qa`, `/ship`, or `/closeout` only through Nexus-authored review completion state. Superpowers review discipline and CCB dual-audit transport remain subordinate runtime seams and never own lifecycle authority."
+    },
+    "requested_route": null,
+    "actual_route": null,
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "superpowers-review-discipline",
+      "source_map": [
+        "upstream/superpowers/skills/verification-before-completion/SKILL.md"
+      ]
+    }
+  },
+  "audit_a": {
+    "adapter_id": "ccb",
+    "outcome": "success",
+    "raw_output": {
+      "markdown": "# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none",
+      "receipt": "ccb-review-codex-2026-04-20T14-54-11.627Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask codex --foreground --no-wrap --timeout 180",
+      "exit_code": 0,
+      "stdout": "Using `using-superpowers` and the repo’s review discipline for this bounded audit. I’m reading the cited artifacts and the targeted `detail-panel` code in the governed worktree, then I’ll decide pass/fail only on the two listed blocking items.\nUsing `using-superpowers` and the repo’s review discipline for this bounded audit. I’m reading the cited artifacts and the targeted `detail-panel` code in the governed worktree, then I’ll decide pass/fail only on the two listed blocking items.\nI have the contract language and the updated build artifact. Next I’m checking whether the close-path implementation actually satisfies the “pop back to project view” requirement, and whether the repo-visible verification evidence is concrete enough to clear the second blocker.\nI have the contract language and the updated build artifact. Next I’m checking whether the close-path implementation actually satisfies the “pop back to project view” requirement, and whether the repo-visible verification evidence is concrete enough to clear the second blocker.\nThe close helper is present; I’m now checking the actual call sites in `detail-panel.tsx` and whether the origin-tracking design avoids false `history.back()` on direct item URLs.\nThe close helper is present; I’m now checking the actual call sites in `detail-panel.tsx` and whether the origin-tracking design avoids false `history.back()` on direct item URLs.\nI’ve confirmed the build-stage artifacts also carry a transport receipt, not just the markdown summary. I’m doing one final targeted read of the review skill flow to keep the verdict format aligned, then I’ll close the audit.\nI’ve confirmed the build-stage artifacts also carry a transport receipt, not just the markdown summary. I’m doing one final targeted read of the review skill flow to keep the verdict format aligned, then I’ll close the audit.\nI need one targeted follow-up read to interpret the quality-gate evidence correctly: whether the recorded `npm run` commands are just the repo’s wrappers around the required `turbo` gates and contract suite. After that the verdict is mechanically determined.\nI need one targeted follow-up read to interpret the quality-gate evidence correctly: whether the recorded `npm run` commands are just the repo’s wrappers around the required `turbo` gates and contract suite. After that the verdict is mechanically determined.\n# Codex Audit\n\nResult: pass\n\nFindings:\n- none\n\nAdvisories:\n- none\n",
+      "stderr": "",
+      "request_id": null,
+      "latency_summary": {
+        "path": "foreground",
+        "likely_cause": "normal",
+        "foreground_exit": "success",
+        "finalize_nudge_issued": false,
+        "pend_attempts": 0,
+        "recovered_via": "ask"
+      }
+    },
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "actual_route": {
+      "provider": "codex",
+      "route": "codex-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "receipt_path": ".planning/current/review/adapter-output.json"
+    },
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "ccb-review-codex",
+      "source_map": [
+        "upstream/claude-code-bridge/lib/codex_comm.py"
+      ]
+    }
+  },
+  "audit_b": {
+    "adapter_id": "ccb",
+    "outcome": "success",
+    "raw_output": {
+      "markdown": "# Gemini Audit\n\nResult: fail\n\nFindings:\n- The claim that `apps/web/src/components/detail-panel.tsx` uses `router.push()` for closing the panel is **not supported** by the repo-visible evidence. The `closePanel` function correctly utilizes `router.back()` or `router.replace(expectedOrigin)` based on session state, ensuring no additional history entries are created when closing.\n- Confirmed: `.planning/current/build/build-result.md` fails to meet the quality gate requirements. It records only route provenance and a \"ready for review\" status, but lacks the necessary repo-visible evidence that `turbo build`, `turbo lint`, `turbo typecheck`, or the Phase 5 contract tests actually passed as required by `.planning/current/plan/sprint-contract.md:30-37`.\n\nAdvisories:\n- The navigation integration in `view-toggle.tsx` correctly uses `router.push()` for opening items while storing the origin in `sessionStorage`, allowing `detail-panel.tsx` to \"pop\" the URL accurately via `router.back()` upon closure.\n- While the behavioral defect regarding history bloat appears to be already resolved in the implementation, the review fails due to the total absence of verification logs in the build artifact.\n\nCCB_DONE: 20260420-085052-845-33007-93",
+      "receipt": "ccb-review-gemini-2026-04-20T14-55-39.249Z",
+      "dispatch_command": "/Users/henry/.local/share/codex-dual/bin/ask gemini --foreground --no-wrap --timeout 180",
+      "exit_code": 0,
+      "stdout": "# Gemini Audit\n\nResult: fail\n\nFindings:\n- The claim that `apps/web/src/components/detail-panel.tsx` uses `router.push()` for closing the panel is **not supported** by the repo-visible evidence. The `closePanel` function correctly utilizes `router.back()` or `router.replace(expectedOrigin)` based on session state, ensuring no additional history entries are created when closing.\n- Confirmed: `.planning/current/build/build-result.md` fails to meet the quality gate requirements. It records only route provenance and a \"ready for review\" status, but lacks the necessary repo-visible evidence that `turbo build`, `turbo lint`, `turbo typecheck`, or the Phase 5 contract tests actually passed as required by `.planning/current/plan/sprint-contract.md:30-37`.\n\nAdvisories:\n- The navigation integration in `view-toggle.tsx` correctly uses `router.push()` for opening items while storing the origin in `sessionStorage`, allowing `detail-panel.tsx` to \"pop\" the URL accurately via `router.back()` upon closure.\n- While the behavioral defect regarding history bloat appears to be already resolved in the implementation, the review fails due to the total absence of verification logs in the build artifact.\n\nCCB_DONE: 20260420-085052-845-33007-93\n",
+      "stderr": "",
+      "request_id": null,
+      "latency_summary": {
+        "path": "foreground",
+        "likely_cause": "normal",
+        "foreground_exit": "success",
+        "finalize_nudge_issued": false,
+        "pend_attempts": 0,
+        "recovered_via": "ask"
+      }
+    },
+    "requested_route": {
+      "command": "build",
+      "governed": true,
+      "execution_mode": "governed_ccb",
+      "primary_provider": "codex",
+      "provider_topology": "multi_session",
+      "planner": "claude+pm-gsd",
+      "generator": "codex-via-ccb",
+      "evaluator_a": "codex-via-ccb",
+      "evaluator_b": "gemini-via-ccb",
+      "synthesizer": "claude",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "fallback_policy": "disabled"
+    },
+    "actual_route": {
+      "provider": "gemini",
+      "route": "gemini-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb",
+      "receipt_path": ".planning/current/review/adapter-output.json"
+    },
+    "notices": [],
+    "conflict_candidates": [],
+    "traceability": {
+      "nexus_stage_pack": "nexus-review-pack",
+      "absorbed_capability": "ccb-review-gemini",
+      "source_map": [
+        "upstream/claude-code-bridge/lib/gemini_comm.py"
+      ]
+    }
+  },
+  "latency_diagnostics": {
+    "audit_a": "path=foreground; cause=normal foreground completion; foreground_exit=success; recovered_via=ask",
+    "audit_b": "path=foreground; cause=normal foreground completion; foreground_exit=success; recovered_via=ask"
+  }
+}

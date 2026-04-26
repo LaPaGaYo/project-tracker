@@ -1,51 +1,48 @@
-# Sprint Contract: Phase 4 - Views
+# Sprint Contract — Phase 5: Detail & Comments
 
-## Scope Boundary
+## Scope Commitment
 
-Phase 4 only. No other phase work.
+This sprint delivers work item detail panels with inline editing, markdown descriptions with version history, comments, and a unified activity timeline.
 
-## Commitments
+## Bounded Deliverables
 
-| Task | Description | Acceptance |
-|------|-------------|------------|
-| 4.1 | Install @dnd-kit dependencies | Build passes with new deps |
-| 4.2 | Position management API (move + state change) | Atomic update, activity logged, FOR UPDATE lock |
-| 4.3 | Filter and sort API extensions | Query param filtering and sorting on items endpoint |
-| 4.4 | Board/Kanban view with DnD | Columns per state, draggable cards, optimistic updates |
-| 4.5 | List view with sortable table | Column header sort, subtask indentation |
-| 4.6 | Filter bar component | Type/priority/assignee/state filters via URL params |
-| 4.7 | View toggle + page integration | Board/List switch, localStorage persistence |
-| 4.8 | Contract tests (10 cases) | All pass against real Postgres |
+| Task | Description | Verification |
+|------|-------------|--------------|
+| 5.1 | Database schema + migration (comments, description_versions) | Migration SQL exists, tables create successfully |
+| 5.2 | Shared types (CommentRecord, DescriptionVersionRecord) | Types exported from packages/shared |
+| 5.3 | Comments server module (repository, service, RBAC) | CRUD operations work, RBAC enforced |
+| 5.4 | Description versioning in work-items service | Updates save previous version, versions retrievable |
+| 5.5 | API routes for comments + description | All endpoints return correct responses |
+| 5.6 | Detail panel component suite | Panel renders, fields editable, markdown renders |
+| 5.7 | Navigation integration (board + list click) | Clicking items opens panel, URL updates |
+| 5.8 | Contract tests | All tests pass in CI |
 
-## Exit Criteria
+## Out of Scope (DO NOT implement)
 
-- [ ] `npm run build` passes
-- [ ] `npm run lint` passes
-- [ ] `npm run test` passes (36 total: 26 existing + 10 new)
-- [ ] Dev server starts without errors
-- [ ] Board view renders with DnD functional
-- [ ] List view renders with sorting functional
-- [ ] Filters work in both views
+- File/image attachments
+- Real-time updates or WebSocket connections
+- @mention autocomplete or notification dispatch
+- Emoji reactions
+- Nested comment threads
+- Rich WYSIWYG editor (markdown textarea + preview only)
+- Any Phase 6-8 features
 
-## Non-Goals (explicitly excluded)
+## Quality Gates
 
-- Timeline/Gantt view
-- Saved/named views
-- Swimlanes
-- Bulk operations
-- Card hover preview
-- Custom card fields
-- Virtualization
+- `turbo build` passes with no errors
+- `turbo lint` passes
+- `turbo typecheck` passes
+- Contract tests pass against real Postgres
+- No regressions in Phase 3/4 tests
+- RBAC boundaries verified in tests
+
+## Risk Mitigations
+
+- Merge origin/main into worktree before starting (ensures Phase 1-4 code present)
+- Use extensionless imports in packages
+- Run drizzle-kit generate for migrations (not hand-written SQL)
+- Test with real Postgres (same CI pattern as Phase 3/4)
 
 ## Dependencies
 
-- Phase 2+3 code on main (merged via PR #5)
-- Docker Compose Postgres + Redis for tests
-- `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`
-
-## Lessons Applied
-
-- Extensionless imports in server files (CI typecheck compatibility)
-- Contract tests use `--import tsx` loader and real Postgres
-- Execution readiness packet scoped to Phase 4 only
-- Worktree branches from main (has all prior phase code)
+New npm packages: `react-markdown`, `remark-gfm`, `diff`

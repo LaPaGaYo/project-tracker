@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "generated_at": "2026-04-20T14:52:36.783Z",
+  "advisories": [
+    "The navigation integration in `view-toggle.tsx` correctly uses `router.push()` for opening items while storing the origin in `sessionStorage`, allowing `detail-panel.tsx` to \"pop\" the URL accurately via `router.back()` upon closure.",
+    "While the behavioral defect regarding history bloat appears to be already resolved in the implementation, the review fails due to the total absence of verification logs in the build artifact."
+  ]
+}

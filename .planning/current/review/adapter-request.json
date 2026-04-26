@@ -1,0 +1,57 @@
+{
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "inputs": [
+    ".planning/current/build/status.json"
+  ],
+  "adapter_chain": [
+    "superpowers",
+    "ccb",
+    "ccb"
+  ],
+  "requested_route": {
+    "command": "build",
+    "governed": true,
+    "execution_mode": "governed_ccb",
+    "primary_provider": "codex",
+    "provider_topology": "multi_session",
+    "planner": "claude+pm-gsd",
+    "generator": "codex-via-ccb",
+    "evaluator_a": "codex-via-ccb",
+    "evaluator_b": "gemini-via-ccb",
+    "synthesizer": "claude",
+    "substrate": "superpowers-core",
+    "transport": "ccb",
+    "fallback_policy": "disabled"
+  },
+  "review_scope": {
+    "mode": "bounded_fix_cycle",
+    "source_stage": "review",
+    "blocking_items": [
+      "apps/web/src/components/detail-panel.tsx:71-75,228-253 closes the panel with router.push(...) for Escape, backdrop click, and the Close button. The Phase 5 contract requires closing to \"pop URL back to project view\" (.planning/current/plan/execution-readiness-packet.md:146-149). As implemented, opening an item and then closing it adds a second history entry, so browser Back reopens the panel instead of returning to the previous page.",
+      ".planning/current/build/build-result.md:1-14 only records route provenance and \"ready for review\". Against the required quality gates in .planning/current/plan/sprint-contract.md:30-37, there is no repo-visible evidence here that turbo build, turbo lint, turbo typecheck, the Phase 5 contract tests, or the Phase 3/4 regression checks actually passed, so full-acceptance review cannot pass on the current artifact set."
+    ],
+    "advisory_policy": "out_of_scope_advisory"
+  },
+  "workspace": {
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
+    "kind": "worktree",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
+    "source": "allocated:fresh_run",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
+    "retirement_state": "active"
+  },
+  "requested_audit_routes": {
+    "codex": {
+      "provider": "codex",
+      "route": "codex-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb"
+    },
+    "gemini": {
+      "provider": "gemini",
+      "route": "gemini-via-ccb",
+      "substrate": "superpowers-core",
+      "transport": "ccb"
+    }
+  }
+}

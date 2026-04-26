@@ -4,10 +4,15 @@ import type { WorkItemRecord } from "@the-platform/shared";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import { WorkItemEngineeringChips } from "./work-item-engineering-chips";
+
 interface WorkItemCardProps {
   item: WorkItemRecord;
+  engineering?: ProjectWorkspaceEngineeringItemView | null;
   assigneeLabel: string;
   subtaskCount: number;
+  onOpen?: (identifier: string) => void;
 }
 
 function initialsFromValue(value: string) {
@@ -19,7 +24,13 @@ function initialsFromValue(value: string) {
     .join("");
 }
 
-export function WorkItemCard({ item, assigneeLabel, subtaskCount }: WorkItemCardProps) {
+export function WorkItemCard({
+  item,
+  engineering,
+  assigneeLabel,
+  subtaskCount,
+  onOpen
+}: WorkItemCardProps) {
   const {
     attributes,
     listeners,
@@ -34,11 +45,16 @@ export function WorkItemCard({ item, assigneeLabel, subtaskCount }: WorkItemCard
   return (
     <article
       ref={setNodeRef}
+      onClick={() => {
+        if (item.identifier && onOpen) {
+          onOpen(item.identifier);
+        }
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition
       }}
-      className={`rounded-3xl border border-white/10 bg-black/20 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.2)] transition ${
+      className={`cursor-pointer rounded-3xl border border-white/10 bg-black/20 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.2)] transition ${
         isDragging ? "opacity-60 shadow-[0_24px_70px_rgba(0,0,0,0.32)]" : ""
       }`}
       {...attributes}
@@ -55,7 +71,12 @@ export function WorkItemCard({ item, assigneeLabel, subtaskCount }: WorkItemCard
       </div>
 
       <h3 className="mt-4 text-base font-semibold text-planka-text">{item.title}</h3>
-      <p className="mt-2 text-sm leading-6 text-planka-text-muted">{item.description || "No description yet."}</p>
+      {item.description ? (
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-planka-text-muted">{item.description}</p>
+      ) : null}
+      <div className="mt-4">
+        <WorkItemEngineeringChips engineering={engineering ?? null} />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">

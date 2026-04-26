@@ -1,15 +1,15 @@
 {
-  "run_id": "run-2026-04-19T08-27-58-235Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
   "stage": "build",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
   "workspace": {
-    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
     "kind": "worktree",
-    "branch": "codex/run-2026-04-19T08-27-58-235Z",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
     "source": "allocated:fresh_run",
-    "run_id": "run-2026-04-19T08-27-58-235Z",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
     "retirement_state": "active"
   },
   "session_root": {
@@ -19,17 +19,21 @@
   },
   "requested_execution_path": "codex-via-ccb",
   "actual_execution_path": "codex-via-ccb",
-  "design_impact": "material",
+  "design_impact": "none",
   "design_contract_required": false,
   "design_contract_path": null,
-  "design_verified": false,
-  "state": "blocked",
+  "design_verified": null,
+  "state": "completed",
   "decision": "build_recorded",
-  "ready": false,
+  "ready": true,
   "inputs": [
     {
       "kind": "json",
       "path": ".planning/current/handoff/status.json"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/review/status.json"
     },
     {
       "kind": "markdown",
@@ -54,15 +58,21 @@
       "path": ".planning/current/build/build-request.json"
     },
     {
+      "kind": "markdown",
+      "path": ".planning/current/build/build-result.md"
+    },
+    {
+      "kind": "json",
+      "path": ".planning/current/build/completion-advisor.json"
+    },
+    {
       "kind": "json",
       "path": ".planning/current/build/status.json"
     }
   ],
-  "started_at": "2026-04-20T05:25:50.340Z",
-  "completed_at": "2026-04-20T05:25:50.340Z",
-  "errors": [
-    "Generator reported blocked build contract: Read the predecessor artifacts and confirmed the current governed contract is `Phase 4 - Views`. Inspected the repository state against that packet and found the contract is inconsistent with the worktree: the repo is still at the Phase 1 baseline, not the Phase 3 prerequisite baseline the packet requires. The named Phase 4 surfaces are absent (`apps/web/src/server/**`, `apps/web/src/app/api/workspaces/**`, project detail pages, Phase 4 contract tests, and `@dnd-kit` dependencies), so implementing Phase 4 here would require first adding missing earlier-phase infrastructure that the packet explicitly says is already complete and out of scope."
-  ],
+  "started_at": "2026-04-20T14:39:29.408Z",
+  "completed_at": "2026-04-20T14:39:29.408Z",
+  "errors": [],
   "requested_route": {
     "command": "build",
     "governed": true,
@@ -86,9 +96,12 @@
     "receipt_path": ".planning/current/build/adapter-output.json"
   },
   "review_scope": {
-    "mode": "full_acceptance",
-    "source_stage": "plan",
-    "blocking_items": [],
+    "mode": "bounded_fix_cycle",
+    "source_stage": "review",
+    "blocking_items": [
+      "apps/web/src/components/detail-panel.tsx:71-75,228-253 closes the panel with router.push(...) for Escape, backdrop click, and the Close button. The Phase 5 contract requires closing to \"pop URL back to project view\" (.planning/current/plan/execution-readiness-packet.md:146-149). As implemented, opening an item and then closing it adds a second history entry, so browser Back reopens the panel instead of returning to the previous page.",
+      ".planning/current/build/build-result.md:1-14 only records route provenance and \"ready for review\". Against the required quality gates in .planning/current/plan/sprint-contract.md:30-37, there is no repo-visible evidence here that turbo build, turbo lint, turbo typecheck, the Phase 5 contract tests, or the Phase 3/4 regression checks actually passed, so full-acceptance review cannot pass on the current artifact set."
+    ],
     "advisory_policy": "out_of_scope_advisory"
   }
 }

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "run_id": "run-2026-04-20T13-45-58-613Z",
+  "stage": "frame",
+  "generated_at": "2026-04-20T13:48:45.778Z",
+  "stage_outcome": "ready",
+  "summary": "Framing is complete. The canonical next step is planning.",
+  "requires_user_choice": false,
+  "choice_reason": null,
+  "default_action_id": "run_plan",
+  "primary_next_actions": [
+    {
+      "id": "run_plan",
+      "kind": "canonical_stage",
+      "surface": "/plan",
+      "invocation": "/plan",
+      "label": "Run `/plan`",
+      "description": "Turn framing into an execution-ready packet.",
+      "recommended": true
+    }
+  ],
+  "alternative_next_actions": [],
+  "recommended_side_skills": [],
+  "hidden_compat_aliases": [
+    "/office-hours",
+    "/autoplan",
+    "/plan-ceo-review",
+    "/plan-eng-review"
+  ],
+  "hidden_utility_skills": [
+    "/careful",
+    "/freeze",
+    "/guard",
+    "/unfreeze",
+    "/nexus-upgrade"
+  ]
+}

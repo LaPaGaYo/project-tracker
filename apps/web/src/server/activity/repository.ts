@@ -41,6 +41,8 @@ function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string):
     priority: row.priority,
     labels: row.labels,
     workflowStateId: row.workflowStateId,
+    stageId: row.stageId,
+    planItemId: row.planItemId,
     position: row.position,
     blockedReason: row.blockedReason,
     dueDate: toIso(row.dueDate),

@@ -6,8 +6,8 @@
     ".planning/current/plan/verification-matrix.json"
   ],
   "status": {
-    "state": "blocked",
-    "decision": "not_ready",
-    "ready": false
+    "state": "completed",
+    "decision": "ready",
+    "ready": true
   }
 }

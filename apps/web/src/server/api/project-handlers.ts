@@ -5,6 +5,7 @@ import {
   getProjectActivityForUser
 } from "../activity/service";
 import type { ActivityRepository } from "../activity/types";
+import type { NotificationRepository } from "../notifications/types";
 import {
   createProjectForUser,
   deleteProjectForUser,
@@ -24,7 +25,7 @@ import {
   moveWorkItemsForUser,
   updateWorkItemForUser
 } from "../work-items/service";
-import type { WorkItemRepository } from "../work-items/types";
+import type { WorkItemNotificationDependencies, WorkItemRepository } from "../work-items/types";
 import {
   createWorkflowStateForUser,
   deleteWorkflowStateForUser,
@@ -37,6 +38,7 @@ export interface ProjectHandlerDependencies {
   getSession: () => Promise<AppSession | null>;
   projectRepository: ProjectRepository;
   workItemRepository: WorkItemRepository;
+  notificationRepository?: NotificationRepository;
   workflowStateRepository: WorkflowStateRepository;
   activityRepository: ActivityRepository;
 }
@@ -107,6 +109,14 @@ async function parseJsonBody(request: Request) {
   } catch {
     throw new WorkspaceError(400, "request body must be valid JSON.");
   }
+}
+
+function workItemNotificationDependencies(
+  dependencies: ProjectHandlerDependencies
+): WorkItemNotificationDependencies {
+  return dependencies.notificationRepository
+    ? { notificationRepository: dependencies.notificationRepository }
+    : {};
 }
 
 export async function handleListProjects(
@@ -273,7 +283,8 @@ export async function handlePatchWorkItemPosition(
           params.slug,
           params.key,
           params.identifier,
-          body
+          body,
+          workItemNotificationDependencies(dependencies)
         )
       : await moveWorkItemForUser(
           dependencies.workItemRepository,
@@ -281,7 +292,8 @@ export async function handlePatchWorkItemPosition(
           params.slug,
           params.key,
           params.identifier,
-          body
+          body,
+          workItemNotificationDependencies(dependencies)
         );
 
     return json({ workItem });
@@ -359,7 +371,8 @@ export async function handlePatchWorkItem(
       params.slug,
       params.key,
       params.identifier,
-      body
+      body,
+      workItemNotificationDependencies(dependencies)
     );
 
     return json({ workItem });

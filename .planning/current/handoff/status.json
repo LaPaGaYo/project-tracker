@@ -1,15 +1,15 @@
 {
-  "run_id": "run-2026-04-19T08-27-58-235Z",
+  "run_id": "run-2026-04-20T13-45-58-613Z",
   "stage": "handoff",
   "execution_mode": "governed_ccb",
   "primary_provider": "codex",
   "provider_topology": "multi_session",
   "workspace": {
-    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-19T08-27-58-235Z",
+    "path": "/Users/henry/Documents/project-tracker/.nexus-worktrees/run-2026-04-20T13-45-58-613Z",
     "kind": "worktree",
-    "branch": "codex/run-2026-04-19T08-27-58-235Z",
+    "branch": "codex/run-2026-04-20T13-45-58-613Z",
     "source": "allocated:fresh_run",
-    "run_id": "run-2026-04-19T08-27-58-235Z",
+    "run_id": "run-2026-04-20T13-45-58-613Z",
     "retirement_state": "active"
   },
   "session_root": {
@@ -43,11 +43,15 @@
     },
     {
       "kind": "json",
+      "path": ".planning/current/handoff/completion-advisor.json"
+    },
+    {
+      "kind": "json",
       "path": ".planning/current/handoff/status.json"
     }
   ],
-  "started_at": "2026-04-20T05:18:54.003Z",
-  "completed_at": "2026-04-20T05:18:54.003Z",
+  "started_at": "2026-04-20T13:53:02.100Z",
+  "completed_at": "2026-04-20T13:53:02.100Z",
   "errors": [],
   "requested_route": {
     "command": "build",
