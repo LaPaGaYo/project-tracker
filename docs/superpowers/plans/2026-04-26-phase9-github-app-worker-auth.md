@@ -205,7 +205,7 @@ void test("createGithubTokenProvider fails clearly when no worker credentials ar
 Run:
 
 ```bash
-npm test --workspace @the-platform/worker -- github-app-auth.test.ts
+node --import tsx --test apps/worker/src/github-app-auth.test.ts
 ```
 
 Expected: FAIL because `apps/worker/src/github-app-auth.ts` does not exist.
@@ -410,7 +410,7 @@ export function createGithubTokenProvider(options: GithubTokenProviderOptions = 
 Run:
 
 ```bash
-npm test --workspace @the-platform/worker -- github-app-auth.test.ts
+node --import tsx --test apps/worker/src/github-app-auth.test.ts
 ```
 
 Expected: PASS for all `github-app-auth.test.ts` tests.
@@ -491,7 +491,7 @@ void test("createGithubClient resolves a repository token from the configured pr
 Run:
 
 ```bash
-npm test --workspace @the-platform/worker -- github-client.test.ts
+node --import tsx --test apps/worker/src/github-client.test.ts
 ```
 
 Expected: FAIL because `GithubRestClientOptions` does not accept `tokenProvider` and `GithubClientTarget` does not expose `installationId`.
@@ -593,7 +593,7 @@ export function createGithubClient(options: GithubRestClientOptions = {}): Githu
 Run:
 
 ```bash
-npm test --workspace @the-platform/worker -- github-client.test.ts github-app-auth.test.ts
+node --import tsx --test apps/worker/src/github-client.test.ts apps/worker/src/github-app-auth.test.ts
 ```
 
 Expected: PASS for both test files.
@@ -603,7 +603,7 @@ Expected: PASS for both test files.
 Run:
 
 ```bash
-npm test --workspace @the-platform/worker -- github-reconcile.test.ts
+node --import tsx --test apps/worker/src/github-reconcile.test.ts
 ```
 
 Expected: PASS. Existing in-memory `GithubClient` implementations still satisfy the interface because `installationId` is optional.
