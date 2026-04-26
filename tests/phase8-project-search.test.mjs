@@ -274,6 +274,8 @@ async function addPullRequestLink(workspace, item, label) {
       ${`${label.toLowerCase()}-rollout-${suffix}`}
     )
   `;
+
+  return { repository, pullRequest };
 }
 
 test.after(async () => {
@@ -440,8 +442,8 @@ test("project readiness search matches scoped work item metadata and risk fields
     set
       status = 'Blocked',
       priority = 'urgent',
-      labels = array['customer-escalation']::text[],
-      blocked_reason = 'customer-escalation requires launch approval'
+      labels = array['launch-label-only']::text[],
+      blocked_reason = 'release-council-only-token requires launch approval'
     where id = ${item.id}
   `;
 
@@ -464,10 +466,17 @@ test("project readiness search matches scoped work item metadata and risk fields
     owner,
     workspace.slug,
     project.key,
-    "customer-escalation"
+    "launch-label-only"
+  );
+  const blockedReasonResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "release-council-only-token"
   );
 
-  for (const results of [blockedResults, urgentResults, labelResults]) {
+  for (const results of [blockedResults, urgentResults, labelResults, blockedReasonResults]) {
     assert.ok(results.results.some((result) => result.type === "work_item" && result.title === "RSK-1 Validate launch handoff"));
     assert.ok(
       results.results.every((result) =>
@@ -489,24 +498,53 @@ test("project readiness search matches engineering GitHub status fields", async 
     "Validate neutral handoff"
   );
 
-  await addPullRequestLink(workspace, item, "Neutral");
+  const { pullRequest } = await addPullRequestLink(workspace, item, "Neutral");
+  await sql`
+    update github_pull_requests
+    set body = 'pr-body-only-token confirms rollout readiness.'
+    where id = ${pullRequest.id}
+  `;
   await sql`
     insert into task_github_status (task_id, pr_status, ci_status, deploy_status)
     values (${item.id}, 'Review requested', 'Failing', 'Production')
   `;
 
-  const results = await searchProjectForUser(
+  const failingResults = await searchProjectForUser(
     { projectRepository: harness.repositories.projectRepository },
     owner,
     workspace.slug,
     project.key,
     "failing"
   );
-  const engineeringResult = results.results.find((result) => result.type === "engineering");
+  const reviewResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "review requested"
+  );
+  const productionResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "production"
+  );
+  const prBodyResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "pr-body-only-token"
+  );
+  const engineeringResult = failingResults.results.find((result) => result.type === "engineering");
 
   assert.ok(engineeringResult);
   assert.equal(engineeringResult.chip, "CI failing");
   assert.equal(engineeringResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
+  for (const results of [reviewResults, productionResults, prBodyResults]) {
+    assert.ok(results.results.some((result) => result.type === "engineering"));
+  }
 });
 
 test("project readiness search returns current-user project notifications only", async (t) => {
