@@ -1,4 +1,5 @@
 import type {
+  NotificationInboxItem,
   PlanItemRecord,
   ProjectRecord,
   ProjectStageRecord,
@@ -14,6 +15,7 @@ import { resolveWorkspaceContext } from "../work-management/utils";
 import { WorkspaceError } from "../workspaces/core";
 import type { AppSession } from "../workspaces/types";
 
+import { buildProjectReadiness, type ProjectReadinessView } from "./readiness";
 import type { ProjectRepository, ProjectWorkItemEngineeringRecord } from "./types";
 import type { WorkItemRepository } from "../work-items/types";
 
@@ -30,6 +32,10 @@ interface ProjectWorkspaceDependencies {
     | "getProjectGithubConnection"
   >;
   workItemRepository: Pick<WorkItemRepository, "listWorkItems">;
+}
+
+interface ProjectWorkspaceOptions {
+  notificationInbox?: NotificationInboxItem[];
 }
 
 export interface ProjectWorkspaceCurrentStage {
@@ -84,6 +90,7 @@ export interface ProjectWorkspaceView {
     currentStage: string;
     health: string[];
     milestones: ProjectWorkspaceOverviewMilestone[];
+    readiness: ProjectReadinessView;
   };
   engineering: ProjectWorkspaceEngineeringView;
 }
@@ -290,6 +297,20 @@ function buildHealthSummary(tasks: WorkItemRecord[], githubStatuses: TaskGithubS
   ];
 }
 
+function normalizeWorkspaceReadinessMetricLabels(readiness: ProjectReadinessView): ProjectReadinessView {
+  return {
+    ...readiness,
+    metrics: readiness.metrics.map((metric) =>
+      metric.label === "Checks"
+        ? {
+            ...metric,
+            label: "GitHub"
+          }
+        : metric
+    )
+  };
+}
+
 function buildEngineeringItems(
   tasks: WorkItemRecord[],
   stageById: Map<string, ProjectStageRecord>,
@@ -342,7 +363,8 @@ export async function getProjectWorkspaceForUser(
   dependencies: ProjectWorkspaceDependencies,
   session: AppSession,
   workspaceSlug: string,
-  projectKey: string
+  projectKey: string,
+  options: ProjectWorkspaceOptions = {}
 ): Promise<ProjectWorkspaceView> {
   const { project } = await resolveProjectContext(dependencies.projectRepository, session, workspaceSlug, projectKey);
 
@@ -437,7 +459,19 @@ export async function getProjectWorkspaceForUser(
     overview: {
       currentStage: currentStageCard.title,
       health: buildHealthSummary(sortedTasks, githubStatuses),
-      milestones: buildOverviewMilestones(sortedStages, currentStageIndex)
+      milestones: buildOverviewMilestones(sortedStages, currentStageIndex),
+      readiness: normalizeWorkspaceReadinessMetricLabels(
+        buildProjectReadiness({
+          currentStage,
+          stages: sortedStages,
+          planItems,
+          tasks: sortedTasks,
+          githubStatuses,
+          engineeringItems,
+          notificationInbox: options.notificationInbox ?? [],
+          baseProjectHref: `/workspaces/${workspaceSlug}/projects/${projectKey}`
+        })
+      )
     },
     engineering: {
       repository: githubConnection?.repository.fullName ?? "No repository connected",

@@ -268,6 +268,9 @@ test("project workspace view maps real stage, plan, and engineering records", as
   assert.equal(workspaceView.plan.items[1]?.linkedIssues.join(", "), `${drawerTask.identifier}, ${approvalTask.identifier}`);
   assert.equal(workspaceView.overview.currentStage, "Phase 2: Execution Surface");
   assert.ok(workspaceView.overview.health.includes("Engineering risk: 1 failing check"));
+  assert.equal(workspaceView.overview.readiness.status, "Blocked");
+  assert.ok(workspaceView.overview.readiness.metrics.some((metric) => metric.label === "GitHub"));
+  assert.ok(workspaceView.overview.readiness.actions.some((action) => action.sourceType === "github"));
   assert.equal(workspaceView.engineering.pullRequests, "2 open");
   assert.equal(workspaceView.engineering.checks, "1 failing");
   assert.ok(
@@ -448,6 +451,85 @@ test("project workspace overview marks completed stages distinctly from upcoming
     workspaceView.overview.milestones.map((milestone) => milestone.tone),
     ["completed", "current", "upcoming"]
   );
+});
+
+test("project workspace overview includes readiness signals from the current user's inbox", async () => {
+  const session = createNamedSession("readiness-owner");
+  const project = {
+    id: "project-readiness",
+    workspaceId: "workspace-readiness",
+    key: "OPS3",
+    itemCounter: 1,
+    title: "Ops Readiness",
+    description: "Readiness notification harness.",
+    stage: "Active",
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  const stages = [
+    {
+      id: "stage-current",
+      projectId: project.id,
+      slug: "readiness",
+      title: "Phase 8: Readiness",
+      goal: "Expose project readiness.",
+      status: "In Progress",
+      gateStatus: "In review",
+      sortOrder: 0
+    }
+  ];
+  const notificationInbox = [
+    {
+      event: {
+        id: "event-readiness",
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        workItemId: null,
+        sourceType: "system",
+        sourceId: "readiness",
+        eventType: "github_webhook_failed",
+        actorId: null,
+        priority: "high",
+        title: "Webhook failed",
+        body: "GitHub webhook failed processing.",
+        url: "/workspaces/alpha-workspace/projects/OPS3/engineering",
+        metadata: null,
+        createdAt: new Date().toISOString()
+      },
+      recipient: {
+        id: "recipient-readiness",
+        eventId: "event-readiness",
+        workspaceId: project.workspaceId,
+        recipientId: session.userId,
+        reason: "system",
+        readAt: null,
+        dismissedAt: null,
+        createdAt: new Date().toISOString()
+      },
+      workItemIdentifier: null,
+      projectKey: project.key,
+      workspaceSlug: "alpha-workspace",
+      isUnread: true
+    }
+  ];
+
+  const workspaceView = await getProjectWorkspaceForUser(
+    createProjectionDependencies({
+      project,
+      stages,
+      planItems: [],
+      tasks: [],
+      githubStatuses: []
+    }),
+    session,
+    "alpha-workspace",
+    project.key,
+    { notificationInbox }
+  );
+
+  assert.equal(workspaceView.overview.readiness.status, "Ready with risk");
+  assert.ok(workspaceView.overview.readiness.actions.some((action) => action.sourceType === "notification"));
 });
 
 test("task github status rejects invalid enum values at the database boundary", async (t) => {
