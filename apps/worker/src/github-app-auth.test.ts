@@ -9,15 +9,28 @@ function createPrivateKeyPem() {
   return privateKey.export({ format: "pem", type: "pkcs8" }).toString();
 }
 
-function createJsonResponse(body: unknown, init: ResponseInit = {}) {
-  return new Response(JSON.stringify(body), {
+function createJsonResponse(body: unknown, init: { status?: number; statusText?: string } = {}) {
+  const responseInit: ResponseInit = {
     status: init.status ?? 201,
-    statusText: init.statusText,
+    ...(init.statusText ? { statusText: init.statusText } : {}),
     headers: {
-      "content-type": "application/json",
-      ...init.headers
+      "content-type": "application/json"
     }
-  });
+  };
+
+  return new Response(JSON.stringify(body), responseInit);
+}
+
+function serializeFetchUrl(url: string | URL | Request) {
+  if (typeof url === "string") {
+    return url;
+  }
+
+  if (url instanceof URL) {
+    return url.href;
+  }
+
+  return url.url;
 }
 
 void test("createGithubTokenProvider returns GITHUB_TOKEN as local developer fallback", async () => {
@@ -66,12 +79,12 @@ void test("dynamic GitHub App provider exchanges an app JWT for an installation 
     privateKey: createPrivateKeyPem(),
     apiBaseUrl: "https://github.test",
     now: () => new Date("2026-04-26T12:00:00.000Z"),
-    fetch: async (url, init) => {
-      requests.push({ url: String(url), init: init ?? {} });
-      return createJsonResponse({
+    fetch: (url, init) => {
+      requests.push({ url: serializeFetchUrl(url), init: init ?? {} });
+      return Promise.resolve(createJsonResponse({
         token: "ghs_installation_token",
         expires_at: "2026-04-26T13:00:00.000Z"
-      });
+      }));
     }
   });
 
@@ -97,12 +110,12 @@ void test("dynamic GitHub App provider caches valid installation tokens per inst
     privateKey: createPrivateKeyPem(),
     apiBaseUrl: "https://github.test",
     now: () => new Date("2026-04-26T12:00:00.000Z"),
-    fetch: async () => {
+    fetch: () => {
       requestCount += 1;
-      return createJsonResponse({
+      return Promise.resolve(createJsonResponse({
         token: `ghs_installation_token_${requestCount}`,
         expires_at: "2026-04-26T13:00:00.000Z"
-      });
+      }));
     }
   });
 
@@ -125,12 +138,12 @@ void test("dynamic GitHub App provider refreshes tokens inside the refresh windo
     apiBaseUrl: "https://github.test",
     cacheRefreshWindowMs: 5 * 60 * 1000,
     now: () => now,
-    fetch: async () => {
+    fetch: () => {
       requestCount += 1;
-      return createJsonResponse({
+      return Promise.resolve(createJsonResponse({
         token: `ghs_installation_token_${requestCount}`,
         expires_at: "2026-04-26T12:10:00.000Z"
-      });
+      }));
     }
   });
 
@@ -150,7 +163,7 @@ void test("dynamic GitHub App provider requires repository installation id", asy
     appId: "12345",
     privateKey: createPrivateKeyPem(),
     apiBaseUrl: "https://github.test",
-    fetch: async () => createJsonResponse({})
+    fetch: () => Promise.resolve(createJsonResponse({}))
   });
 
   await assert.rejects(

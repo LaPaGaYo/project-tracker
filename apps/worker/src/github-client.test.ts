@@ -13,6 +13,18 @@ function createJsonResponse(body: unknown) {
   });
 }
 
+function serializeFetchUrl(url: string | URL | Request) {
+  if (typeof url === "string") {
+    return url;
+  }
+
+  if (url instanceof URL) {
+    return url.href;
+  }
+
+  return url.url;
+}
+
 void test("createGithubClient resolves a repository token from the configured provider", async () => {
   const providerCalls: string[] = [];
   const requests: Array<{ url: string; init: RequestInit }> = [];
@@ -26,9 +38,9 @@ void test("createGithubClient resolves a repository token from the configured pr
   const client = createGithubClient({
     baseUrl: "https://github.test",
     tokenProvider,
-    fetch: async (url, init) => {
-      requests.push({ url: String(url), init: init ?? {} });
-      return createJsonResponse([]);
+    fetch: (url, init) => {
+      requests.push({ url: serializeFetchUrl(url), init: init ?? {} });
+      return Promise.resolve(createJsonResponse([]));
     }
   });
 

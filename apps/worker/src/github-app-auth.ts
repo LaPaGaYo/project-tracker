@@ -10,15 +10,15 @@ export interface GithubTokenProvider {
 }
 
 export interface GithubTokenProviderOptions {
-  token?: string;
-  appId?: string;
-  privateKey?: string;
-  privateKeyBase64?: string;
-  apiBaseUrl?: string;
-  fetch?: typeof fetch;
-  now?: () => Date;
-  cacheRefreshWindowMs?: number;
-  env?: Record<string, string | undefined>;
+  token?: string | undefined;
+  appId?: string | undefined;
+  privateKey?: string | undefined;
+  privateKeyBase64?: string | undefined;
+  apiBaseUrl?: string | undefined;
+  fetch?: typeof fetch | undefined;
+  now?: (() => Date) | undefined;
+  cacheRefreshWindowMs?: number | undefined;
+  env?: Record<string, string | undefined> | undefined;
 }
 
 interface InstallationTokenResponse {
@@ -49,7 +49,10 @@ function readNonEmpty(value: string | undefined) {
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function normalizeGithubAppPrivateKey(input: { privateKey?: string; privateKeyBase64?: string }) {
+export function normalizeGithubAppPrivateKey(input: {
+  privateKey?: string | undefined;
+  privateKeyBase64?: string | undefined;
+}) {
   const base64Value = readNonEmpty(input.privateKeyBase64);
   if (base64Value) {
     return Buffer.from(base64Value, "base64").toString("utf8").replaceAll("\\n", "\n").trim();
