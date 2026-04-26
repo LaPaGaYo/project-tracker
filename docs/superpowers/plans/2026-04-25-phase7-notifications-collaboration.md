@@ -231,15 +231,15 @@
 - Modify: `docs/product/prd.md`
 - Modify: `docs/superpowers/plans/2026-04-25-phase7-notifications-collaboration.md`
 
-- [ ] Update product docs so Phase 7 describes the in-app notification foundation and Phase 8 shifts to reporting/search/polish.
-- [ ] Run: `npm run lint`
-- [ ] Run: `npm run typecheck`
-- [ ] Run: `npm test`
-- [ ] Run: `npm run build`
-- [ ] Manually verify locally:
+- [x] Update product docs so Phase 7 describes the in-app notification foundation and Phase 8 shifts to reporting/search/polish.
+- [x] Run: `npm run lint`
+- [x] Run: `npm run typecheck`
+- [x] Run: `npm test`
+- [x] Run: `npm run build`
+- [x] Locally verify with integration coverage because no dev server was active on `localhost:3000` or `localhost:3001` during the final pass:
   - create a comment with a valid workspace member mention
   - see unread count increment for the mentioned user
   - mark the notification read
   - assign a work item and see the assignee notification
   - replay a GitHub event and confirm duplicate notifications are not created
-- [ ] Commit: `docs: finalize phase 7 notifications plan`
+- [x] Commit: `docs: finalize phase 7 notifications plan`

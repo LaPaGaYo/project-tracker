@@ -1,168 +1,158 @@
-# PRD: Phase 6 - Live Engineering Integration
+# PRD: Phase 7 - Notifications and Collaboration Foundation
 
 ## Overview
 
-Replace the seeded/manual engineering status projection with a real GitHub integration. Phase 6 connects a project to a GitHub repository, ingests PR/check/deploy events, derives the local work-item engineering read model, and surfaces that state in the project workspace.
+Add a durable in-app notification foundation for comments, mentions, assignments, work item changes, and GitHub engineering updates. Phase 7 makes collaboration actionable without adding external delivery channels or real-time transport.
 
 ## Scope Sections
 
-### 6.1 Repository Connection
+### 7.1 Shared Notification Contracts
 
-A project can be associated with one primary GitHub repository.
-
-**Requirements:**
-- Store GitHub repository metadata locally: provider id, owner, name, full name, default branch, installation id, and active state.
-- Store the project-to-repository connection with staging and production environment labels.
-- Enforce one primary repository per project.
-- Allow only owner/admin roles to create or update the connection.
-- Surface repository connection status in the project workspace projection.
-
-### 6.2 Webhook Verification and Delivery Receipts
-
-GitHub events enter through a server-side webhook route.
+Notification concepts must be shared across web, DB, worker, and tests.
 
 **Requirements:**
-- Add `POST /api/webhooks/github`.
-- Verify `X-Hub-Signature-256` using the configured webhook secret.
-- Reject invalid signatures before any domain write.
-- Persist verified delivery receipts with delivery id, event name, action, status, payload, and error summary.
-- Treat duplicate delivery ids as idempotent duplicates.
+- Define source types for comment, work item, GitHub, and system events.
+- Define event types for comments, mentions, assignments, state changes, priority raises, GitHub PR/check/deploy changes, and webhook failures.
+- Define priorities and recipient reasons.
+- Export shared record types for events, recipients, preferences, and inbox items.
 
-### 6.3 Normalized GitHub Domain Model
+### 7.2 Durable Notification Schema
 
-Persist GitHub data in durable tables before deriving UI state.
-
-**Requirements:**
-- Add normalized records for repositories, project connections, pull requests, check rollups, deployments, work item links, and webhook deliveries.
-- Upsert pull request events by repository and PR number/provider id.
-- Upsert check rollups by repository and head SHA.
-- Upsert deployments by repository, SHA, environment, and provider deployment id.
-- Preserve `task_github_status` as the UI-facing read model.
-
-### 6.4 Work Item Auto-linking
-
-Automatically associate GitHub activity with work items when safe.
+Persist notifications locally before rendering or repairing them.
 
 **Requirements:**
-- Parse work item identifiers from PR title, PR body, and branch name.
-- Link only when the identifier resolves to exactly one work item in the project.
-- Store link source, confidence, branch, repository, and PR relationship in `work_item_github_links`.
-- Leave ambiguous or missing matches unlinked.
-- Recalculate `task_github_status` after link-affecting events.
+- Add `notification_events` with workspace, project, work item, source identity, event type, actor, priority, title, body, URL, metadata, and created timestamp.
+- Add `notification_recipients` with event id, workspace id, recipient id, reason, read timestamp, dismiss timestamp, and created timestamp.
+- Add `notification_preferences` keyed by workspace id and user id.
+- Enforce event uniqueness by workspace, source type, source id, and event type.
+- Enforce recipient uniqueness by event, recipient, and reason.
+- Add indexes for current-user inbox reads.
 
-### 6.5 Worker Reconciliation
+### 7.3 Notification Service and API
 
-The worker repairs and backfills engineering state outside request handlers.
-
-**Requirements:**
-- Replace the placeholder worker entrypoint with real reconciliation modes.
-- Support repository backfill after connection.
-- Support failed delivery replay.
-- Support linked repository resync.
-- Keep all worker paths safe to re-run.
-- Provide explicit logs for what was reconciled.
-
-### 6.6 Project Workspace UI
-
-Expose live engineering state where users make execution decisions.
+Centralize notification rules and expose current-user operations.
 
 **Requirements:**
-- Board cards show compact `PR / CI / Deploy` chips when engineering data exists.
-- List rows show the same signals in dense form.
-- Issue detail shows read-only repository, branch, PR, check, and deployment context.
-- The `Engineering` view shows repository sync health, linked PRs, failing checks, deployments, and issue summaries.
-- Existing create, edit, comment, and timeline behavior remains unchanged.
+- Create notifications from source events with recipient resolution and preference filtering.
+- Suppress actor self-notifications.
+- Keep recipient insertion idempotent.
+- Enforce workspace membership for inbox reads and preference reads/writes.
+- Add API routes to list inbox notifications, mark one notification read, mark all read, read preferences, and update preferences.
+- Return 404 when a user tries to mark another user's recipient row.
 
-### 6.7 Verification
+### 7.4 Comment and Mention Notifications
 
-Automated coverage must prove the integration chain without requiring live GitHub network access.
+Comments should direct attention to valid teammates.
 
 **Requirements:**
-- Shared contract typecheck passes.
-- DB schema and migration tests pass.
-- GitHub connection RBAC and project mapping tests pass.
-- Webhook signature, dedupe, and persistence tests pass.
-- Projection tests cover PR/check/deploy rollups and work item linking.
-- Worker tests cover backfill, failed delivery replay, and linked repository resync.
-- UI tests cover board/list chips, issue detail engineering context, and engineering view sections.
+- Parse deterministic `@userId` mentions from comment content.
+- Notify valid mentioned workspace members with reason `mention`.
+- Notify assignees and prior participants with reason `participant` when not already mentioned.
+- Ignore unknown mentions and actor self-notifications.
+- Do not emit notifications for comment edits or deletes in Phase 7.
+
+### 7.5 Work Item Change Notifications
+
+Important execution changes should notify affected users.
+
+**Requirements:**
+- Notify newly assigned users on assignment changes.
+- Notify assignees and participants on workflow state changes.
+- Notify assignees and participants when priority is raised to urgent.
+- Resolve participants from assignee, creator activity, and prior commenters.
+- Preserve existing activity log behavior.
+
+### 7.6 GitHub Engineering Notifications
+
+Engineering changes should reach users attached to linked work items.
+
+**Requirements:**
+- Notify linked item followers when PRs open, request review, merge, or close.
+- Notify linked item followers when check rollups fail or recover.
+- Notify linked item followers when deployments reach staging or production.
+- Notify project owners/admins when a connected repository webhook delivery fails processing.
+- Rely on notification event uniqueness to keep webhook replay duplicate-safe.
+
+### 7.7 In-App Notification UI
+
+The project shell should expose a lightweight inbox.
+
+**Requirements:**
+- Extend the project page loader with recent inbox rows, unread count, and current preferences.
+- Add a compact notification bell to the project shell header.
+- Show unread count as a badge.
+- Open an inbox panel with recent notifications.
+- Render source label, title, context/body, work item identifier, timestamp, unread state, and link.
+- Add mark-read and mark-all-read controls using the notification API.
+- Add preference checkboxes for comments, mentions, assignments, GitHub, and state changes.
+
+### 7.8 Worker Notification Repair
+
+The worker should repair notification gaps safely.
+
+**Requirements:**
+- Add a `repair-notifications` worker mode.
+- Find notification events missing recipient rows.
+- Rebuild recipients using the same membership, preference, self-notification, and participant semantics as the web notification service.
+- Add an explicitly enabled recent-activity backfill path.
+- Keep repair idempotent through event and recipient uniqueness.
+- Emit summary logs with repaired events and inserted recipient counts.
+
+### 7.9 Verification
+
+Automated coverage must prove notification contracts, domain behavior, UI behavior, and worker repair.
+
+**Requirements:**
+- Shared contract tests pass.
+- DB schema tests pass.
+- Notification service tests cover idempotency, preference filtering, self-notification suppression, and cross-workspace isolation.
+- Comment, work item, GitHub, and API integration tests pass.
+- UI tests cover unread badge, inbox rows, mark-read, mark-all-read, and preference toggles.
+- Worker tests cover missing recipients, preference filtering, duplicate-safe re-run, and recent activity backfill.
 - Full repo lint, typecheck, test, and build pass.
 
 ## Data Model
 
 ```
-github_repositories:
+notification_events:
   id: uuid PK
   workspace_id: uuid FK
-  provider: text
-  provider_repository_id: text
-  owner: text
-  name: text
-  full_name: text
-  default_branch: text
-  installation_id: text
-  is_active: boolean
-
-project_github_connections:
-  id: uuid PK
-  project_id: uuid FK
-  repository_id: uuid FK
-  is_primary: boolean
-  staging_environment: text
-  production_environment: text
-
-github_pull_requests:
-  id: uuid PK
-  repository_id: uuid FK
-  provider_pull_request_id: text
-  number: integer
+  project_id: uuid FK nullable
+  work_item_id: uuid FK nullable
+  source_type: enum
+  source_id: text
+  event_type: enum
+  actor_id: text nullable
+  priority: enum
   title: text
-  body_excerpt: text
+  body: text nullable
   url: text
-  state: text
-  draft: boolean
-  base_branch: text
-  head_branch: text
-  head_sha: text
+  metadata: jsonb nullable
+  created_at: timestamp
 
-github_check_rollups:
+notification_recipients:
   id: uuid PK
-  repository_id: uuid FK
-  head_sha: text
-  status: text
-  conclusion: text
-  url: text
+  event_id: uuid FK
+  workspace_id: uuid FK
+  recipient_id: text
+  reason: enum
+  read_at: timestamp nullable
+  dismissed_at: timestamp nullable
+  created_at: timestamp
 
-github_deployments:
-  id: uuid PK
-  repository_id: uuid FK
-  provider_deployment_id: text
-  environment: text
-  sha: text
-  state: text
-  url: text
-
-work_item_github_links:
-  id: uuid PK
-  work_item_id: uuid FK
-  repository_id: uuid FK
-  pull_request_id: uuid FK nullable
-  branch_name: text nullable
-  source: text
-  confidence: text
-
-github_webhook_deliveries:
-  id: uuid PK
-  delivery_id: text unique
-  event_name: text
-  action: text
-  status: text
-  payload: jsonb
-  error_summary: text nullable
+notification_preferences:
+  workspace_id: uuid FK
+  user_id: text
+  comments_enabled: boolean
+  mentions_enabled: boolean
+  assignments_enabled: boolean
+  github_enabled: boolean
+  state_changes_enabled: boolean
 ```
 
 ## Exit Criteria
 
-- All 11 success criteria from the decision brief are met.
-- Phase 6 tests pass without live GitHub network access.
+- All 10 success criteria from the decision brief are met.
+- Phase 7 tests pass without external delivery services.
 - Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
-- Product docs identify Phase 7 as notifications and collaboration follow-ons.
+- Product docs identify Phase 8 as reporting, search, and polish.

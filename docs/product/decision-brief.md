@@ -1,89 +1,87 @@
-# Decision Brief: Phase 6 - Live Engineering Integration
+# Decision Brief: Phase 7 - Notifications and Collaboration Foundation
 
 ## Context
 
-Phase 5 completed the functional project workspace: board/list execution, work item detail, comments, planning, overview, docs, and engineering views all live under `/workspaces/[slug]/projects/[key]`. Phase 6 makes the engineering layer real by connecting project work items to GitHub repository activity.
+Phase 6 made GitHub engineering status durable and visible in the project workspace. Phase 7 adds the attention layer: users should know when comments, mentions, assignments, workflow changes, and GitHub engineering events need their response.
 
-The product direction remains: Jira for execution structure, GitHub for live engineering status, and Notion-like lightness for planning and docs.
+The product direction remains: Jira for execution structure, GitHub for engineering truth, and Notion-like lightness for collaboration.
 
 ## Key Decisions
 
-### 1. Webhook-first GitHub integration
+### 1. Durable notification events plus recipient rows
 
-GitHub events enter through `POST /api/webhooks/github`. The route verifies the webhook signature, persists a delivery receipt, and then hands off to domain projection logic.
+Notification events describe the source change. Recipient rows describe each user's delivery/read state.
 
-**Why:** Webhooks give fast updates without calling GitHub during page render. Persisted receipts make delivery idempotency, replay, and operator diagnosis possible.
+**Why:** A single event can fan out to multiple users, and each user needs independent read state, preferences, and repair semantics.
 
-### 2. Local Postgres read model
+### 2. Domain services emit notifications after successful mutations
 
-The UI reads local tables, with `task_github_status` kept as the compact work-item summary model. Normalized GitHub tables sit beneath it and drive recalculation.
+Comment, work item, and GitHub services call the notification service after their primary write succeeds.
 
-**Why:** Board, detail, and engineering pages need predictable load times and should keep working from the last known state when GitHub is unavailable.
+**Why:** Notification creation should be layered onto existing behavior without changing response shapes or ownership of domain writes.
 
-### 3. One primary repository per project
+### 3. Local in-app inbox before external delivery
 
-Phase 6 supports a single primary GitHub repository connection per project.
+The project shell contains the first notification surface: bell, unread count, inbox panel, mark-read controls, and preferences.
 
-**Why:** This keeps the first live integration shippable while preserving a clear path to multi-repo orchestration later.
+**Why:** The product needs an internal attention loop before adding email, Slack, push, or digest channels.
 
-### 4. Unambiguous identifier auto-linking
+### 4. Workspace-level coarse preferences
 
-Work items link to GitHub activity when an identifier appears in PR title, PR body, or branch name and resolves to exactly one work item.
+Users can toggle comments, mentions, assignments, GitHub engineering changes, and state changes.
 
-**Why:** Automatic linking creates the product value. Refusing ambiguous matches protects trust in the board.
+**Why:** This gives immediate noise control without prematurely designing per-project or per-issue preference complexity.
 
-### 5. Worker-backed reconciliation
+### 5. Self-notification and preference filtering in one service
 
-The worker owns backfill, failed delivery replay, and linked repository resync.
+The notification service suppresses actor self-notifications, filters invalid workspace members, applies preferences, and inserts recipient rows idempotently.
 
-**Why:** Webhooks are the fast path, but production integrations need a repair path. Reconciliation must be safe to re-run.
+**Why:** Centralizing these rules avoids drift between comment, work item, GitHub, API, and worker paths.
 
-### 6. Read-only engineering facts in the UI
+### 6. Worker-backed notification repair
 
-Board cards, list rows, issue detail, and the engineering page display GitHub state. Editing GitHub records from the product UI is out of scope for Phase 6.
+The worker has a `repair-notifications` mode for missing recipients and an explicitly enabled recent-activity backfill path.
 
-**Why:** The product should expose engineering truth without pretending to be a GitHub replacement.
+**Why:** Webhooks, request handlers, and deployments can fail. Repair must be safe to re-run and auditable from worker output.
 
 ## Non-Goals
 
-- Multi-repository projects
-- Manual PR/link management UI for ambiguous matches
-- Browser-side GitHub API calls
-- Editable docs/wiki system
-- Notifications and mention dispatch
-- Real-time collaborative editing
-- Portfolio reporting
+- Email, Slack, push, SMS, or mobile delivery
+- Real-time websocket transport
+- Cross-workspace global notification center
+- Per-project or per-issue preferences
+- Manual ambiguous GitHub link management
+- Reporting/search dashboards
 
 ## RBAC Rules
 
-| Role | Read Engineering State | Connect Repository | Process Webhooks | Edit Work Item Fields |
-|------|------------------------|--------------------|------------------|-----------------------|
-| Viewer | Yes | No | No | No |
-| Member | Yes | No | No | Yes |
-| Admin | Yes | Yes | No | Yes |
-| Owner | Yes | Yes | No | Yes |
-| System/Webhook | No UI access | No | Yes | Derived writes only |
+| Role | Read Own Inbox | Mark Own Notifications Read | Update Own Preferences | Receive Notifications | Repair Recipients |
+|------|----------------|-----------------------------|------------------------|-----------------------|-------------------|
+| Viewer | Yes | Yes | Yes | Yes | No |
+| Member | Yes | Yes | Yes | Yes | No |
+| Admin | Yes | Yes | Yes | Yes | No |
+| Owner | Yes | Yes | Yes | Yes | No |
+| Worker/System | No UI access | No | No | Derived writes only | Yes |
 
 ## Success Criteria
 
-1. A project has one primary repository connection with owner/admin mutation rules.
-2. GitHub webhook signatures are verified before any domain write.
-3. Verified deliveries are persisted and duplicate deliveries are idempotent.
-4. Pull request, check, and deployment payloads update normalized GitHub records.
-5. Work items auto-link to GitHub activity when identifier matching is unambiguous.
-6. `task_github_status` updates from normalized GitHub state.
-7. Board cards and list rows show compact `PR / CI / Deploy` chips.
-8. Issue detail shows repository, branch, PR, check, and deploy context.
-9. The engineering page shows repository sync health, linked PRs, failing checks, deployments, and issue summaries.
-10. Worker reconciliation can backfill, replay failed deliveries, and resync linked repository state safely.
-11. Existing Phase 5 create/edit/comment behavior remains intact.
+1. Notification source, event, priority, recipient reason, record, and inbox contracts are shared.
+2. Durable notification tables exist with event uniqueness, recipient uniqueness, preferences, and inbox indexes.
+3. Comment creation notifies valid mentions and relevant participants without notifying the actor.
+4. Work item assignment, state change, and urgent-priority updates notify the right users.
+5. GitHub PR/check/deploy changes and webhook failures create relevant notifications and remain replay-safe.
+6. Notification API routes enforce workspace membership and current-user recipient scoping.
+7. The project shell renders a compact unread badge and inbox panel.
+8. Users can mark one notification read, mark all read, and update coarse preferences.
+9. Worker repair can rebuild missing notification recipients and explicitly backfill recent activity safely.
+10. Full repo lint, typecheck, test, and build pass.
 
 ## Next Phase
 
-Phase 7 should focus on notifications and collaboration follow-ons:
+Phase 8 should focus on product readiness and discovery surfaces:
 
-- mention notification dispatch
-- activity notifications for comments, assignments, status changes, PR/check/deploy changes
-- real-time or near-real-time UI refresh
-- manual handling for ambiguous GitHub links
-- persisted docs/collaboration improvements if notifications are stable
+- reporting and portfolio-level summaries
+- search across work items, docs, comments, and engineering signals
+- manual polish for GitHub linking and project operations
+- UX hardening for empty states, loading states, and navigation edges
+- performance and build/deployment readiness
