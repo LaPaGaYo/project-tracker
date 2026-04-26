@@ -169,17 +169,17 @@
 - Create: `apps/web/src/app/api/workspaces/[slug]/notification-preferences/route.ts`
 - Create: `tests/phase7-notification-api.test.mjs`
 
-- [ ] Add `GET /api/workspaces/[slug]/notifications` for the current user's inbox.
-- [ ] Add `PATCH /api/workspaces/[slug]/notifications/[notificationId]` to mark one notification read.
-- [ ] Add `POST /api/workspaces/[slug]/notifications/mark-all-read` to mark all current user's workspace notifications read.
-- [ ] Add `GET /api/workspaces/[slug]/notification-preferences`.
-- [ ] Add `PATCH /api/workspaces/[slug]/notification-preferences`.
-- [ ] Return 403 when the current user is not a workspace member.
-- [ ] Return 404 when trying to mark another user's notification recipient row.
-- [ ] Add API tests for read, mark-one, mark-all, preferences, and cross-user isolation.
-- [ ] Run: `node --import tsx --test tests/phase7-notification-api.test.mjs`
-- [ ] Expected: PASS with all API routes scoped to the current user.
-- [ ] Commit: `feat: add notification api routes`
+- [x] Add `GET /api/workspaces/[slug]/notifications` for the current user's inbox.
+- [x] Add `PATCH /api/workspaces/[slug]/notifications/[notificationId]` to mark one notification read.
+- [x] Add `POST /api/workspaces/[slug]/notifications/mark-all-read` to mark all current user's workspace notifications read.
+- [x] Add `GET /api/workspaces/[slug]/notification-preferences`.
+- [x] Add `PATCH /api/workspaces/[slug]/notification-preferences`.
+- [x] Return 403 when the current user is not a workspace member.
+- [x] Return 404 when trying to mark another user's notification recipient row.
+- [x] Add API tests for read, mark-one, mark-all, preferences, and cross-user isolation.
+- [x] Run: `node --import tsx --test tests/phase7-notification-api.test.mjs`
+- [x] Expected: PASS with all API routes scoped to the current user.
+- [x] Commit: `feat: add notification api routes`
 
 ### Task 8: Add In-App Notification UI
 
