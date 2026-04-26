@@ -234,7 +234,14 @@ export function createNotificationRepository(): NotificationRepository {
     },
 
     async listInboxForUser(input) {
-      const rows = await db
+      const filters = [
+        eq(notificationRecipients.workspaceId, input.workspaceId),
+        eq(notificationRecipients.recipientId, input.recipientId),
+        isNull(notificationRecipients.dismissedAt),
+        ...(input.projectId ? [eq(notificationEvents.projectId, input.projectId)] : []),
+        ...(input.unreadOnly ? [isNull(notificationRecipients.readAt)] : [])
+      ];
+      const query = db
         .select({
           event: notificationEvents,
           recipient: notificationRecipients,
@@ -247,15 +254,9 @@ export function createNotificationRepository(): NotificationRepository {
         .innerJoin(workspaces, eq(notificationRecipients.workspaceId, workspaces.id))
         .leftJoin(projects, eq(notificationEvents.projectId, projects.id))
         .leftJoin(tasks, eq(notificationEvents.workItemId, tasks.id))
-        .where(
-          and(
-            eq(notificationRecipients.workspaceId, input.workspaceId),
-            eq(notificationRecipients.recipientId, input.recipientId),
-            isNull(notificationRecipients.dismissedAt)
-          )
-        )
-        .orderBy(desc(notificationRecipients.createdAt))
-        .limit(input.limit ?? 30);
+        .where(and(...filters))
+        .orderBy(desc(notificationRecipients.createdAt));
+      const rows = await (input.limit === null ? query : query.limit(input.limit ?? 30));
 
       return rows.map(
         (row): NotificationInboxItem => ({

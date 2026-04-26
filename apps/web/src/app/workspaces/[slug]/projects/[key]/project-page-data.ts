@@ -32,11 +32,23 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
 
   try {
     const membership = await requireWorkspaceMembership(workspaceRepository, session, workspace.id, "viewer");
-    const [workspaces, project] = await Promise.all([
+    const [workspaces, project, notificationRows, notificationPreferences] = await Promise.all([
       listWorkspacesForUser(workspaceRepository, session),
-      getProjectForUser(projectRepository, session, workspaceSlug, projectKey)
+      getProjectForUser(projectRepository, session, workspaceSlug, projectKey),
+      listNotificationsForUser(notificationRepository, session, workspaceSlug, { limit: 20 }),
+      getNotificationPreferencesForUser(notificationRepository, session, workspaceSlug)
     ]);
-    const [workspaceView, projectStages, planItems, notificationRows, notificationPreferences] = await Promise.all([
+    const projectReadinessNotificationRows = await listNotificationsForUser(
+      notificationRepository,
+      session,
+      workspaceSlug,
+      {
+        projectId: project.id,
+        unreadOnly: true,
+        limit: null
+      }
+    );
+    const [workspaceView, projectStages, planItems] = await Promise.all([
       getProjectWorkspaceForUser(
         {
           projectRepository,
@@ -44,12 +56,11 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
         },
         session,
         workspaceSlug,
-        projectKey
+        projectKey,
+        { notificationInbox: projectReadinessNotificationRows }
       ),
       projectRepository.listProjectStages(project.id),
-      projectRepository.listPlanItems(project.id),
-      listNotificationsForUser(notificationRepository, session, workspaceSlug, { limit: 20 }),
-      getNotificationPreferencesForUser(notificationRepository, session, workspaceSlug)
+      projectRepository.listPlanItems(project.id)
     ]);
     const notificationInbox = {
       notifications: notificationRows,

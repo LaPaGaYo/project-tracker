@@ -1,82 +1,79 @@
-# Idea Brief: Phase 7 - Notifications and Collaboration Foundation
+# Idea Brief: Phase 8 - Readiness Command Center
 
 ## Problem
 
-The project workspace now has Jira-like execution, plan alignment, comments, and live GitHub engineering status. The remaining collaboration gap is attention: teammates still need to scan boards, comments, assignments, and engineering views to know what changed for them.
+The project workspace now has Jira-like execution, plan alignment, lightweight comments, live GitHub engineering status, and in-app notifications. The remaining product gap is decision clarity: teams can see many surfaces, but they still need to interpret whether the current project is ready to move forward and what the next team action should be.
 
-Without a durable notification layer, the product can show project truth but cannot reliably direct each teammate to the work that needs their response.
+Without a lead-first readiness surface, project owners must synthesize plan progress, blocked work, engineering signals, and notifications manually.
 
 ## Goals
 
-1. **Durable notification model** - Store notification source events separately from per-user recipient rows.
+1. **Readiness Command Center** - Make Overview the primary project decision surface.
 
-2. **Source-driven notification creation** - Emit notifications from comments, mentions, assignments, work item state or priority changes, GitHub PR/check/deploy changes, and webhook failures.
+2. **Lead-first Overview reporting** - Show readiness status, narrative, signal metrics, decision cues, and milestone context before detailed execution views.
 
-3. **In-app inbox** - Add a compact notification bell, unread count, inbox panel, mark-read, and mark-all-read controls to the project workspace shell.
+3. **Deterministic team action list** - Convert local project, plan, work item, GitHub, and notification signals into explainable source-linked actions.
 
-4. **Coarse preferences** - Let users tune comments, mentions, assignments, GitHub, and state-change notification categories per workspace.
+4. **Scoped readiness search** - Add project-scoped search across readiness-relevant work items, plan items, comments, engineering signals, and notifications.
 
-5. **Worker repair path** - Add a safe worker mode that rebuilds missing recipient rows and can explicitly backfill recent missed activity.
-
-6. **Local-first reads** - Keep the UI reading local Postgres notification state instead of relying on real-time transport in this phase.
+5. **Readiness-critical polish** - Cover empty actions, search short-query/no-result/error states, and no-GitHub-repository engineering setup guidance.
 
 ## Constraints
 
-- Users can only read or mutate notification rows for workspaces where they are members.
-- Users can only mark their own recipient rows read.
-- Notification creation must not change existing comment, work item, or GitHub response shapes.
-- Self-notifications are suppressed.
-- Recipient creation must remain idempotent across webhook replay and worker repair.
-- Phase 7 does not add email, Slack, push, or global cross-workspace notification delivery.
-
-## Decisions
-
-1. **Event plus recipient tables** - Notification events capture what happened; recipient rows capture who should see it and read state.
-
-2. **Domain services emit events** - Comments, work items, and GitHub services call the notification service after successful mutations. They do not write notification tables directly.
-
-3. **In-app first** - Phase 7 ships a project-workspace inbox before external delivery channels.
-
-4. **Coarse preference model** - Workspace-level category switches are enough for this phase. Per-project and per-issue preferences remain out of scope.
-
-5. **Repair worker** - The worker owns deterministic repair for missing recipients and optional recent activity backfill.
+- Readiness is derived from local project state and deterministic rules.
+- Readiness search stays project-scoped and workspace-member scoped.
+- Overview must remain lightweight enough for team alignment, not become a portfolio analytics product.
+- Existing board, list, plan, engineering, docs, and notification surfaces remain the source-linked detail views.
 
 ## Non-Goals
 
-- Email, Slack, push, SMS, or mobile notifications
-- Real-time websocket delivery
-- Global cross-workspace notification center
-- Per-project or per-issue notification preferences
-- Manual ambiguous GitHub link management
-- Portfolio reporting or executive dashboards
+- Global portfolio dashboard
+- Analytics warehouse
+- AI-generated recommendations
+- Full-text infrastructure
+- Global command palette
+- External reporting or BI integrations
+
+## Decisions
+
+1. **Overview leads with readiness** - The project landing surface answers "can we move forward?" before showing lower-level detail.
+
+2. **Server-side readiness projection** - `apps/web/src/server/projects/readiness.ts` owns deterministic readiness derivation from local state.
+
+3. **Source-linked actions** - Actions link back to plan, work item, engineering, or notification surfaces so teams can resolve the signal directly.
+
+4. **Simple Postgres-backed search** - Phase 8 uses scoped matching without introducing global search infrastructure.
+
+5. **Polish only where readiness depends on it** - Empty, error, and setup states are tightened where they affect readiness comprehension.
 
 ## Success Criteria
 
-- Shared notification contracts exist for source type, event type, priority, recipient reason, events, recipients, preferences, and inbox items.
-- Postgres has durable notification event, recipient, and preference tables with uniqueness and inbox lookup indexes.
-- Comments notify valid mentions, assignees, and prior participants without notifying the actor.
-- Work item assignment, state change, and urgent-priority changes notify the right users.
-- GitHub PR, check, deploy, and webhook failure events create relevant notifications without duplicate recipients on replay.
-- API routes list the current user's inbox, mark one notification read, mark all read, and update preferences with workspace scoping.
-- The project shell shows an unread badge and inbox panel with source, title, context, work item identifier, timestamp, read state, link, and preferences.
-- Worker notification repair can rebuild missing recipients safely and idempotently.
+- Overview renders a Readiness Command Center with status, narrative, metrics, decision cues, and milestone context.
+- Readiness status can be `Ready`, `Ready with risk`, or `Blocked`, derived from deterministic local rules.
+- The team action list is source-linked and explains blockers, review needs, urgent work, unread high-priority notifications, and plan gaps.
+- Project-scoped readiness search returns relevant work item, plan, comment, GitHub, and notification results with RBAC enforced.
+- Search has distinct short-query guidance, no-result copy, and failure copy.
+- Engineering shows a clear setup state when no GitHub repository is connected.
+- Phase 8 final verification passes: targeted tests, lint, typecheck, full tests, build, and browser smoke check.
 
 ## Technical Direction
 
-- Shared contracts: `packages/shared/src/constants.ts`, `packages/shared/src/types.ts`
-- Durable schema: `notification_events`, `notification_recipients`, `notification_preferences`
-- Web notification service: `apps/web/src/server/notifications/`
-- API routes: `apps/web/src/app/api/workspaces/[slug]/notifications/*`
-- UI components: `apps/web/src/components/notification-bell.tsx`, `notification-inbox.tsx`, `notification-preferences.tsx`
-- Worker repair: `apps/worker/src/notification-repair.ts`
+- Readiness projection: `apps/web/src/server/projects/readiness.ts`
+- Workspace integration: `apps/web/src/server/projects/workspace.ts`
+- Search service: `apps/web/src/server/projects/search.ts`
+- Search API: `apps/web/src/app/api/workspaces/[slug]/projects/[key]/search/route.ts`
+- Overview UI: `apps/web/src/features/overview/`
+- Engineering polish: `apps/web/src/features/engineering/engineering-view.tsx`
+- Coverage: `tests/phase8-*.test.mjs`, Overview UI tests, Engineering UI tests
 
 ## Phase Position
 
-Phase 7 of 8. Builds on:
+Phase 8 of 8. Builds on:
 - Phase 2: Auth and workspace membership
 - Phase 3: Projects and work items
 - Phase 4: Board/list execution views
 - Phase 5: Detail, comments, plan, overview, docs, and project workspace shell
 - Phase 6: Live GitHub engineering integration
+- Phase 7: In-app notifications and collaboration foundation
 
-Next: Phase 8 should shift to reporting, search, and product polish now that execution, engineering status, and in-app notification foundations are in place.
+Next: close Phase 8 with full verification, browser smoke validation, review, and PR/merge readiness.
