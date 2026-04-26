@@ -94,7 +94,8 @@ export async function ProjectDetailContent({
       workspaces,
       workspaceView,
       projectStages,
-      planItems
+      planItems,
+      notificationInbox
     } =
       await loadProjectPageData(workspaceSlug, projectKey);
     const types = parseTypeFilters(query.type);
@@ -159,6 +160,7 @@ export async function ProjectDetailContent({
           projectDescription={project.description}
           projectKey={project.key}
           projectTitle={project.title}
+          notificationInbox={notificationInbox}
           stage={workspaceView.stage}
           workspaceSlug={workspaceSlug}
         >

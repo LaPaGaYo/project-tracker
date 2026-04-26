@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+import { NotificationInbox } from "@/components/notification-inbox";
+import type { NotificationInboxItem, NotificationPreferenceRecord } from "@the-platform/shared";
+
 import { ProjectNav } from "./project-nav";
 import { StatusPill } from "./status-pill";
 import { ViewToolbar } from "./view-toolbar";
@@ -14,6 +17,11 @@ interface ProjectShellProps {
     title: string;
     progressLabel: string;
   };
+  notificationInbox?: {
+    notifications: NotificationInboxItem[];
+    preferences: NotificationPreferenceRecord;
+    unreadCount: number;
+  };
   canCreate?: boolean;
   children: ReactNode;
 }
@@ -24,6 +32,7 @@ export function ProjectShell({
   projectTitle,
   projectDescription,
   stage,
+  notificationInbox,
   canCreate = false,
   children
 }: ProjectShellProps) {
@@ -43,13 +52,23 @@ export function ProjectShell({
               {projectDescription || "No project description yet."}
             </p>
           </div>
-          <ProjectNav
-            canCreate={canCreate}
-            createIssueHref={`${boardPath}#create-work-item`}
-            progressLabel={stage.progressLabel}
-            stageLabel={stage.label}
-            stageTitle={stage.title}
-          />
+          <div className="flex flex-col gap-4 xl:min-w-[24rem] xl:items-end">
+            {notificationInbox ? (
+              <NotificationInbox
+                workspaceSlug={workspaceSlug}
+                initialNotifications={notificationInbox.notifications}
+                initialPreferences={notificationInbox.preferences}
+                initialUnreadCount={notificationInbox.unreadCount}
+              />
+            ) : null}
+            <ProjectNav
+              canCreate={canCreate}
+              createIssueHref={`${boardPath}#create-work-item`}
+              progressLabel={stage.progressLabel}
+              stageLabel={stage.label}
+              stageTitle={stage.title}
+            />
+          </div>
         </div>
         <div className="mt-6">
           <ViewToolbar workspaceSlug={workspaceSlug} projectKey={projectKey} />

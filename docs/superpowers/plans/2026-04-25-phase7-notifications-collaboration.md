@@ -191,17 +191,17 @@
 - Modify: `apps/web/src/app/workspaces/[slug]/projects/[key]/project-page-data.ts`
 - Create: `apps/web/src/features/notifications/__tests__/notification-ui.test.tsx`
 
-- [ ] Extend the project workspace loader so it returns unread notification count and recent inbox rows for the current user.
-- [ ] Add a compact bell button to the project shell header.
-- [ ] Show unread count as a small badge.
-- [ ] Open an inbox panel with recent notifications.
-- [ ] Render notification rows with source label, title, context, work item identifier, timestamp, unread state, and link.
-- [ ] Add mark-read and mark-all-read controls that call the new API routes.
-- [ ] Add a compact preferences panel with checkboxes for comments, mentions, assignments, GitHub, and state changes.
-- [ ] Add UI tests for unread badge, inbox rows, mark read, mark all read, and preference toggles.
-- [ ] Run: `npm run test --workspace @the-platform/web -- notification-ui project-shell`
-- [ ] Expected: PASS with notification UI integrated into the existing workspace shell.
-- [ ] Commit: `feat: add in-app notification inbox`
+- [x] Extend the project workspace loader so it returns unread notification count and recent inbox rows for the current user.
+- [x] Add a compact bell button to the project shell header.
+- [x] Show unread count as a small badge.
+- [x] Open an inbox panel with recent notifications.
+- [x] Render notification rows with source label, title, context, work item identifier, timestamp, unread state, and link.
+- [x] Add mark-read and mark-all-read controls that call the new API routes.
+- [x] Add a compact preferences panel with checkboxes for comments, mentions, assignments, GitHub, and state changes.
+- [x] Add UI tests for unread badge, inbox rows, mark read, mark all read, and preference toggles.
+- [x] Run: `npm run test --workspace @the-platform/web -- notification-ui project-shell`
+- [x] Expected: PASS with notification UI integrated into the existing workspace shell.
+- [x] Commit: `feat: add in-app notification inbox`
 
 ### Task 9: Add Worker Notification Repair
 

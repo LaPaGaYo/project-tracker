@@ -15,7 +15,7 @@ export default async function ProjectPlanPage({
   }>;
 }) {
   const { slug, key } = await params;
-  const { canCreate, isClerkEnabled, project, session, workspace, workspaces, workspaceView } =
+  const { canCreate, isClerkEnabled, notificationInbox, project, session, workspace, workspaces, workspaceView } =
     await loadProjectPageData(slug, key);
 
   return (
@@ -30,6 +30,7 @@ export default async function ProjectPlanPage({
         projectDescription={project.description}
         projectKey={project.key}
         projectTitle={project.title}
+        notificationInbox={notificationInbox}
         stage={workspaceView.stage}
         workspaceSlug={slug}
       >

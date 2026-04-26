@@ -16,7 +16,7 @@ export default async function ProjectDocsPage({
   }>;
 }) {
   const { slug, key } = await params;
-  const { canCreate, isClerkEnabled, project, session, workspace, workspaces, workspaceView } =
+  const { canCreate, isClerkEnabled, notificationInbox, project, session, workspace, workspaces, workspaceView } =
     await loadProjectPageData(slug, key);
   const content = buildProjectWorkspaceContent(project, workspaceView);
 
@@ -32,6 +32,7 @@ export default async function ProjectDocsPage({
         projectDescription={project.description}
         projectKey={project.key}
         projectTitle={project.title}
+        notificationInbox={notificationInbox}
         stage={workspaceView.stage}
         workspaceSlug={slug}
       >
