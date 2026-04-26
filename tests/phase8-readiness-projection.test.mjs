@@ -187,6 +187,7 @@ test("readiness projection marks stable projects ready", () => {
 
   assert.equal(readiness.status, "Ready");
   assert.match(readiness.narrative, /no blocking work/);
+  assert.ok(readiness.metrics.some((metric) => metric.label === "GitHub"));
   assert.equal(readiness.actions.length, 0);
 });
 

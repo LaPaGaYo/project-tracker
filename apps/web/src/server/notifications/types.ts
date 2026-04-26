@@ -65,7 +65,9 @@ export interface NotificationRepository
   listInboxForUser(input: {
     workspaceId: string;
     recipientId: string;
-    limit?: number;
+    projectId?: string;
+    unreadOnly?: boolean;
+    limit?: number | null;
   }): Promise<NotificationInboxItem[]>;
   markNotificationReadForUser(input: {
     workspaceId: string;

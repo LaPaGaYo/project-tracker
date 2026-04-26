@@ -154,7 +154,7 @@ function buildMetrics(
             : "success",
     },
     {
-      label: "Checks",
+      label: "GitHub",
       value: pluralize(failingCheckCount, "failing check"),
       detail: `${pluralize(input.githubStatuses.length, "GitHub signal")} tracked`,
       tone: failingCheckCount > 0 ? "danger" : "success",

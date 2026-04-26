@@ -314,3 +314,90 @@ test("notification service marks only the current user's recipient rows read", a
   );
   assert.equal(unreadAfterMarkAll.filter((entry) => entry.isUnread).length, 0);
 });
+
+test("notification service lists project-scoped unread rows without workspace pagination", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-project-scope");
+  const teammate = createNamedSession("teammate-project-scope");
+  const workspace = await harness.createWorkspace(owner, "notify-project-scope");
+  await harness.addMembership(workspace.id, teammate, "member");
+  const currentProject = await createProjectWithItem(harness, owner, workspace);
+  const otherProject = await createProjectWithItem(harness, owner, workspace);
+
+  const currentUnread = await createNotificationForSource(
+    harness.repositories.notificationRepository,
+    owner,
+    workspace.slug,
+    {
+      projectId: currentProject.item.projectId,
+      workItemId: currentProject.item.id,
+      sourceType: "work_item",
+      sourceId: `${currentProject.item.id}:unread`,
+      eventType: "priority_raised",
+      actorId: owner.userId,
+      priority: "high",
+      title: "Current project unread",
+      url: `/workspaces/${workspace.slug}/projects/${currentProject.projectKey}/items/${currentProject.item.identifier}`,
+      recipients: [{ recipientId: teammate.userId, reason: "participant" }]
+    }
+  );
+  const currentRead = await createNotificationForSource(
+    harness.repositories.notificationRepository,
+    owner,
+    workspace.slug,
+    {
+      projectId: currentProject.item.projectId,
+      workItemId: currentProject.item.id,
+      sourceType: "work_item",
+      sourceId: `${currentProject.item.id}:read`,
+      eventType: "state_changed",
+      actorId: owner.userId,
+      priority: "high",
+      title: "Current project read",
+      url: `/workspaces/${workspace.slug}/projects/${currentProject.projectKey}/items/${currentProject.item.identifier}`,
+      recipients: [{ recipientId: teammate.userId, reason: "participant" }]
+    }
+  );
+  await createNotificationForSource(
+    harness.repositories.notificationRepository,
+    owner,
+    workspace.slug,
+    {
+      projectId: otherProject.item.projectId,
+      workItemId: otherProject.item.id,
+      sourceType: "work_item",
+      sourceId: `${otherProject.item.id}:unread`,
+      eventType: "priority_raised",
+      actorId: owner.userId,
+      priority: "high",
+      title: "Other project unread",
+      url: `/workspaces/${workspace.slug}/projects/${otherProject.projectKey}/items/${otherProject.item.identifier}`,
+      recipients: [{ recipientId: teammate.userId, reason: "participant" }]
+    }
+  );
+
+  await markNotificationReadForUser(
+    harness.repositories.notificationRepository,
+    teammate,
+    workspace.slug,
+    currentRead.recipients[0].id
+  );
+
+  const projectInbox = await listNotificationsForUser(
+    harness.repositories.notificationRepository,
+    teammate,
+    workspace.slug,
+    {
+      projectId: currentProject.item.projectId,
+      unreadOnly: true,
+      limit: null
+    }
+  );
+
+  assert.deepEqual(
+    projectInbox.map((entry) => entry.recipient.id),
+    [currentUnread.recipients[0].id]
+  );
+  assert.ok(projectInbox.every((entry) => entry.event.projectId === currentProject.item.projectId));
+  assert.ok(projectInbox.every((entry) => entry.isUnread));
+});

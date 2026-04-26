@@ -38,6 +38,16 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
       listNotificationsForUser(notificationRepository, session, workspaceSlug, { limit: 20 }),
       getNotificationPreferencesForUser(notificationRepository, session, workspaceSlug)
     ]);
+    const projectReadinessNotificationRows = await listNotificationsForUser(
+      notificationRepository,
+      session,
+      workspaceSlug,
+      {
+        projectId: project.id,
+        unreadOnly: true,
+        limit: null
+      }
+    );
     const [workspaceView, projectStages, planItems] = await Promise.all([
       getProjectWorkspaceForUser(
         {
@@ -47,7 +57,7 @@ export async function loadProjectPageData(workspaceSlug: string, projectKey: str
         session,
         workspaceSlug,
         projectKey,
-        { notificationInbox: notificationRows }
+        { notificationInbox: projectReadinessNotificationRows }
       ),
       projectRepository.listProjectStages(project.id),
       projectRepository.listPlanItems(project.id)

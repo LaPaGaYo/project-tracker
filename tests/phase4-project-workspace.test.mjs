@@ -532,6 +532,85 @@ test("project workspace overview includes readiness signals from the current use
   assert.ok(workspaceView.overview.readiness.actions.some((action) => action.sourceType === "notification"));
 });
 
+test("project workspace overview ignores unread notifications from other projects", async () => {
+  const session = createNamedSession("readiness-scoped-owner");
+  const project = {
+    id: "project-readiness-current",
+    workspaceId: "workspace-readiness-scoped",
+    key: "OPS4",
+    itemCounter: 1,
+    title: "Scoped Readiness",
+    description: "Readiness notification scope harness.",
+    stage: "Active",
+    dueDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  const stages = [
+    {
+      id: "stage-current-scoped",
+      projectId: project.id,
+      slug: "readiness",
+      title: "Phase 8: Readiness",
+      goal: "Expose project readiness.",
+      status: "In Progress",
+      gateStatus: "Passed",
+      sortOrder: 0
+    }
+  ];
+  const notificationInbox = [
+    {
+      event: {
+        id: "event-other-project",
+        workspaceId: project.workspaceId,
+        projectId: "project-readiness-other",
+        workItemId: null,
+        sourceType: "system",
+        sourceId: "readiness",
+        eventType: "github_webhook_failed",
+        actorId: null,
+        priority: "high",
+        title: "Other project webhook failed",
+        body: "Another project has a GitHub webhook failure.",
+        url: "/workspaces/alpha-workspace/projects/OTHER/engineering",
+        metadata: null,
+        createdAt: new Date().toISOString()
+      },
+      recipient: {
+        id: "recipient-other-project",
+        eventId: "event-other-project",
+        workspaceId: project.workspaceId,
+        recipientId: session.userId,
+        reason: "system",
+        readAt: null,
+        dismissedAt: null,
+        createdAt: new Date().toISOString()
+      },
+      workItemIdentifier: null,
+      projectKey: "OTHER",
+      workspaceSlug: "alpha-workspace",
+      isUnread: true
+    }
+  ];
+
+  const workspaceView = await getProjectWorkspaceForUser(
+    createProjectionDependencies({
+      project,
+      stages,
+      planItems: [],
+      tasks: [],
+      githubStatuses: []
+    }),
+    session,
+    "alpha-workspace",
+    project.key,
+    { notificationInbox }
+  );
+
+  assert.equal(workspaceView.overview.readiness.status, "Ready");
+  assert.equal(workspaceView.overview.readiness.actions.length, 0);
+});
+
 test("task github status rejects invalid enum values at the database boundary", async (t) => {
   const harness = createPersistedHarness(t);
   const owner = createNamedSession("owner-enum");

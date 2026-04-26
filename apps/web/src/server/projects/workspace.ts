@@ -297,20 +297,6 @@ function buildHealthSummary(tasks: WorkItemRecord[], githubStatuses: TaskGithubS
   ];
 }
 
-function normalizeWorkspaceReadinessMetricLabels(readiness: ProjectReadinessView): ProjectReadinessView {
-  return {
-    ...readiness,
-    metrics: readiness.metrics.map((metric) =>
-      metric.label === "Checks"
-        ? {
-            ...metric,
-            label: "GitHub"
-          }
-        : metric
-    )
-  };
-}
-
 function buildEngineeringItems(
   tasks: WorkItemRecord[],
   stageById: Map<string, ProjectStageRecord>,
@@ -434,6 +420,9 @@ export async function getProjectWorkspaceForUser(
     engineeringRecords,
     githubConnection
   );
+  const projectNotificationInbox = (options.notificationInbox ?? []).filter(
+    (notification) => notification.event.projectId === project.id
+  );
 
   return {
     project: {
@@ -460,18 +449,16 @@ export async function getProjectWorkspaceForUser(
       currentStage: currentStageCard.title,
       health: buildHealthSummary(sortedTasks, githubStatuses),
       milestones: buildOverviewMilestones(sortedStages, currentStageIndex),
-      readiness: normalizeWorkspaceReadinessMetricLabels(
-        buildProjectReadiness({
-          currentStage,
-          stages: sortedStages,
-          planItems,
-          tasks: sortedTasks,
-          githubStatuses,
-          engineeringItems,
-          notificationInbox: options.notificationInbox ?? [],
-          baseProjectHref: `/workspaces/${workspaceSlug}/projects/${projectKey}`
-        })
-      )
+      readiness: buildProjectReadiness({
+        currentStage,
+        stages: sortedStages,
+        planItems,
+        tasks: sortedTasks,
+        githubStatuses,
+        engineeringItems,
+        notificationInbox: projectNotificationInbox,
+        baseProjectHref: `/workspaces/${workspaceSlug}/projects/${projectKey}`
+      })
     },
     engineering: {
       repository: githubConnection?.repository.fullName ?? "No repository connected",

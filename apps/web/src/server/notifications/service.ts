@@ -159,13 +159,15 @@ export async function listNotificationsForUser(
   repository: NotificationRepository,
   session: AppSession,
   workspaceSlug: string,
-  options: { limit?: number } = {}
+  options: { projectId?: string; unreadOnly?: boolean; limit?: number | null } = {}
 ) {
   const { workspace } = await resolveWorkspaceContext(repository, session, workspaceSlug, "viewer");
 
   return repository.listInboxForUser({
     workspaceId: workspace.id,
     recipientId: session.userId,
+    ...(options.projectId !== undefined ? { projectId: options.projectId } : {}),
+    ...(options.unreadOnly !== undefined ? { unreadOnly: options.unreadOnly } : {}),
     ...(options.limit !== undefined ? { limit: options.limit } : {})
   });
 }
