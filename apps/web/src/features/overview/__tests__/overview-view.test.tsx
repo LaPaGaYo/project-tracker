@@ -268,6 +268,69 @@ describe("OverviewView", () => {
     expect(screen.getByRole("link", { name: /OPS-2 Latest pipeline result/i })).toBeInTheDocument();
   });
 
+  it("clears existing readiness search results as soon as a different valid query starts", async () => {
+    const nextSearch = deferred<{
+      ok: boolean;
+      json: () => Promise<{ results: unknown[] }>;
+    }>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [
+              {
+                id: "pipeline-result",
+                type: "work_item",
+                title: "OPS-1 Pipeline result",
+                snippet: "Pipeline result.",
+                href: "/workspaces/platform-ops/projects/OPS?selected=OPS-1",
+                chip: "Current",
+                rank: 0
+              }
+            ]
+          })
+      })
+      .mockReturnValueOnce(nextSearch.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    const input = screen.getByRole("searchbox", { name: "Readiness search" });
+    fireEvent.change(input, { target: { value: "pipeline" } });
+
+    expect(await screen.findByRole("link", { name: /OPS-1 Pipeline result/i })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "release" } });
+
+    expect(screen.queryByRole("link", { name: /OPS-1 Pipeline result/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Searching readiness signals...")).toBeInTheDocument();
+  });
+
+  it("shows only short-query guidance when an in-flight search is shortened", async () => {
+    const search = deferred<{
+      ok: boolean;
+      json: () => Promise<{ results: unknown[] }>;
+    }>();
+    const fetchMock = vi.fn().mockReturnValueOnce(search.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    const input = screen.getByRole("searchbox", { name: "Readiness search" });
+    fireEvent.change(input, { target: { value: "pipeline" } });
+
+    expect(screen.getByText("Searching readiness signals...")).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "p" } });
+
+    expect(
+      screen.getByText("Search across blockers, PRs, comments, plan items, and notifications.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Searching readiness signals...")).not.toBeInTheDocument();
+  });
+
   it("does not repopulate readiness search results after the query is cleared", async () => {
     const search = deferred<{
       ok: boolean;

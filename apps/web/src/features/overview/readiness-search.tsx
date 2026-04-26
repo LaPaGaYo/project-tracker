@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 
 import type { ProjectSearchResult } from "@/server/projects/search";
 
@@ -9,7 +9,7 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProjectSearchResult[]>([]);
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [pendingQuery, setPendingQuery] = useState("");
   const requestIdRef = useRef(0);
   const latestQueryRef = useRef("");
 
@@ -23,15 +23,19 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
     requestIdRef.current = requestId;
 
     if (trimmedQuery.length < 2) {
+      setPendingQuery("");
       setResults([]);
       return;
     }
+
+    setPendingQuery(trimmedQuery);
+    setResults([]);
 
     function isCurrentRequest() {
       return requestIdRef.current === requestId && latestQueryRef.current === trimmedQuery;
     }
 
-    startTransition(async () => {
+    void (async () => {
       try {
         const response = await fetch(
           `/api/workspaces/${workspaceSlug}/projects/${projectKey}/search?q=${encodeURIComponent(trimmedQuery)}`
@@ -68,13 +72,18 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
 
         setError("Search failed. Try again from the project overview.");
         setResults([]);
+      } finally {
+        if (isCurrentRequest()) {
+          setPendingQuery("");
+        }
       }
-    });
+    })();
   }
 
   const trimmedQuery = query.trim();
   const isShortQuery = trimmedQuery.length < 2;
-  const showNoResults = trimmedQuery.length >= 2 && !isPending && !error && results.length === 0;
+  const isSearching = pendingQuery === trimmedQuery && !isShortQuery;
+  const showNoResults = trimmedQuery.length >= 2 && !isSearching && !error && results.length === 0;
 
   return (
     <section
@@ -97,7 +106,7 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
         value={query}
       />
 
-      {isPending ? <p className="mt-3 text-sm text-planka-text-muted">Searching readiness signals...</p> : null}
+      {isSearching ? <p className="mt-3 text-sm text-planka-text-muted">Searching readiness signals...</p> : null}
       {error ? <p className="mt-3 text-sm text-amber-100">{error}</p> : null}
       {isShortQuery ? (
         <p className="mt-3 text-sm text-planka-text-muted">
