@@ -73,6 +73,8 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
   }
 
   const trimmedQuery = query.trim();
+  const isShortQuery = trimmedQuery.length < 2;
+  const showNoResults = trimmedQuery.length >= 2 && !isPending && !error && results.length === 0;
 
   return (
     <section
@@ -97,6 +99,11 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
 
       {isPending ? <p className="mt-3 text-sm text-planka-text-muted">Searching readiness signals...</p> : null}
       {error ? <p className="mt-3 text-sm text-amber-100">{error}</p> : null}
+      {isShortQuery ? (
+        <p className="mt-3 text-sm text-planka-text-muted">
+          Search across blockers, PRs, comments, plan items, and notifications.
+        </p>
+      ) : null}
 
       <div className="mt-4 space-y-3">
         {results.map((result) => (
@@ -116,7 +123,7 @@ export function ReadinessSearch({ workspaceSlug, projectKey }: { workspaceSlug: 
         ))}
       </div>
 
-      {trimmedQuery.length >= 2 && !isPending && !error && results.length === 0 ? (
+      {showNoResults ? (
         <p className="mt-3 text-sm text-planka-text-muted">No readiness signals found for "{trimmedQuery}".</p>
       ) : null}
     </section>

@@ -76,6 +76,30 @@ describe("OverviewView", () => {
     expect(screen.getByText("Milestone roadmap")).toBeInTheDocument();
   });
 
+  it("shows explicit empty readiness actions when the current stage has no blocking work", () => {
+    render(
+      <OverviewView
+        brief="Project brief."
+        overview={{
+          ...overview,
+          readiness: {
+            ...overview.readiness,
+            status: "Ready",
+            tone: "success",
+            narrative: "Ready: current stage has no blocking work and engineering signals are stable.",
+            actions: []
+          }
+        }}
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+      />
+    );
+
+    expect(
+      screen.getByText("No readiness actions. The current stage has no blocking work or high-priority signals.")
+    ).toBeInTheDocument();
+  });
+
   it("searches readiness signals from the overview", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -114,6 +138,42 @@ describe("OverviewView", () => {
     );
   });
 
+  it("shows readiness search guidance before a valid query is entered", () => {
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    expect(
+      screen.getByText("Search across blockers, PRs, comments, plan items, and notifications.")
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Readiness search" }), {
+      target: { value: "p" }
+    });
+
+    expect(
+      screen.getByText("Search across blockers, PRs, comments, plan items, and notifications.")
+    ).toBeInTheDocument();
+  });
+
+  it("shows an empty readiness search state for valid queries without results", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ results: [] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Readiness search" }), {
+      target: { value: "missing" }
+    });
+
+    expect(await screen.findByText('No readiness signals found for "missing".')).toBeInTheDocument();
+    expect(
+      screen.queryByText("Search across blockers, PRs, comments, plan items, and notifications.")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Search failed. Try again from the project overview.")).not.toBeInTheDocument();
+  });
+
   it("shows an error instead of crashing when readiness search fails", async () => {
     const fetchMock = vi
       .fn()
@@ -131,6 +191,10 @@ describe("OverviewView", () => {
     });
 
     expect(await screen.findByText("Search failed. Try again from the project overview.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Search across blockers, PRs, comments, plan items, and notifications.")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No readiness signals found for "network".')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Readiness search" }), {
       target: { value: "pipeline" }

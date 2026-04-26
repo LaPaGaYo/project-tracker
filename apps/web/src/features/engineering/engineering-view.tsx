@@ -31,6 +31,11 @@ export function EngineeringView({ engineering }: { engineering: ProjectWorkspace
           <span className="rounded-full border border-white/10 px-3 py-1">{engineering.connectionStatus}</span>
           <span className="rounded-full border border-white/10 px-3 py-1">{engineering.defaultBranch ?? "no branch"}</span>
         </div>
+        {engineering.connectionStatus === "Setup required" ? (
+          <div className="mt-4 rounded-[1.5rem] border border-dashed border-white/15 bg-black/10 px-4 py-4 text-sm leading-6 text-planka-text-muted">
+            Connect GitHub to populate engineering readiness signals.
+          </div>
+        ) : null}
       </section>
       <section className="rounded-[2rem] border border-white/10 bg-planka-card/90 p-5 shadow-[0_18px_46px_rgba(0,0,0,0.18)]">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-planka-text-muted">Pull requests</p>

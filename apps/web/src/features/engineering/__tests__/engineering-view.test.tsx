@@ -83,4 +83,21 @@ describe("EngineeringView", () => {
     );
     expect(screen.getByText("OPS-1 · merged · passing · phase 2")).toBeInTheDocument();
   });
+
+  it("shows setup guidance when repository signals need a GitHub connection", () => {
+    render(
+      <EngineeringView
+        engineering={{
+          ...engineering,
+          connectionStatus: "Setup required"
+        }}
+      />
+    );
+
+    expect(screen.getByText("Connect GitHub to populate engineering readiness signals.")).toBeInTheDocument();
+    expect(screen.getByText("Linked pull requests")).toBeInTheDocument();
+    expect(screen.getByText("Failing checks")).toBeInTheDocument();
+    expect(screen.getByText("Deployments")).toBeInTheDocument();
+    expect(screen.getByText("OPS-1 · merged · passing · phase 2")).toBeInTheDocument();
+  });
 });
