@@ -50,6 +50,7 @@ describe("OverviewView", () => {
 
     expect(screen.getByText("Readiness command center")).toBeInTheDocument();
     expect(screen.getByText("Ready with risk")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(screen.getByText("Ready with risk: 1 PR is awaiting review.")).toBeInTheDocument();
     expect(screen.getByText("4/5 done")).toBeInTheDocument();
     expect(screen.getByText("Decision cues")).toBeInTheDocument();

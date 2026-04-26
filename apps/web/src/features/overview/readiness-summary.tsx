@@ -15,14 +15,14 @@ export function ReadinessSummary({ readiness }: { readiness: ProjectReadinessVie
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-planka-text-muted">
+            <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-planka-text-muted">
               Readiness command center
-            </p>
+            </h2>
             <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tonePillClass[readiness.tone]}`}>
               {readiness.tone}
             </span>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold text-planka-text">{readiness.status}</h1>
+          <p className="mt-3 text-3xl font-semibold text-planka-text">{readiness.status}</p>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-planka-text-muted">{readiness.narrative}</p>
         </div>
 
