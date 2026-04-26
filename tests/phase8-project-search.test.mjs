@@ -586,8 +586,8 @@ test("project readiness search returns current-user project notifications only",
       'github_check_changed',
       ${member.userId},
       'high',
-      'Deployment escalation notice',
-      'Body says escalation follow-up is required.',
+      'Title-only deployment notice',
+      'Body-only follow-up token is required.',
       ${`/workspaces/${workspace.slug}/projects/${project.key}/engineering`}
     )
     returning id
@@ -598,27 +598,46 @@ test("project readiness search returns current-user project notifications only",
     values (${event.id}, ${workspace.id}, ${owner.userId}, 'owner')
   `;
 
-  const ownerResults = await searchProjectForUser(
+  const ownerTitleResults = await searchProjectForUser(
     { projectRepository: harness.repositories.projectRepository },
     owner,
     workspace.slug,
     project.key,
-    "escalation"
+    "title-only"
   );
-  const memberResults = await searchProjectForUser(
+  const ownerBodyResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "body-only"
+  );
+  const memberTitleResults = await searchProjectForUser(
     { projectRepository: harness.repositories.projectRepository },
     member,
     workspace.slug,
     project.key,
-    "escalation"
+    "title-only"
+  );
+  const memberBodyResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    member,
+    workspace.slug,
+    project.key,
+    "body-only"
   );
 
-  const notificationResult = ownerResults.results.find((result) => result.type === "notification");
+  const titleNotificationResult = ownerTitleResults.results.find((result) => result.type === "notification");
+  const bodyNotificationResult = ownerBodyResults.results.find((result) => result.type === "notification");
 
-  assert.ok(notificationResult);
-  assert.equal(notificationResult.title, "Deployment escalation notice");
-  assert.equal(notificationResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
-  assert.ok(!memberResults.results.some((result) => result.type === "notification"));
+  assert.ok(titleNotificationResult);
+  assert.ok(bodyNotificationResult);
+  assert.equal(titleNotificationResult.title, "Title-only deployment notice");
+  assert.equal(bodyNotificationResult.title, "Title-only deployment notice");
+  assert.equal(titleNotificationResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
+  assert.equal(bodyNotificationResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
+  assert.ok(!memberTitleResults.results.some((result) => result.type === "notification"));
+  assert.ok(!memberBodyResults.results.some((result) => result.type === "notification"));
 });
 
 test("project readiness search treats LIKE wildcards as literal query text", async (t) => {
