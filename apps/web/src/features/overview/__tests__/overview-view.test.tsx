@@ -5,6 +5,15 @@ import { render } from "../../../test/render";
 
 import { OverviewView } from "../overview-view";
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
 const overview = {
   currentStage: "Phase 8: Readiness",
   health: ["Scope: stable", "Delivery risk: low", "Engineering risk: stable"],
@@ -90,6 +99,8 @@ describe("OverviewView", () => {
 
     render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
 
+    expect(screen.getByRole("searchbox", { name: "Readiness search" })).toBeInTheDocument();
+
     fireEvent.change(screen.getByPlaceholderText("Search blockers, PRs, comments..."), {
       target: { value: "pipeline" }
     });
@@ -101,5 +112,132 @@ describe("OverviewView", () => {
       "href",
       "/workspaces/platform-ops/projects/OPS?selected=OPS-1"
     );
+  });
+
+  it("shows an error instead of crashing when readiness search fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ query: "pipeline" })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Readiness search" }), {
+      target: { value: "network" }
+    });
+
+    expect(await screen.findByText("Search failed. Try again from the project overview.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Readiness search" }), {
+      target: { value: "pipeline" }
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/workspaces/platform-ops/projects/OPS/search?q=pipeline");
+    });
+    expect(await screen.findByText("Search failed. Try again from the project overview.")).toBeInTheDocument();
+  });
+
+  it("keeps stale readiness search responses from replacing newer results", async () => {
+    const firstSearch = deferred<{
+      ok: boolean;
+      json: () => Promise<{ results: unknown[] }>;
+    }>();
+    const secondSearch = deferred<{
+      ok: boolean;
+      json: () => Promise<{ results: unknown[] }>;
+    }>();
+    const fetchMock = vi.fn().mockReturnValueOnce(firstSearch.promise).mockReturnValueOnce(secondSearch.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    const input = screen.getByRole("searchbox", { name: "Readiness search" });
+    fireEvent.change(input, { target: { value: "pipe" } });
+    fireEvent.change(input, { target: { value: "pipeline" } });
+
+    secondSearch.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          results: [
+            {
+              id: "latest-result",
+              type: "work_item",
+              title: "OPS-2 Latest pipeline result",
+              snippet: "Newest search result.",
+              href: "/workspaces/platform-ops/projects/OPS?selected=OPS-2",
+              chip: "Current",
+              rank: 0
+            }
+          ]
+        })
+    });
+
+    expect(await screen.findByRole("link", { name: /OPS-2 Latest pipeline result/i })).toBeInTheDocument();
+
+    firstSearch.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          results: [
+            {
+              id: "stale-result",
+              type: "work_item",
+              title: "OPS-1 Stale pipeline result",
+              snippet: "Old search result.",
+              href: "/workspaces/platform-ops/projects/OPS?selected=OPS-1",
+              chip: "Stale",
+              rank: 0
+            }
+          ]
+        })
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /OPS-1 Stale pipeline result/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: /OPS-2 Latest pipeline result/i })).toBeInTheDocument();
+  });
+
+  it("does not repopulate readiness search results after the query is cleared", async () => {
+    const search = deferred<{
+      ok: boolean;
+      json: () => Promise<{ results: unknown[] }>;
+    }>();
+    const fetchMock = vi.fn().mockReturnValueOnce(search.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    const input = screen.getByRole("searchbox", { name: "Readiness search" });
+    fireEvent.change(input, { target: { value: "pipeline" } });
+    fireEvent.change(input, { target: { value: "" } });
+
+    search.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          results: [
+            {
+              id: "late-result",
+              type: "work_item",
+              title: "OPS-3 Late pipeline result",
+              snippet: "Late result.",
+              href: "/workspaces/platform-ops/projects/OPS?selected=OPS-3",
+              chip: "Late",
+              rank: 0
+            }
+          ]
+        })
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /OPS-3 Late pipeline result/i })).not.toBeInTheDocument();
+    });
   });
 });
