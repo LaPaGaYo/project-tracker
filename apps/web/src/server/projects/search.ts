@@ -5,6 +5,8 @@ import {
   comments,
   db,
   githubPullRequests,
+  notificationEvents,
+  notificationRecipients,
   planItems,
   projectStages,
   taskGithubStatus,
@@ -48,6 +50,14 @@ function escapeLikeQuery(query: string) {
 
 function ilikeLiteral(column: SQLWrapper, pattern: string) {
   return sql`${column} ilike ${pattern} escape '\\'`;
+}
+
+function projectScopedHref(url: string | null, baseHref: string) {
+  if (!url) {
+    return baseHref;
+  }
+
+  return url === baseHref || url.startsWith(`${baseHref}/`) || url.startsWith(`${baseHref}?`) ? url : baseHref;
 }
 
 function engineeringScore(row: {
@@ -127,7 +137,9 @@ export async function searchProjectForUser(
       title: tasks.title,
       description: tasks.description,
       status: tasks.status,
-      priority: tasks.priority
+      priority: tasks.priority,
+      labels: tasks.labels,
+      blockedReason: tasks.blockedReason
     })
     .from(tasks)
     .where(
@@ -136,7 +148,11 @@ export async function searchProjectForUser(
         or(
           ilikeLiteral(tasks.identifier, pattern),
           ilikeLiteral(tasks.title, pattern),
-          ilikeLiteral(tasks.description, pattern)
+          ilikeLiteral(tasks.description, pattern),
+          ilikeLiteral(sql`${tasks.status}::text`, pattern),
+          ilikeLiteral(sql`${tasks.priority}::text`, pattern),
+          ilikeLiteral(sql`array_to_string(${tasks.labels}, ' ')`, pattern),
+          ilikeLiteral(tasks.blockedReason, pattern)
         )
       )
     );
@@ -186,6 +202,9 @@ export async function searchProjectForUser(
       identifier: tasks.identifier,
       title: tasks.title,
       prTitle: githubPullRequests.title,
+      prBody: githubPullRequests.body,
+      prNumber: githubPullRequests.number,
+      baseBranch: githubPullRequests.baseBranch,
       headBranch: githubPullRequests.headBranch,
       branchName: workItemGithubLinks.branchName,
       prStatus: taskGithubStatus.prStatus,
@@ -204,9 +223,37 @@ export async function searchProjectForUser(
           ilikeLiteral(tasks.identifier, pattern),
           ilikeLiteral(tasks.title, pattern),
           ilikeLiteral(githubPullRequests.title, pattern),
+          ilikeLiteral(githubPullRequests.body, pattern),
+          ilikeLiteral(sql`${githubPullRequests.number}::text`, pattern),
+          ilikeLiteral(githubPullRequests.baseBranch, pattern),
           ilikeLiteral(githubPullRequests.headBranch, pattern),
-          ilikeLiteral(workItemGithubLinks.branchName, pattern)
+          ilikeLiteral(workItemGithubLinks.branchName, pattern),
+          ilikeLiteral(sql`${taskGithubStatus.prStatus}::text`, pattern),
+          ilikeLiteral(sql`${taskGithubStatus.ciStatus}::text`, pattern),
+          ilikeLiteral(sql`${taskGithubStatus.deployStatus}::text`, pattern)
         )
+      )
+    );
+
+  const notificationRows = await db
+    .select({
+      id: notificationEvents.id,
+      title: notificationEvents.title,
+      body: notificationEvents.body,
+      url: notificationEvents.url,
+      sourceType: notificationEvents.sourceType,
+      eventType: notificationEvents.eventType,
+      priority: notificationEvents.priority
+    })
+    .from(notificationEvents)
+    .innerJoin(notificationRecipients, eq(notificationRecipients.eventId, notificationEvents.id))
+    .where(
+      and(
+        eq(notificationEvents.workspaceId, workspace.id),
+        eq(notificationEvents.projectId, project.id),
+        eq(notificationRecipients.workspaceId, workspace.id),
+        eq(notificationRecipients.recipientId, session.userId),
+        or(ilikeLiteral(notificationEvents.title, pattern), ilikeLiteral(notificationEvents.body, pattern))
       )
     );
 
@@ -218,7 +265,7 @@ export async function searchProjectForUser(
         id: `work-item-${item.id}`,
         type: "work_item",
         title: workItemTitle(item),
-        snippet: item.description || item.status,
+        snippet: item.description || item.blockedReason || item.labels?.join(", ") || item.status,
         href: `${baseHref}?selected=${selected}`,
         chip: item.priority === "urgent" || item.status === "Blocked" ? "Risk" : item.status,
         rank: item.identifier?.toLowerCase() === trimmed.toLowerCase() ? 0 : 10
@@ -254,7 +301,16 @@ export async function searchProjectForUser(
         chip: engineering.ciStatus === "Failing" ? "CI failing" : (engineering.deployStatus ?? engineering.prStatus ?? "Engineering"),
         rank: engineering.ciStatus === "Failing" ? 20 : 50
       };
-    })
+    }),
+    ...notificationRows.map((notification): ProjectSearchResult => ({
+      id: `notification-${notification.id}`,
+      type: "notification",
+      title: notification.title,
+      snippet: notification.body ?? notification.eventType,
+      href: projectScopedHref(notification.url, baseHref),
+      chip: notification.priority === "high" ? "High notification" : notification.sourceType,
+      rank: notification.priority === "high" ? 20 : 60
+    }))
   ];
 
   return {

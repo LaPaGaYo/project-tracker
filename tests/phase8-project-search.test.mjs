@@ -420,6 +420,169 @@ test("project readiness search returns one engineering result per multi-link tas
   assert.equal(new Set(engineeringResults.map((result) => result.id)).size, engineeringResults.length);
 });
 
+test("project readiness search matches scoped work item metadata and risk fields", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-risk-fields");
+  const workspace = await harness.createWorkspace(owner, "search-risk-fields");
+  const otherWorkspace = await harness.createWorkspace(owner, "search-risk-fields-other");
+
+  const { project, item } = await createProjectWithWorkItemOnly(
+    harness,
+    owner,
+    workspace,
+    "RSK",
+    "Validate launch handoff"
+  );
+  await createProjectWithWorkItemOnly(harness, owner, otherWorkspace, "RSK", "Validate launch handoff");
+
+  await sql`
+    update tasks
+    set
+      status = 'Blocked',
+      priority = 'urgent',
+      labels = array['customer-escalation']::text[],
+      blocked_reason = 'customer-escalation requires launch approval'
+    where id = ${item.id}
+  `;
+
+  const blockedResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "blocked"
+  );
+  const urgentResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "urgent"
+  );
+  const labelResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "customer-escalation"
+  );
+
+  for (const results of [blockedResults, urgentResults, labelResults]) {
+    assert.ok(results.results.some((result) => result.type === "work_item" && result.title === "RSK-1 Validate launch handoff"));
+    assert.ok(
+      results.results.every((result) =>
+        result.href.startsWith(`/workspaces/${workspace.slug}/projects/${project.key}`)
+      )
+    );
+  }
+});
+
+test("project readiness search matches engineering GitHub status fields", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-github-status");
+  const workspace = await harness.createWorkspace(owner, "search-github-status");
+  const { project, item } = await createProjectWithWorkItemOnly(
+    harness,
+    owner,
+    workspace,
+    "GST",
+    "Validate neutral handoff"
+  );
+
+  await addPullRequestLink(workspace, item, "Neutral");
+  await sql`
+    insert into task_github_status (task_id, pr_status, ci_status, deploy_status)
+    values (${item.id}, 'Review requested', 'Failing', 'Production')
+  `;
+
+  const results = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "failing"
+  );
+  const engineeringResult = results.results.find((result) => result.type === "engineering");
+
+  assert.ok(engineeringResult);
+  assert.equal(engineeringResult.chip, "CI failing");
+  assert.equal(engineeringResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
+});
+
+test("project readiness search returns current-user project notifications only", async (t) => {
+  const harness = createPersistedHarness(t);
+  const owner = createNamedSession("owner-notification");
+  const member = createNamedSession("member-notification");
+  const workspace = await harness.createWorkspace(owner, "search-notification");
+  const { project } = await createProjectWithWorkItemOnly(
+    harness,
+    owner,
+    workspace,
+    "NTF",
+    "Validate neutral notice"
+  );
+
+  await sql`
+    insert into workspace_members (workspace_id, user_id, role, joined_at)
+    values (${workspace.id}, ${member.userId}, 'member', now())
+  `;
+
+  const [event] = await sql`
+    insert into notification_events (
+      workspace_id,
+      project_id,
+      source_type,
+      source_id,
+      event_type,
+      actor_id,
+      priority,
+      title,
+      body,
+      url
+    )
+    values (
+      ${workspace.id},
+      ${project.id},
+      'github',
+      ${`notice-${uniqueSuffix()}`},
+      'github_check_changed',
+      ${member.userId},
+      'high',
+      'Deployment escalation notice',
+      'Body says escalation follow-up is required.',
+      ${`/workspaces/${workspace.slug}/projects/${project.key}/engineering`}
+    )
+    returning id
+  `;
+
+  await sql`
+    insert into notification_recipients (event_id, workspace_id, recipient_id, reason)
+    values (${event.id}, ${workspace.id}, ${owner.userId}, 'owner')
+  `;
+
+  const ownerResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    owner,
+    workspace.slug,
+    project.key,
+    "escalation"
+  );
+  const memberResults = await searchProjectForUser(
+    { projectRepository: harness.repositories.projectRepository },
+    member,
+    workspace.slug,
+    project.key,
+    "escalation"
+  );
+
+  const notificationResult = ownerResults.results.find((result) => result.type === "notification");
+
+  assert.ok(notificationResult);
+  assert.equal(notificationResult.title, "Deployment escalation notice");
+  assert.equal(notificationResult.href, `/workspaces/${workspace.slug}/projects/${project.key}/engineering`);
+  assert.ok(!memberResults.results.some((result) => result.type === "notification"));
+});
+
 test("project readiness search treats LIKE wildcards as literal query text", async (t) => {
   const harness = createPersistedHarness(t);
   const owner = createNamedSession("owner-wildcard");
