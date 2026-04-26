@@ -369,7 +369,14 @@ function buildActions(
       (left, right) => left.rank - right.rank || left.id.localeCompare(right.id)
     )
     .slice(0, 5)
-    .map(({ rank: _rank, ...action }) => action);
+    .map((action) => ({
+      id: action.id,
+      title: action.title,
+      detail: action.detail,
+      href: action.href,
+      sourceType: action.sourceType,
+      priority: action.priority,
+    }));
 }
 
 function buildNarrative(

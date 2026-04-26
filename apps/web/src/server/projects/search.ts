@@ -1,4 +1,5 @@
-import { and, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
+import type { SQLWrapper } from "drizzle-orm";
 
 import {
   comments,
@@ -45,7 +46,7 @@ function escapeLikeQuery(query: string) {
   return query.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
-function ilikeLiteral(column: Parameters<typeof ilike>[0], pattern: string) {
+function ilikeLiteral(column: SQLWrapper, pattern: string) {
   return sql`${column} ilike ${pattern} escape '\\'`;
 }
 

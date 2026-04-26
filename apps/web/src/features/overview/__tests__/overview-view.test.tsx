@@ -308,7 +308,7 @@ describe("OverviewView", () => {
     expect(screen.getByText("Searching readiness signals...")).toBeInTheDocument();
   });
 
-  it("shows only short-query guidance when an in-flight search is shortened", async () => {
+  it("shows only short-query guidance when an in-flight search is shortened", () => {
     const search = deferred<{
       ok: boolean;
       json: () => Promise<{ results: unknown[] }>;
