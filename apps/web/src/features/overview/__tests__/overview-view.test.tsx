@@ -1,5 +1,5 @@
-import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "../../../test/render";
 
@@ -40,11 +40,17 @@ const overview = {
 };
 
 describe("OverviewView", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders readiness as the primary overview while keeping the milestone roadmap visible", () => {
     render(
       <OverviewView
         brief="Build a Jira-style execution shell, bring GitHub live engineering state into issue workflows, and keep project alignment lightweight and readable."
         overview={overview}
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
       />
     );
 
@@ -59,5 +65,41 @@ describe("OverviewView", () => {
       "/workspaces/platform-ops/projects/OPS/engineering"
     );
     expect(screen.getByText("Milestone roadmap")).toBeInTheDocument();
+  });
+
+  it("searches readiness signals from the overview", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          query: "pipeline",
+          results: [
+            {
+              id: "work-item-1",
+              type: "work_item",
+              title: "OPS-1 Fix release pipeline",
+              snippet: "Pipeline blocks the release.",
+              href: "/workspaces/platform-ops/projects/OPS?selected=OPS-1",
+              chip: "Risk",
+              rank: 0
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OverviewView workspaceSlug="platform-ops" projectKey="OPS" brief="Project brief." overview={overview} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search blockers, PRs, comments..."), {
+      target: { value: "pipeline" }
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/workspaces/platform-ops/projects/OPS/search?q=pipeline");
+    });
+    expect(await screen.findByRole("link", { name: /OPS-1 Fix release pipeline/i })).toHaveAttribute(
+      "href",
+      "/workspaces/platform-ops/projects/OPS?selected=OPS-1"
+    );
   });
 });

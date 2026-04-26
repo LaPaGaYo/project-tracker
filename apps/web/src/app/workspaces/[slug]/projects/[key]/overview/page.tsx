@@ -34,7 +34,12 @@ export default async function ProjectOverviewPage({
         stage={workspaceView.stage}
         workspaceSlug={slug}
       >
-        <OverviewView brief={project.description || "Project overview and execution alignment."} overview={workspaceView.overview} />
+        <OverviewView
+          brief={project.description || "Project overview and execution alignment."}
+          overview={workspaceView.overview}
+          workspaceSlug={workspace.slug}
+          projectKey={project.key}
+        />
       </ProjectShell>
     </AppShell>
   );

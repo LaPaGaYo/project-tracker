@@ -2,6 +2,7 @@ import type { ProjectReadinessView } from "@/server/projects/readiness";
 
 import { MilestoneRoadmap } from "./milestone-roadmap";
 import { ReadinessActionList } from "./readiness-action-list";
+import { ReadinessSearch } from "./readiness-search";
 import { ReadinessSummary } from "./readiness-summary";
 
 interface OverviewMilestone {
@@ -18,7 +19,17 @@ interface OverviewViewModel {
   readiness: ProjectReadinessView;
 }
 
-export function OverviewView({ brief, overview }: { brief: string; overview: OverviewViewModel }) {
+export function OverviewView({
+  brief,
+  overview,
+  workspaceSlug,
+  projectKey
+}: {
+  brief: string;
+  overview: OverviewViewModel;
+  workspaceSlug: string;
+  projectKey: string;
+}) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="space-y-6">
@@ -53,6 +64,8 @@ export function OverviewView({ brief, overview }: { brief: string; overview: Ove
             ))}
           </ul>
         </section>
+
+        <ReadinessSearch workspaceSlug={workspaceSlug} projectKey={projectKey} />
       </aside>
     </div>
   );
