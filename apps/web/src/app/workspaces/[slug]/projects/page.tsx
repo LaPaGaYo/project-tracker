@@ -3,6 +3,12 @@ import { notFound, redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
+import {
+  buildGithubAppInstallUrl,
+  createGithubAppInstallationClient,
+  getGithubAppMissingConfiguration,
+  type GithubInstallationRepository
+} from "@/server/github/app-installation";
 import { GithubImportPanel } from "@/features/github-import/github-import-panel";
 import { getAppSession, isClerkConfigured } from "@/server/auth";
 import { createProjectRepository } from "@/server/projects/repository";
@@ -13,12 +19,34 @@ import { WorkspaceError, requireWorkspaceMembership } from "@/server/workspaces/
 
 export const dynamic = "force-dynamic";
 
+function readSearchParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function resolveGithubInstallUrl(workspaceSlug: string) {
+  const appSlug = process.env.GITHUB_APP_SLUG?.trim();
+  if (!appSlug) {
+    return null;
+  }
+
+  return buildGithubAppInstallUrl({
+    appSlug,
+    workspaceSlug
+  });
+}
+
 export default async function WorkspaceProjectsPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getAppSession();
   if (!session) {
@@ -42,6 +70,21 @@ export default async function WorkspaceProjectsPage({
 
     const canCreate = membership.role !== "viewer";
     const canImport = membership.role === "owner" || membership.role === "admin";
+    const resolvedSearchParams = (await searchParams) ?? {};
+    const githubInstallationId = readSearchParam(resolvedSearchParams.githubInstallationId);
+    const installUrl = resolveGithubInstallUrl(slug);
+    const missingConfiguration = getGithubAppMissingConfiguration();
+    let githubRepositories: GithubInstallationRepository[] = [];
+    let githubRepositoryError: string | null = null;
+
+    if (canImport && githubInstallationId && missingConfiguration.length === 0) {
+      try {
+        githubRepositories = await createGithubAppInstallationClient().listRepositories(githubInstallationId);
+      } catch (error) {
+        githubRepositoryError =
+          error instanceof Error ? error.message : "Could not load repositories from this GitHub installation.";
+      }
+    }
 
     return (
       <AppShell
@@ -94,7 +137,15 @@ export default async function WorkspaceProjectsPage({
 
           <aside className="grid gap-6">
             <CreateProjectDialog workspaceSlug={slug} canCreate={canCreate} />
-            <GithubImportPanel workspaceSlug={slug} canImport={canImport} />
+            <GithubImportPanel
+              workspaceSlug={slug}
+              canImport={canImport}
+              installUrl={installUrl}
+              installationId={githubInstallationId}
+              repositories={githubRepositories}
+              errorMessage={githubRepositoryError}
+              missingConfiguration={missingConfiguration}
+            />
             <div className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Workspace Context</p>
               <p className="mt-4 text-sm text-planka-text-muted">

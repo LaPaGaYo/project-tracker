@@ -5,6 +5,10 @@ const redirectMock = vi.hoisted(() => vi.fn((path: string) => {
 }));
 const revalidatePathMock = vi.hoisted(() => vi.fn());
 const getAppSessionMock = vi.hoisted(() => vi.fn());
+const createGithubAppInstallationClientMock = vi.hoisted(() => vi.fn());
+const createGithubConnectionRepositoryMock = vi.hoisted(() => vi.fn());
+const createProjectRepositoryMock = vi.hoisted(() => vi.fn());
+const importGithubInstallationRepositoryForUserMock = vi.hoisted(() => vi.fn());
 const createWorkItemRepositoryMock = vi.hoisted(() => vi.fn());
 const createWorkItemForUserMock = vi.hoisted(() => vi.fn());
 
@@ -24,7 +28,7 @@ vi.mock("@/server/auth", () => ({
 }));
 
 vi.mock("@/server/projects/repository", () => ({
-  createProjectRepository: vi.fn()
+  createProjectRepository: createProjectRepositoryMock
 }));
 
 vi.mock("@/server/projects/service", () => ({
@@ -52,9 +56,21 @@ vi.mock("@/server/work-items/service", () => ({
   createWorkItemForUser: createWorkItemForUserMock
 }));
 
-import { createWorkItemAction } from "./actions";
+vi.mock("@/server/github/repository", () => ({
+  createGithubConnectionRepository: createGithubConnectionRepositoryMock
+}));
 
-describe("createWorkItemAction", () => {
+vi.mock("@/server/github/app-installation", () => ({
+  createGithubAppInstallationClient: createGithubAppInstallationClientMock
+}));
+
+vi.mock("@/server/github/installation-import", () => ({
+  importGithubInstallationRepositoryForUser: importGithubInstallationRepositoryForUserMock
+}));
+
+import { createWorkItemAction, importInstalledGithubRepositoryAction } from "./actions";
+
+describe("server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAppSessionMock.mockResolvedValue({
@@ -62,6 +78,14 @@ describe("createWorkItemAction", () => {
       email: "henry@example.com",
       displayName: "Henry",
       provider: "demo"
+    });
+    createProjectRepositoryMock.mockReturnValue({});
+    createGithubConnectionRepositoryMock.mockReturnValue({});
+    createGithubAppInstallationClientMock.mockReturnValue({});
+    importGithubInstallationRepositoryForUserMock.mockResolvedValue({
+      project: {
+        key: "OPS"
+      }
     });
     createWorkItemRepositoryMock.mockReturnValue({});
     createWorkItemForUserMock.mockResolvedValue({
@@ -86,6 +110,40 @@ describe("createWorkItemAction", () => {
 
     await expect(createWorkItemAction("platform-ops", "OPS", formData)).rejects.toThrow(
       /^REDIRECT:\/workspaces\/platform-ops\/projects\/OPS$/
+    );
+  });
+
+  it("redirects to engineering after importing a selected installed repository", async () => {
+    const formData = new FormData();
+    formData.set("providerRepositoryId", "42");
+    formData.set("projectName", "Platform Ops");
+    formData.set("key", "OPS");
+
+    await expect(importInstalledGithubRepositoryAction("platform-ops", "987", formData)).rejects.toThrow(
+      /^REDIRECT:\/workspaces\/platform-ops\/projects\/OPS\/engineering$/
+    );
+
+    expect(importGithubInstallationRepositoryForUserMock).toHaveBeenCalledWith(
+      {
+        projectRepository: {},
+        githubRepository: {},
+        installationClient: {}
+      },
+      {
+        userId: "henry",
+        email: "henry@example.com",
+        displayName: "Henry",
+        provider: "demo"
+      },
+      "platform-ops",
+      "987",
+      {
+        providerRepositoryId: "42",
+        projectName: "Platform Ops",
+        key: "OPS",
+        stagingEnvironmentName: null,
+        productionEnvironmentName: null
+      }
     );
   });
 });
