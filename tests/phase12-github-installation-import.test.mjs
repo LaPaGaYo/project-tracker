@@ -357,9 +357,9 @@ test("selected repository import rejects repositories outside the installation",
     (error) =>
       error instanceof Error &&
       "status" in error &&
-      error.status === 404 &&
+      error.status === 403 &&
       error.message ===
-        "selected repository is not available to this GitHub installation."
+        "selected repository is not authorized for this GitHub user."
   );
 });
 

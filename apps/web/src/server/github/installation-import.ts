@@ -81,14 +81,14 @@ export async function importGithubInstallationRepositoryForUser(
     (repository) => repository.providerRepositoryId === providerRepositoryId
   );
 
-  if (!selected) {
+  if (!proof.allowedProviderRepositoryIds.includes(providerRepositoryId)) {
     throw new WorkspaceError(
-      404,
-      "selected repository is not available to this GitHub installation."
+      403,
+      "selected repository is not authorized for this GitHub user."
     );
   }
 
-  if (!proof.allowedProviderRepositoryIds.includes(providerRepositoryId)) {
+  if (!selected) {
     throw new WorkspaceError(
       403,
       "selected repository is not authorized for this GitHub user."
