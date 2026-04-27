@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { clearDemoSession, createDemoSession, getAppSession, isClerkConfigured } from "@/server/auth";
+import { createGithubAppInstallationClient } from "@/server/github/app-installation";
 import { createGithubConnectionRepository } from "@/server/github/repository";
 import { importGithubProjectForUser } from "@/server/github/import";
+import { importGithubInstallationRepositoryForUser } from "@/server/github/installation-import";
 import { createProjectRepository } from "@/server/projects/repository";
 import { createProjectForUser } from "@/server/projects/service";
 import { createWorkItemRepository } from "@/server/work-items/repository";
@@ -195,6 +197,34 @@ export async function importGithubProjectAction(workspaceSlug: string, formData:
       name: formData.get("name"),
       defaultBranch: formData.get("defaultBranch"),
       installationId: formData.get("installationId"),
+      projectName: formData.get("projectName"),
+      key: formData.get("key"),
+      stagingEnvironmentName: formData.get("stagingEnvironmentName"),
+      productionEnvironmentName: formData.get("productionEnvironmentName")
+    }
+  );
+
+  revalidatePath(`/workspaces/${workspaceSlug}/projects`);
+  redirect(`/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`);
+}
+
+export async function importInstalledGithubRepositoryAction(
+  workspaceSlug: string,
+  installationId: string,
+  formData: FormData
+) {
+  const session = await requireSessionForAction();
+  const result = await importGithubInstallationRepositoryForUser(
+    {
+      projectRepository: createProjectRepository(),
+      githubRepository: createGithubConnectionRepository(),
+      installationClient: createGithubAppInstallationClient()
+    },
+    session,
+    workspaceSlug,
+    installationId,
+    {
+      providerRepositoryId: formData.get("providerRepositoryId"),
       projectName: formData.get("projectName"),
       key: formData.get("key"),
       stagingEnvironmentName: formData.get("stagingEnvironmentName"),
