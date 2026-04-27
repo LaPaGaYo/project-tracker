@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { clearDemoSession, createDemoSession, getAppSession, isClerkConfigured } from "@/server/auth";
+import { createGithubConnectionRepository } from "@/server/github/repository";
+import { importGithubProjectForUser } from "@/server/github/import";
 import { createProjectRepository } from "@/server/projects/repository";
 import { createProjectForUser } from "@/server/projects/service";
 import { createWorkItemRepository } from "@/server/work-items/repository";
@@ -176,6 +178,32 @@ export async function createProjectAction(workspaceSlug: string, formData: FormD
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
   redirect(`/workspaces/${workspaceSlug}/projects/${project.key}`);
+}
+
+export async function importGithubProjectAction(workspaceSlug: string, formData: FormData) {
+  const session = await requireSessionForAction();
+  const result = await importGithubProjectForUser(
+    {
+      projectRepository: createProjectRepository(),
+      githubRepository: createGithubConnectionRepository()
+    },
+    session,
+    workspaceSlug,
+    {
+      providerRepositoryId: formData.get("providerRepositoryId"),
+      owner: formData.get("owner"),
+      name: formData.get("name"),
+      defaultBranch: formData.get("defaultBranch"),
+      installationId: formData.get("installationId"),
+      projectName: formData.get("projectName"),
+      key: formData.get("key"),
+      stagingEnvironmentName: formData.get("stagingEnvironmentName"),
+      productionEnvironmentName: formData.get("productionEnvironmentName")
+    }
+  );
+
+  revalidatePath(`/workspaces/${workspaceSlug}/projects`);
+  redirect(`/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`);
 }
 
 export async function createWorkItemAction(workspaceSlug: string, projectKey: string, formData: FormData) {
