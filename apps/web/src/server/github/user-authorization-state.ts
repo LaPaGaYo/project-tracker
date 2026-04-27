@@ -82,6 +82,39 @@ function isExpired(expiresAt: string, now: Date) {
   return Number.isNaN(expiresAtTime) || expiresAtTime <= now.getTime();
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasStringFields(value: Record<string, unknown>, fields: string[]) {
+  return fields.every((field) => typeof value[field] === "string" && value[field].length > 0);
+}
+
+function isGithubUserAuthorizationStatePayload(value: unknown): value is GithubUserAuthorizationStatePayload {
+  return (
+    isRecord(value) &&
+    hasStringFields(value, ["workspaceSlug", "installationId", "returnPath", "nonce", "issuedAt", "expiresAt"])
+  );
+}
+
+function isGithubUserAuthorizationProof(value: unknown): value is GithubUserAuthorizationProof {
+  return (
+    isRecord(value) &&
+    hasStringFields(value, [
+      "productUserId",
+      "workspaceSlug",
+      "githubUserId",
+      "githubLogin",
+      "installationId",
+      "nonce",
+      "issuedAt",
+      "expiresAt"
+    ]) &&
+    Array.isArray(value.allowedProviderRepositoryIds) &&
+    value.allowedProviderRepositoryIds.every((repositoryId) => typeof repositoryId === "string")
+  );
+}
+
 export function createPkceVerifier() {
   return randomBytes(32).toString("base64url");
 }
@@ -105,7 +138,11 @@ export function verifyGithubUserAuthorizationState(
     return verified;
   }
 
-  const payload = verified.payload as GithubUserAuthorizationStatePayload;
+  if (!isGithubUserAuthorizationStatePayload(verified.payload)) {
+    return { status: "invalid" };
+  }
+
+  const payload = verified.payload;
   if (isExpired(payload.expiresAt, options.now)) {
     return { status: "expired" };
   }
@@ -128,7 +165,11 @@ export function verifyGithubUserAuthorizationProof(
     return verified;
   }
 
-  const proof = verified.payload as GithubUserAuthorizationProof;
+  if (!isGithubUserAuthorizationProof(verified.payload)) {
+    return { status: "invalid" };
+  }
+
+  const proof = verified.payload;
   if (isExpired(proof.expiresAt, options.now)) {
     return { status: "expired" };
   }

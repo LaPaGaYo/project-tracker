@@ -54,6 +54,23 @@ test("github user authorization state is signed, expiring, and tamper-resistant"
   );
 });
 
+test("github user authorization state rejects signed malformed payloads", () => {
+  const malformedState = createGithubUserAuthorizationState(
+    {
+      expiresAt: addMinutes(fixedNow, 10).toISOString()
+    },
+    "state-secret"
+  );
+
+  assert.equal(
+    verifyGithubUserAuthorizationState(malformedState, {
+      secret: "state-secret",
+      now: fixedNow
+    }).status,
+    "invalid"
+  );
+});
+
 test("pkce challenge uses SHA-256 base64url encoding", () => {
   assert.equal(createPkceChallenge("verifier-123"), "Ds3NpaREu9I2EYq6l0l3ZkFyv_Gt5O4EpGD6cZlY0Kg");
 });
@@ -129,5 +146,28 @@ test("github user authorization proof is bound to user, workspace, installation,
       installationId: "999"
     }).status,
     "wrong_installation"
+  );
+});
+
+test("github user authorization proof rejects signed malformed payloads", () => {
+  const malformedProof = createGithubUserAuthorizationProof(
+    {
+      productUserId: "user-1",
+      workspaceSlug: "platform-ops",
+      installationId: "987",
+      expiresAt: addMinutes(fixedNow, 15).toISOString()
+    },
+    "proof-secret"
+  );
+
+  assert.equal(
+    verifyGithubUserAuthorizationProof(malformedProof, {
+      secret: "proof-secret",
+      now: fixedNow,
+      productUserId: "user-1",
+      workspaceSlug: "platform-ops",
+      installationId: "987"
+    }).status,
+    "invalid"
   );
 });
