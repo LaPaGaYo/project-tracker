@@ -5,6 +5,8 @@ import type {
   GithubPullRequestState
 } from "@the-platform/shared";
 
+import { createGithubTokenProvider, type GithubTokenProvider } from "./github-app-auth";
+
 export interface GithubSnapshotPullRequest {
   providerPullRequestId: string;
   number: number;
@@ -54,6 +56,7 @@ export interface GithubClientTarget {
   owner: string;
   name: string;
   fullName: string;
+  installationId?: string | null;
 }
 
 export interface GithubClient {
@@ -64,6 +67,7 @@ interface GithubRestClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
   token?: string;
+  tokenProvider?: GithubTokenProvider;
 }
 
 interface GithubRestPullRequest {
@@ -114,10 +118,6 @@ interface GithubRestDeploymentStatus {
   environment_url?: string | null;
   log_url?: string | null;
   target_url?: string | null;
-}
-
-function readToken(token: string | undefined) {
-  return token ?? process.env.GITHUB_TOKEN ?? process.env.GITHUB_APP_INSTALLATION_TOKEN ?? "";
 }
 
 function normalizeApiBaseUrl(baseUrl: string | undefined) {
@@ -304,16 +304,19 @@ async function fetchDeployments(
 }
 
 export function createGithubClient(options: GithubRestClientOptions = {}): GithubClient {
-  const token = readToken(options.token);
-  if (!token) {
-    throw new Error("GITHUB_TOKEN or GITHUB_APP_INSTALLATION_TOKEN is required for worker reconciliation.");
-  }
-
   const requestFetch = options.fetch ?? fetch;
   const baseUrl = normalizeApiBaseUrl(options.baseUrl);
+  const tokenProvider =
+    options.tokenProvider ??
+    createGithubTokenProvider({
+      token: options.token,
+      apiBaseUrl: baseUrl,
+      fetch: requestFetch
+    });
 
   return {
     async getRepositorySnapshot(target) {
+      const token = await tokenProvider.getToken(target);
       const pullRequests = await requestGithubJson<GithubRestPullRequest[]>(
         requestFetch,
         baseUrl,
