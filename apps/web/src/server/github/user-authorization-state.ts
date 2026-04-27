@@ -71,7 +71,8 @@ function verifySignedPayload(value: string | null | undefined, secret: string) {
   }
 
   try {
-    return { status: "valid" as const, payload: JSON.parse(Buffer.from(body, "base64url").toString("utf8")) };
+    const payload: unknown = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    return { status: "valid" as const, payload };
   } catch {
     return { status: "invalid" as const };
   }
