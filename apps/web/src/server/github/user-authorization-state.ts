@@ -1,9 +1,20 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 
-export const GITHUB_USER_AUTH_PKCE_COOKIE = "the_platform_github_user_auth_pkce";
-export const GITHUB_USER_AUTH_PROOF_COOKIE = "the_platform_github_user_auth_proof";
+export const GITHUB_USER_AUTH_PKCE_COOKIE =
+  "the_platform_github_user_auth_pkce";
+export const GITHUB_USER_AUTH_PROOF_COOKIE =
+  "the_platform_github_user_auth_proof";
 
-export type GithubUserAuthorizationStateVerificationStatus = "valid" | "missing" | "invalid" | "expired";
+export type GithubUserAuthorizationStateVerificationStatus =
+  | "valid"
+  | "missing"
+  | "invalid"
+  | "expired";
 export type GithubUserAuthorizationProofVerificationStatus =
   | "valid"
   | "missing"
@@ -47,9 +58,24 @@ interface GithubUserAuthorizationProofVerificationOptions {
   installationId: string;
 }
 
+function hasSigningSecret(secret: string) {
+  return secret.trim().length > 0;
+}
+
+function requireSigningSecret(secret: string) {
+  if (!hasSigningSecret(secret)) {
+    throw new Error("GitHub user authorization signing secret is required.");
+  }
+
+  return secret;
+}
+
 function signPayload(payload: unknown, secret: string) {
+  const signingSecret = requireSigningSecret(secret);
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", secret).update(body).digest("base64url");
+  const signature = createHmac("sha256", signingSecret)
+    .update(body)
+    .digest("base64url");
   return `${body}.${signature}`;
 }
 
@@ -58,20 +84,31 @@ function verifySignedPayload(value: string | null | undefined, secret: string) {
     return { status: "missing" as const };
   }
 
+  if (!hasSigningSecret(secret)) {
+    return { status: "invalid" as const };
+  }
+
   const [body, signature, extra] = value.split(".");
   if (!body || !signature || extra !== undefined) {
     return { status: "invalid" as const };
   }
 
-  const expected = createHmac("sha256", secret).update(body).digest("base64url");
+  const expected = createHmac("sha256", secret)
+    .update(body)
+    .digest("base64url");
   const expectedBuffer = Buffer.from(expected);
   const actualBuffer = Buffer.from(signature);
-  if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) {
+  if (
+    expectedBuffer.length !== actualBuffer.length ||
+    !timingSafeEqual(expectedBuffer, actualBuffer)
+  ) {
     return { status: "invalid" as const };
   }
 
   try {
-    const payload: unknown = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    const payload: unknown = JSON.parse(
+      Buffer.from(body, "base64url").toString("utf8")
+    );
     return { status: "valid" as const, payload };
   } catch {
     return { status: "invalid" as const };
@@ -88,17 +125,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasStringFields(value: Record<string, unknown>, fields: string[]) {
-  return fields.every((field) => typeof value[field] === "string" && value[field].length > 0);
-}
-
-function isGithubUserAuthorizationStatePayload(value: unknown): value is GithubUserAuthorizationStatePayload {
-  return (
-    isRecord(value) &&
-    hasStringFields(value, ["workspaceSlug", "installationId", "returnPath", "nonce", "issuedAt", "expiresAt"])
+  return fields.every(
+    (field) => typeof value[field] === "string" && value[field].length > 0
   );
 }
 
-function isGithubUserAuthorizationProof(value: unknown): value is GithubUserAuthorizationProof {
+function isGithubUserAuthorizationStatePayload(
+  value: unknown
+): value is GithubUserAuthorizationStatePayload {
+  return (
+    isRecord(value) &&
+    hasStringFields(value, [
+      "workspaceSlug",
+      "installationId",
+      "returnPath",
+      "nonce",
+      "issuedAt",
+      "expiresAt",
+    ])
+  );
+}
+
+function isGithubUserAuthorizationProof(
+  value: unknown
+): value is GithubUserAuthorizationProof {
   return (
     isRecord(value) &&
     hasStringFields(value, [
@@ -109,10 +159,12 @@ function isGithubUserAuthorizationProof(value: unknown): value is GithubUserAuth
       "installationId",
       "nonce",
       "issuedAt",
-      "expiresAt"
+      "expiresAt",
     ]) &&
     Array.isArray(value.allowedProviderRepositoryIds) &&
-    value.allowedProviderRepositoryIds.every((repositoryId) => typeof repositoryId === "string")
+    value.allowedProviderRepositoryIds.every(
+      (repositoryId) => typeof repositoryId === "string"
+    )
   );
 }
 
@@ -124,7 +176,10 @@ export function createPkceChallenge(verifier: string) {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-export function createGithubUserAuthorizationState(payload: GithubUserAuthorizationStatePayload, secret: string) {
+export function createGithubUserAuthorizationState(
+  payload: GithubUserAuthorizationStatePayload,
+  secret: string
+) {
   return signPayload(payload, secret);
 }
 
@@ -133,7 +188,9 @@ export function verifyGithubUserAuthorizationState(
   options: GithubUserAuthorizationStateVerificationOptions
 ):
   | { status: "valid"; payload: GithubUserAuthorizationStatePayload }
-  | { status: Exclude<GithubUserAuthorizationStateVerificationStatus, "valid"> } {
+  | {
+      status: Exclude<GithubUserAuthorizationStateVerificationStatus, "valid">;
+    } {
   const verified = verifySignedPayload(value, options.secret);
   if (verified.status !== "valid") {
     return verified;
@@ -151,7 +208,10 @@ export function verifyGithubUserAuthorizationState(
   return { status: "valid", payload };
 }
 
-export function createGithubUserAuthorizationProof(payload: GithubUserAuthorizationProof, secret: string) {
+export function createGithubUserAuthorizationProof(
+  payload: GithubUserAuthorizationProof,
+  secret: string
+) {
   return signPayload(payload, secret);
 }
 
@@ -160,7 +220,9 @@ export function verifyGithubUserAuthorizationProof(
   options: GithubUserAuthorizationProofVerificationOptions
 ):
   | { status: "valid"; proof: GithubUserAuthorizationProof }
-  | { status: Exclude<GithubUserAuthorizationProofVerificationStatus, "valid"> } {
+  | {
+      status: Exclude<GithubUserAuthorizationProofVerificationStatus, "valid">;
+    } {
   const verified = verifySignedPayload(value, options.secret);
   if (verified.status !== "valid") {
     return verified;

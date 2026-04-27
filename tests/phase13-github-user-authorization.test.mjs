@@ -284,6 +284,40 @@ test("github user authorization state rejects missing and invalid signed values"
   );
 });
 
+test("github user authorization state rejects blank signing secrets", () => {
+  const payload = {
+    workspaceSlug: "platform-ops",
+    installationId: "987",
+    returnPath: "/workspaces/platform-ops/projects?githubInstallationId=987",
+    nonce: "nonce-state",
+    issuedAt: fixedNow.toISOString(),
+    expiresAt: addMinutes(fixedNow, 10).toISOString(),
+  };
+  const signedState = createGithubUserAuthorizationState(
+    payload,
+    "state-secret"
+  );
+
+  assert.throws(
+    () => createGithubUserAuthorizationState(payload, ""),
+    /signing secret is required/
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationState(signedState, {
+      secret: "",
+      now: fixedNow,
+    }).status,
+    "invalid"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationState(signedState, {
+      secret: "   ",
+      now: fixedNow,
+    }).status,
+    "invalid"
+  );
+});
+
 test("pkce challenge uses SHA-256 base64url encoding", () => {
   assert.equal(
     createPkceChallenge("verifier-123"),
@@ -439,6 +473,46 @@ test("github user authorization proof rejects missing and invalid signed values"
       createSignedInvalidJson("proof-secret"),
       options
     ).status,
+    "invalid"
+  );
+});
+
+test("github user authorization proof rejects blank signing secrets", () => {
+  const payload = {
+    productUserId: "user-1",
+    workspaceSlug: "platform-ops",
+    githubUserId: "12345",
+    githubLogin: "henry",
+    installationId: "987",
+    allowedProviderRepositoryIds: ["42", "77"],
+    nonce: "nonce-proof",
+    issuedAt: fixedNow.toISOString(),
+    expiresAt: addMinutes(fixedNow, 15).toISOString(),
+  };
+  const proof = createGithubUserAuthorizationProof(payload, "proof-secret");
+
+  assert.throws(
+    () => createGithubUserAuthorizationProof(payload, " "),
+    /signing secret is required/
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof(proof, {
+      secret: "",
+      now: fixedNow,
+      productUserId: "user-1",
+      workspaceSlug: "platform-ops",
+      installationId: "987",
+    }).status,
+    "invalid"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof(proof, {
+      secret: "   ",
+      now: fixedNow,
+      productUserId: "user-1",
+      workspaceSlug: "platform-ops",
+      installationId: "987",
+    }).status,
     "invalid"
   );
 });

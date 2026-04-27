@@ -5,11 +5,19 @@ import {
   createGithubUserAuthorizationClient,
   getGithubUserAuthorizationMissingConfiguration,
 } from "@/server/github/user-authorization";
-import { completeGithubUserAuthorization } from "@/server/github/user-authorization-flow";
+import {
+  buildGithubProjectsReturnPath,
+  completeGithubUserAuthorization,
+} from "@/server/github/user-authorization-flow";
 import {
   GITHUB_USER_AUTH_PKCE_COOKIE,
   GITHUB_USER_AUTH_PROOF_COOKIE,
+  type GithubUserAuthorizationStatePayload,
+  verifyGithubUserAuthorizationState,
 } from "@/server/github/user-authorization-state";
+import { requireWorkspaceMembership } from "@/server/workspaces/core";
+import { createWorkspaceRepository } from "@/server/workspaces/repository";
+import type { AppSession } from "@/server/workspaces/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +39,85 @@ function expirePkceCookie(response: NextResponse) {
   });
 }
 
+function readSafeReturnPathParams(returnPath: string) {
+  const params = new URLSearchParams();
+
+  try {
+    const returnPathParams = new URL(returnPath, "http://local.test")
+      .searchParams;
+    const setupAction = returnPathParams.get("githubSetupAction");
+    if (setupAction) {
+      params.set("githubSetupAction", setupAction);
+    }
+  } catch {
+    return params;
+  }
+
+  return params;
+}
+
+function buildCallbackErrorPath(
+  state: GithubUserAuthorizationStatePayload,
+  errorCode: string
+) {
+  const params = readSafeReturnPathParams(state.returnPath);
+  params.set("githubAuthorizationError", errorCode);
+
+  try {
+    return buildGithubProjectsReturnPath(
+      state.workspaceSlug,
+      state.installationId,
+      params
+    );
+  } catch {
+    return `/?githubAuthorizationError=${errorCode}`;
+  }
+}
+
+async function verifyCallbackWorkspaceAdmin(
+  request: NextRequest,
+  session: AppSession,
+  signedState: string,
+  stateSecret: string
+) {
+  const stateResult = verifyGithubUserAuthorizationState(signedState, {
+    secret: stateSecret,
+    now: new Date(),
+  });
+
+  if (stateResult.status !== "valid") {
+    return null;
+  }
+
+  const workspaceRepository = createWorkspaceRepository();
+  const workspace = await workspaceRepository.findWorkspaceBySlug(
+    stateResult.payload.workspaceSlug
+  );
+
+  if (!workspace) {
+    return redirectTo(
+      request,
+      buildCallbackErrorPath(stateResult.payload, "installation_inaccessible")
+    );
+  }
+
+  try {
+    await requireWorkspaceMembership(
+      workspaceRepository,
+      session,
+      workspace.id,
+      "admin"
+    );
+  } catch {
+    return redirectTo(
+      request,
+      buildCallbackErrorPath(stateResult.payload, "installation_inaccessible")
+    );
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const pkceVerifier =
     request.cookies.get(GITHUB_USER_AUTH_PKCE_COOKIE)?.value ?? "";
@@ -50,12 +137,25 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
+  const signedState = request.nextUrl.searchParams.get("state")?.trim() ?? "";
+  const stateSecret = process.env.GITHUB_USER_AUTH_STATE_SECRET ?? "";
+  const accessDeniedResponse = await verifyCallbackWorkspaceAdmin(
+    request,
+    session,
+    signedState,
+    stateSecret
+  );
+  if (accessDeniedResponse) {
+    expirePkceCookie(accessDeniedResponse);
+    return accessDeniedResponse;
+  }
+
   const result = await completeGithubUserAuthorization({
     code: request.nextUrl.searchParams.get("code")?.trim() ?? "",
-    signedState: request.nextUrl.searchParams.get("state")?.trim() ?? "",
+    signedState,
     pkceVerifier,
     session,
-    stateSecret: process.env.GITHUB_USER_AUTH_STATE_SECRET ?? "",
+    stateSecret,
     appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:3000",
     client: createGithubUserAuthorizationClient(),
   });
