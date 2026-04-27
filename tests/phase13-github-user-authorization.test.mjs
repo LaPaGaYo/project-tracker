@@ -7,8 +7,13 @@ import {
   createGithubUserAuthorizationState,
   createPkceChallenge,
   verifyGithubUserAuthorizationProof,
-  verifyGithubUserAuthorizationState
+  verifyGithubUserAuthorizationState,
 } from "../apps/web/src/server/github/user-authorization-state.ts";
+import {
+  buildGithubAppUserAuthorizationUrl,
+  createGithubUserAuthorizationClient,
+  getGithubUserAuthorizationMissingConfiguration,
+} from "../apps/web/src/server/github/user-authorization.ts";
 
 const fixedNow = new Date("2026-04-27T12:00:00.000Z");
 
@@ -17,12 +22,28 @@ function addMinutes(date, minutes) {
 }
 
 function signRawBody(body, secret) {
-  const signature = createHmac("sha256", secret).update(body).digest("base64url");
+  const signature = createHmac("sha256", secret)
+    .update(body)
+    .digest("base64url");
   return `${body}.${signature}`;
 }
 
 function createSignedInvalidJson(secret) {
   return signRawBody(Buffer.from("{").toString("base64url"), secret);
+}
+
+function createJsonResponse(body, init = {}) {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    statusText: init.statusText,
+    headers: {
+      "content-type": "application/json",
+    },
+  });
+}
+
+function serializeFetchUrl(url) {
+  return typeof url === "string" ? url : url.url;
 }
 
 test("github user authorization state is signed, expiring, and tamper-resistant", () => {
@@ -33,14 +54,14 @@ test("github user authorization state is signed, expiring, and tamper-resistant"
       returnPath: "/workspaces/platform-ops/projects?githubInstallationId=987",
       nonce: "nonce-state",
       issuedAt: fixedNow.toISOString(),
-      expiresAt: addMinutes(fixedNow, 10).toISOString()
+      expiresAt: addMinutes(fixedNow, 10).toISOString(),
     },
     "state-secret"
   );
 
   const verified = verifyGithubUserAuthorizationState(signedState, {
     secret: "state-secret",
-    now: fixedNow
+    now: fixedNow,
   });
 
   assert.equal(verified.status, "valid");
@@ -50,7 +71,7 @@ test("github user authorization state is signed, expiring, and tamper-resistant"
   assert.equal(
     verifyGithubUserAuthorizationState(`${signedState.slice(0, -1)}x`, {
       secret: "state-secret",
-      now: fixedNow
+      now: fixedNow,
     }).status,
     "invalid"
   );
@@ -58,7 +79,7 @@ test("github user authorization state is signed, expiring, and tamper-resistant"
   assert.equal(
     verifyGithubUserAuthorizationState(signedState, {
       secret: "state-secret",
-      now: addMinutes(fixedNow, 11)
+      now: addMinutes(fixedNow, 11),
     }).status,
     "expired"
   );
@@ -67,7 +88,7 @@ test("github user authorization state is signed, expiring, and tamper-resistant"
 test("github user authorization state rejects signed malformed payloads", () => {
   const malformedState = createGithubUserAuthorizationState(
     {
-      expiresAt: addMinutes(fixedNow, 10).toISOString()
+      expiresAt: addMinutes(fixedNow, 10).toISOString(),
     },
     "state-secret"
   );
@@ -75,7 +96,7 @@ test("github user authorization state rejects signed malformed payloads", () => 
   assert.equal(
     verifyGithubUserAuthorizationState(malformedState, {
       secret: "state-secret",
-      now: fixedNow
+      now: fixedNow,
     }).status,
     "invalid"
   );
@@ -89,28 +110,49 @@ test("github user authorization state rejects missing and invalid signed values"
       returnPath: "/workspaces/platform-ops/projects?githubInstallationId=987",
       nonce: "nonce-state",
       issuedAt: fixedNow.toISOString(),
-      expiresAt: addMinutes(fixedNow, 10).toISOString()
+      expiresAt: addMinutes(fixedNow, 10).toISOString(),
     },
     "state-secret"
   );
   const options = { secret: "state-secret", now: fixedNow };
 
-  assert.equal(verifyGithubUserAuthorizationState(null, options).status, "missing");
-  assert.equal(verifyGithubUserAuthorizationState(undefined, options).status, "missing");
-  assert.equal(verifyGithubUserAuthorizationState("not-a-token", options).status, "invalid");
-  assert.equal(verifyGithubUserAuthorizationState("body.signature.extra", options).status, "invalid");
+  assert.equal(
+    verifyGithubUserAuthorizationState(null, options).status,
+    "missing"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationState(undefined, options).status,
+    "missing"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationState("not-a-token", options).status,
+    "invalid"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationState("body.signature.extra", options).status,
+    "invalid"
+  );
   assert.equal(
     verifyGithubUserAuthorizationState(validState, {
       secret: "wrong-secret",
-      now: fixedNow
+      now: fixedNow,
     }).status,
     "invalid"
   );
-  assert.equal(verifyGithubUserAuthorizationState(createSignedInvalidJson("state-secret"), options).status, "invalid");
+  assert.equal(
+    verifyGithubUserAuthorizationState(
+      createSignedInvalidJson("state-secret"),
+      options
+    ).status,
+    "invalid"
+  );
 });
 
 test("pkce challenge uses SHA-256 base64url encoding", () => {
-  assert.equal(createPkceChallenge("verifier-123"), "Ds3NpaREu9I2EYq6l0l3ZkFyv_Gt5O4EpGD6cZlY0Kg");
+  assert.equal(
+    createPkceChallenge("verifier-123"),
+    "Ds3NpaREu9I2EYq6l0l3ZkFyv_Gt5O4EpGD6cZlY0Kg"
+  );
 });
 
 test("github user authorization proof is bound to user, workspace, installation, and repository ids", () => {
@@ -124,7 +166,7 @@ test("github user authorization proof is bound to user, workspace, installation,
       allowedProviderRepositoryIds: ["42", "77"],
       nonce: "nonce-proof",
       issuedAt: fixedNow.toISOString(),
-      expiresAt: addMinutes(fixedNow, 15).toISOString()
+      expiresAt: addMinutes(fixedNow, 15).toISOString(),
     },
     "proof-secret"
   );
@@ -135,7 +177,7 @@ test("github user authorization proof is bound to user, workspace, installation,
       now: fixedNow,
       productUserId: "user-1",
       workspaceSlug: "platform-ops",
-      installationId: "987"
+      installationId: "987",
     }),
     {
       status: "valid",
@@ -148,8 +190,8 @@ test("github user authorization proof is bound to user, workspace, installation,
         allowedProviderRepositoryIds: ["42", "77"],
         nonce: "nonce-proof",
         issuedAt: fixedNow.toISOString(),
-        expiresAt: addMinutes(fixedNow, 15).toISOString()
-      }
+        expiresAt: addMinutes(fixedNow, 15).toISOString(),
+      },
     }
   );
 
@@ -159,7 +201,7 @@ test("github user authorization proof is bound to user, workspace, installation,
       now: fixedNow,
       productUserId: "user-2",
       workspaceSlug: "platform-ops",
-      installationId: "987"
+      installationId: "987",
     }).status,
     "wrong_user"
   );
@@ -170,7 +212,7 @@ test("github user authorization proof is bound to user, workspace, installation,
       now: fixedNow,
       productUserId: "user-1",
       workspaceSlug: "other-workspace",
-      installationId: "987"
+      installationId: "987",
     }).status,
     "wrong_workspace"
   );
@@ -181,7 +223,7 @@ test("github user authorization proof is bound to user, workspace, installation,
       now: fixedNow,
       productUserId: "user-1",
       workspaceSlug: "platform-ops",
-      installationId: "999"
+      installationId: "999",
     }).status,
     "wrong_installation"
   );
@@ -193,7 +235,7 @@ test("github user authorization proof rejects signed malformed payloads", () => 
       productUserId: "user-1",
       workspaceSlug: "platform-ops",
       installationId: "987",
-      expiresAt: addMinutes(fixedNow, 15).toISOString()
+      expiresAt: addMinutes(fixedNow, 15).toISOString(),
     },
     "proof-secret"
   );
@@ -204,7 +246,7 @@ test("github user authorization proof rejects signed malformed payloads", () => 
       now: fixedNow,
       productUserId: "user-1",
       workspaceSlug: "platform-ops",
-      installationId: "987"
+      installationId: "987",
     }).status,
     "invalid"
   );
@@ -221,7 +263,7 @@ test("github user authorization proof rejects missing and invalid signed values"
       allowedProviderRepositoryIds: ["42", "77"],
       nonce: "nonce-proof",
       issuedAt: fixedNow.toISOString(),
-      expiresAt: addMinutes(fixedNow, 15).toISOString()
+      expiresAt: addMinutes(fixedNow, 15).toISOString(),
     },
     "proof-secret"
   );
@@ -230,19 +272,137 @@ test("github user authorization proof rejects missing and invalid signed values"
     now: fixedNow,
     productUserId: "user-1",
     workspaceSlug: "platform-ops",
-    installationId: "987"
+    installationId: "987",
   };
 
-  assert.equal(verifyGithubUserAuthorizationProof(null, options).status, "missing");
-  assert.equal(verifyGithubUserAuthorizationProof(undefined, options).status, "missing");
-  assert.equal(verifyGithubUserAuthorizationProof("not-a-token", options).status, "invalid");
-  assert.equal(verifyGithubUserAuthorizationProof("body.signature.extra", options).status, "invalid");
+  assert.equal(
+    verifyGithubUserAuthorizationProof(null, options).status,
+    "missing"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof(undefined, options).status,
+    "missing"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof("not-a-token", options).status,
+    "invalid"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof("body.signature.extra", options).status,
+    "invalid"
+  );
   assert.equal(
     verifyGithubUserAuthorizationProof(validProof, {
       ...options,
-      secret: "wrong-secret"
+      secret: "wrong-secret",
     }).status,
     "invalid"
   );
-  assert.equal(verifyGithubUserAuthorizationProof(createSignedInvalidJson("proof-secret"), options).status, "invalid");
+  assert.equal(
+    verifyGithubUserAuthorizationProof(
+      createSignedInvalidJson("proof-secret"),
+      options
+    ).status,
+    "invalid"
+  );
+});
+
+test("github app user authorization url includes client id, redirect uri, state, and pkce challenge", () => {
+  const url = buildGithubAppUserAuthorizationUrl({
+    clientId: "client-123",
+    redirectUri: "http://localhost:3000/github/authorize/callback",
+    state: "signed-state",
+    codeChallenge: "challenge-123",
+  });
+
+  assert.equal(
+    url,
+    "https://github.com/login/oauth/authorize?client_id=client-123&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fgithub%2Fauthorize%2Fcallback&state=signed-state&code_challenge=challenge-123&code_challenge_method=S256"
+  );
+});
+
+test("github user authorization client exchanges code and reads user installations and repositories", async () => {
+  const calls = [];
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    apiBaseUrl: "https://api.github.test",
+    githubBaseUrl: "https://github.test",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: serializeFetchUrl(url), init });
+
+      if (
+        serializeFetchUrl(url) ===
+        "https://github.test/login/oauth/access_token"
+      ) {
+        return createJsonResponse({
+          access_token: "ghu_user",
+          token_type: "bearer",
+        });
+      }
+
+      if (serializeFetchUrl(url) === "https://api.github.test/user") {
+        return createJsonResponse({ id: 12345, login: "henry" });
+      }
+
+      if (
+        serializeFetchUrl(url) ===
+        "https://api.github.test/user/installations?per_page=100"
+      ) {
+        return createJsonResponse({
+          installations: [
+            {
+              id: 987,
+              account: { login: "the-platform" },
+            },
+          ],
+        });
+      }
+
+      return createJsonResponse({
+        repositories: [
+          {
+            id: 42,
+            name: "platform-ops",
+            full_name: "the-platform/platform-ops",
+            default_branch: "main",
+            private: true,
+            html_url: "https://github.com/the-platform/platform-ops",
+            owner: { login: "the-platform" },
+          },
+        ],
+      });
+    },
+  });
+
+  const token = await client.exchangeCodeForUserAccessToken({
+    code: "oauth-code",
+    redirectUri: "http://localhost:3000/github/authorize/callback",
+    codeVerifier: "verifier-123",
+  });
+  const user = await client.getUser(token);
+  const installations = await client.listUserInstallations(token);
+  const repositories = await client.listUserInstallationRepositories(
+    token,
+    "987"
+  );
+
+  assert.equal(token, "ghu_user");
+  assert.deepEqual(user, { id: "12345", login: "henry" });
+  assert.deepEqual(installations, [
+    { installationId: "987", accountLogin: "the-platform" },
+  ]);
+  assert.equal(repositories[0].providerRepositoryId, "42");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers.accept, "application/json");
+  assert.match(String(calls[0].init.body), /client_id=client-123/);
+  assert.equal(calls[1].init.headers.authorization, "Bearer ghu_user");
+});
+
+test("github user authorization missing configuration names required env vars", () => {
+  assert.deepEqual(getGithubUserAuthorizationMissingConfiguration({}), [
+    "GITHUB_APP_CLIENT_ID",
+    "GITHUB_APP_CLIENT_SECRET",
+    "GITHUB_USER_AUTH_STATE_SECRET",
+  ]);
 });
