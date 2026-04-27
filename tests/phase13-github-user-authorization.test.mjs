@@ -14,6 +14,11 @@ import {
   createGithubUserAuthorizationClient,
   getGithubUserAuthorizationMissingConfiguration,
 } from "../apps/web/src/server/github/user-authorization.ts";
+import {
+  completeGithubUserAuthorization,
+  prepareGithubUserAuthorizationRedirect,
+} from "../apps/web/src/server/github/user-authorization-flow.ts";
+import { resolveGithubSetupRedirect } from "../apps/web/src/server/github/setup.ts";
 
 const fixedNow = new Date("2026-04-27T12:00:00.000Z");
 
@@ -595,4 +600,123 @@ test("github user authorization missing configuration names required env vars", 
     "GITHUB_APP_CLIENT_SECRET",
     "GITHUB_USER_AUTH_STATE_SECRET",
   ]);
+});
+
+test("setup redirect sends candidate installation to github user authorization", () => {
+  const params = new URLSearchParams();
+  params.set("state", "platform-ops");
+  params.set("installation_id", "987");
+  params.set("setup_action", "install");
+
+  assert.equal(
+    resolveGithubSetupRedirect(params),
+    "/github/authorize?workspaceSlug=platform-ops&githubInstallationId=987&githubSetupAction=install"
+  );
+});
+
+test("authorization redirect helper returns github url and pkce verifier", () => {
+  const prepared = prepareGithubUserAuthorizationRedirect({
+    workspaceSlug: "platform-ops",
+    installationId: "987",
+    returnPath: "/workspaces/platform-ops/projects?githubInstallationId=987",
+    appBaseUrl: "http://localhost:3000",
+    githubBaseUrl: "https://github.test",
+    clientId: "client-123",
+    stateSecret: "state-secret",
+    now: fixedNow,
+    nonce: "nonce-state",
+    pkceVerifier: "verifier-123",
+  });
+
+  assert.equal(prepared.pkceVerifier, "verifier-123");
+  assert.match(
+    prepared.authorizationUrl,
+    /^https:\/\/github\.test\/login\/oauth\/authorize\?/
+  );
+  assert.match(prepared.authorizationUrl, /client_id=client-123/);
+  assert.match(
+    prepared.authorizationUrl,
+    /code_challenge=Ds3NpaREu9I2EYq6l0l3ZkFyv_Gt5O4EpGD6cZlY0Kg/
+  );
+});
+
+test("callback helper creates proof only for user-accessible installation repositories", async () => {
+  const prepared = prepareGithubUserAuthorizationRedirect({
+    workspaceSlug: "platform-ops",
+    installationId: "987",
+    returnPath: "/workspaces/platform-ops/projects?githubInstallationId=987",
+    appBaseUrl: "http://localhost:3000",
+    githubBaseUrl: "https://github.test",
+    clientId: "client-123",
+    stateSecret: "state-secret",
+    now: fixedNow,
+    nonce: "nonce-state",
+    pkceVerifier: "verifier-123",
+  });
+  const state = new URL(prepared.authorizationUrl).searchParams.get("state");
+
+  const result = await completeGithubUserAuthorization({
+    code: "oauth-code",
+    signedState: state,
+    pkceVerifier: "verifier-123",
+    session: {
+      userId: "user-1",
+      email: "henry@example.com",
+      displayName: "Henry",
+      provider: "demo",
+    },
+    stateSecret: "state-secret",
+    appBaseUrl: "http://localhost:3000",
+    now: fixedNow,
+    client: {
+      async exchangeCodeForUserAccessToken(input) {
+        assert.equal(input.code, "oauth-code");
+        assert.equal(
+          input.redirectUri,
+          "http://localhost:3000/github/authorize/callback"
+        );
+        assert.equal(input.codeVerifier, "verifier-123");
+        return "ghu_user";
+      },
+      async getUser(token) {
+        assert.equal(token, "ghu_user");
+        return { id: "12345", login: "henry" };
+      },
+      async listUserInstallations(token) {
+        assert.equal(token, "ghu_user");
+        return [{ installationId: "987", accountLogin: "the-platform" }];
+      },
+      async listUserInstallationRepositories(token, installationId) {
+        assert.equal(token, "ghu_user");
+        assert.equal(installationId, "987");
+        return [
+          {
+            providerRepositoryId: "42",
+            owner: "the-platform",
+            name: "platform-ops",
+            fullName: "the-platform/platform-ops",
+            defaultBranch: "main",
+            htmlUrl: "https://github.com/the-platform/platform-ops",
+            isPrivate: true,
+          },
+        ];
+      },
+    },
+  });
+
+  assert.equal(result.status, "success");
+  assert.equal(
+    result.redirectPath,
+    "/workspaces/platform-ops/projects?githubInstallationId=987&githubAuthorized=1"
+  );
+  assert.equal(
+    verifyGithubUserAuthorizationProof(result.proofCookieValue, {
+      secret: "state-secret",
+      now: fixedNow,
+      productUserId: "user-1",
+      workspaceSlug: "platform-ops",
+      installationId: "987",
+    }).status,
+    "valid"
+  );
 });

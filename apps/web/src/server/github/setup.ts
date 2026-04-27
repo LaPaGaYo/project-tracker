@@ -9,11 +9,18 @@ export function resolveGithubSetupRedirect(searchParams: URLSearchParams) {
     return "/";
   }
 
-  const params = new URLSearchParams();
   if (installationId) {
-    params.set("githubInstallationId", installationId);
+    const params = new URLSearchParams({
+      workspaceSlug: state,
+      githubInstallationId: installationId,
+    });
+    if (setupAction) {
+      params.set("githubSetupAction", setupAction);
+    }
+    return `/github/authorize?${params.toString()}`;
   }
 
+  const params = new URLSearchParams();
   if (setupAction) {
     params.set("githubSetupAction", setupAction);
   }
