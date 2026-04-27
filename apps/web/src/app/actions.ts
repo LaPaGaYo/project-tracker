@@ -16,6 +16,7 @@ import { importGithubProjectForUser } from "@/server/github/import";
 import { importGithubInstallationRepositoryForUser } from "@/server/github/installation-import";
 import {
   GITHUB_USER_AUTH_PROOF_COOKIE,
+  type GithubUserAuthorizationProof,
   verifyGithubUserAuthorizationProof,
 } from "@/server/github/user-authorization-state";
 import { createProjectRepository } from "@/server/projects/repository";
@@ -257,24 +258,31 @@ export async function importInstalledGithubRepositoryAction(
   formData: FormData
 ) {
   const session = await requireSessionForAction();
-  const cookieStore = await cookies();
-  const proofResult = verifyGithubUserAuthorizationProof(
-    cookieStore.get(GITHUB_USER_AUTH_PROOF_COOKIE)?.value,
-    {
-      secret: process.env.GITHUB_USER_AUTH_STATE_SECRET ?? "",
-      now: new Date(),
-      productUserId: session.userId,
-      workspaceSlug,
-      installationId,
-    }
-  );
+  const proofSecret = process.env.GITHUB_USER_AUTH_STATE_SECRET;
+  let authorizationProof: GithubUserAuthorizationProof | null = null;
+
+  if (proofSecret?.trim()) {
+    const cookieStore = await cookies();
+    const proofResult = verifyGithubUserAuthorizationProof(
+      cookieStore.get(GITHUB_USER_AUTH_PROOF_COOKIE)?.value,
+      {
+        secret: proofSecret,
+        now: new Date(),
+        productUserId: session.userId,
+        workspaceSlug,
+        installationId,
+      }
+    );
+    authorizationProof =
+      proofResult.status === "valid" ? proofResult.proof : null;
+  }
+
   const result = await importGithubInstallationRepositoryForUser(
     {
       projectRepository: createProjectRepository(),
       githubRepository: createGithubConnectionRepository(),
       installationClient: createGithubAppInstallationClient(),
-      authorizationProof:
-        proofResult.status === "valid" ? proofResult.proof : null,
+      authorizationProof,
     },
     session,
     workspaceSlug,

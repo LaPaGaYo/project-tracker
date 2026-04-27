@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const redirectMock = vi.hoisted(() =>
   vi.fn((path: string) => {
@@ -90,6 +90,7 @@ import {
 describe("server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("GITHUB_USER_AUTH_STATE_SECRET", "proof-secret");
     getAppSessionMock.mockResolvedValue({
       userId: "henry",
       email: "henry@example.com",
@@ -125,6 +126,10 @@ describe("server actions", () => {
     createWorkItemForUserMock.mockResolvedValue({
       id: "item-1",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("redirects back to the submitted returnTo location after create", async () => {
@@ -199,6 +204,57 @@ describe("server actions", () => {
         stagingEnvironmentName: null,
         productionEnvironmentName: null,
       }
+    );
+  });
+
+  it("passes null authorization proof when proof verification is invalid", async () => {
+    verifyGithubUserAuthorizationProofMock.mockReturnValue({
+      status: "invalid",
+    });
+    const formData = new FormData();
+    formData.set("providerRepositoryId", "42");
+    formData.set("projectName", "Platform Ops");
+    formData.set("key", "OPS");
+
+    await expect(
+      importInstalledGithubRepositoryAction("platform-ops", "987", formData)
+    ).rejects.toThrow(
+      /^REDIRECT:\/workspaces\/platform-ops\/projects\/OPS\/engineering$/
+    );
+
+    expect(importGithubInstallationRepositoryForUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorizationProof: null,
+      }),
+      expect.any(Object),
+      "platform-ops",
+      "987",
+      expect.any(Object)
+    );
+  });
+
+  it("does not verify proof with a blank secret and passes null authorization proof", async () => {
+    vi.stubEnv("GITHUB_USER_AUTH_STATE_SECRET", "");
+    const formData = new FormData();
+    formData.set("providerRepositoryId", "42");
+    formData.set("projectName", "Platform Ops");
+    formData.set("key", "OPS");
+
+    await expect(
+      importInstalledGithubRepositoryAction("platform-ops", "987", formData)
+    ).rejects.toThrow(
+      /^REDIRECT:\/workspaces\/platform-ops\/projects\/OPS\/engineering$/
+    );
+
+    expect(verifyGithubUserAuthorizationProofMock).not.toHaveBeenCalled();
+    expect(importGithubInstallationRepositoryForUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorizationProof: null,
+      }),
+      expect.any(Object),
+      "platform-ops",
+      "987",
+      expect.any(Object)
     );
   });
 });

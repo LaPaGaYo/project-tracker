@@ -75,18 +75,18 @@ export async function importGithubInstallationRepositoryForUser(
     input.providerRepositoryId,
     "providerRepositoryId"
   );
-  const repositories =
-    await dependencies.installationClient.listRepositories(installationId);
-  const selected = repositories.find(
-    (repository) => repository.providerRepositoryId === providerRepositoryId
-  );
-
   if (!proof.allowedProviderRepositoryIds.includes(providerRepositoryId)) {
     throw new WorkspaceError(
       403,
       "selected repository is not authorized for this GitHub user."
     );
   }
+
+  const repositories =
+    await dependencies.installationClient.listRepositories(installationId);
+  const selected = repositories.find(
+    (repository) => repository.providerRepositoryId === providerRepositoryId
+  );
 
   if (!selected) {
     throw new WorkspaceError(

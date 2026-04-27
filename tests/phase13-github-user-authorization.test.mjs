@@ -480,6 +480,7 @@ test("installation import rejects repositories not covered by proof", async (t) 
   const harness = createPersistedHarness(t);
   const admin = createSession(`admin-${uniqueSuffix()}`, "admin@example.com");
   const workspace = await harness.createWorkspace(admin, "phase13-proof-repo");
+  let githubWasCalled = false;
 
   await assert.rejects(
     importGithubInstallationRepositoryForUser(
@@ -488,6 +489,7 @@ test("installation import rejects repositories not covered by proof", async (t) 
         githubRepository: harness.repositories.githubRepository,
         installationClient: {
           async listRepositories() {
+            githubWasCalled = true;
             return [
               {
                 providerRepositoryId: "42",
@@ -520,6 +522,8 @@ test("installation import rejects repositories not covered by proof", async (t) 
     ),
     /selected repository is not authorized for this GitHub user/
   );
+
+  assert.equal(githubWasCalled, false);
 });
 
 test("github app user authorization url includes client id, redirect uri, state, and pkce challenge", () => {
