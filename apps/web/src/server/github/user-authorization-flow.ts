@@ -15,6 +15,7 @@ import {
 
 const STATE_MAX_AGE_SECONDS = 10 * 60;
 const PROOF_MAX_AGE_SECONDS = 15 * 60;
+const workspaceSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 type GithubUserAuthorizationErrorCode =
   | "state_invalid"
@@ -69,8 +70,33 @@ function createNonce() {
   return randomBytes(16).toString("base64url");
 }
 
-function readReturnPathParams(returnPath: string) {
-  return new URL(returnPath, "http://local.test").searchParams;
+function readSafeReturnPathParams(returnPath: string) {
+  const returnPathParams = new URL(returnPath, "http://local.test")
+    .searchParams;
+  const safeParams = new URLSearchParams();
+  const setupAction = returnPathParams.get("githubSetupAction");
+
+  if (setupAction) {
+    safeParams.set("githubSetupAction", setupAction);
+  }
+
+  return safeParams;
+}
+
+function appendRedirectParam(path: string, name: string, value: string) {
+  const url = new URL(path, "http://local.test");
+  url.searchParams.set(name, value);
+  return `${url.pathname}${url.search}`;
+}
+
+function isValidStateRedirectTarget(input: {
+  workspaceSlug: string;
+  installationId: string;
+}) {
+  return (
+    workspaceSlugPattern.test(input.workspaceSlug) &&
+    input.installationId.trim().length > 0
+  );
 }
 
 function buildErrorRedirectPath(input: {
@@ -84,13 +110,16 @@ function buildErrorRedirectPath(input: {
   }
 
   const params = input.returnPath
-    ? readReturnPathParams(input.returnPath)
+    ? readSafeReturnPathParams(input.returnPath)
     : new URLSearchParams();
-  params.set("githubAuthorizationError", input.errorCode);
-  return buildGithubProjectsReturnPath(
-    input.workspaceSlug,
-    input.installationId,
-    params
+  return appendRedirectParam(
+    buildGithubProjectsReturnPath(
+      input.workspaceSlug,
+      input.installationId,
+      params
+    ),
+    "githubAuthorizationError",
+    input.errorCode
   );
 }
 
@@ -119,6 +148,10 @@ function readExpiredStateRedirectInput(
     return {};
   }
 
+  if (!isValidStateRedirectTarget(stateResult.payload)) {
+    return {};
+  }
+
   return {
     workspaceSlug: stateResult.payload.workspaceSlug,
     installationId: stateResult.payload.installationId,
@@ -135,6 +168,10 @@ export function buildGithubProjectsReturnPath(
   installationId: string,
   params?: URLSearchParams
 ) {
+  if (!workspaceSlugPattern.test(workspaceSlug)) {
+    throw new Error("Invalid workspace slug.");
+  }
+
   const returnParams = new URLSearchParams(params);
   returnParams.set("githubInstallationId", installationId);
   const query = returnParams.toString();
@@ -180,10 +217,15 @@ export async function completeGithubUserAuthorization(
   });
 
   if (stateResult.status === "expired") {
-    return buildErrorResult({
-      ...readExpiredStateRedirectInput(input),
-      errorCode: "state_expired",
-    });
+    const expiredStateRedirectInput = readExpiredStateRedirectInput(input);
+    return buildErrorResult(
+      expiredStateRedirectInput.workspaceSlug
+        ? {
+            ...expiredStateRedirectInput,
+            errorCode: "state_expired",
+          }
+        : { errorCode: "state_invalid" }
+    );
   }
 
   if (stateResult.status !== "valid") {
@@ -191,6 +233,10 @@ export async function completeGithubUserAuthorization(
   }
 
   const state = stateResult.payload;
+  if (!isValidStateRedirectTarget(state)) {
+    return buildErrorResult({ errorCode: "state_invalid" });
+  }
+
   const errorBase = {
     workspaceSlug: state.workspaceSlug,
     installationId: state.installationId,
@@ -253,12 +299,15 @@ export async function completeGithubUserAuthorization(
     });
   }
 
-  const successParams = readReturnPathParams(state.returnPath);
-  successParams.set("githubAuthorized", "1");
-  const redirectPath = buildGithubProjectsReturnPath(
-    state.workspaceSlug,
-    state.installationId,
-    successParams
+  const successParams = readSafeReturnPathParams(state.returnPath);
+  const redirectPath = appendRedirectParam(
+    buildGithubProjectsReturnPath(
+      state.workspaceSlug,
+      state.installationId,
+      successParams
+    ),
+    "githubAuthorized",
+    "1"
   );
 
   return {

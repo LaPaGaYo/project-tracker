@@ -15,6 +15,7 @@ import {
   getGithubUserAuthorizationMissingConfiguration,
 } from "../apps/web/src/server/github/user-authorization.ts";
 import {
+  buildGithubProjectsReturnPath,
   completeGithubUserAuthorization,
   prepareGithubUserAuthorizationRedirect,
 } from "../apps/web/src/server/github/user-authorization-flow.ts";
@@ -50,6 +51,85 @@ function createJsonResponse(body, init = {}) {
 
 function serializeFetchUrl(url) {
   return typeof url === "string" ? url : url.url;
+}
+
+function createSession() {
+  return {
+    userId: "user-1",
+    email: "henry@example.com",
+    displayName: "Henry",
+    provider: "demo",
+  };
+}
+
+function createFlowState({
+  workspaceSlug = "platform-ops",
+  installationId = "987",
+  returnPath = "/workspaces/platform-ops/projects?githubInstallationId=987",
+  issuedAt = fixedNow,
+  expiresAt = addMinutes(fixedNow, 10),
+} = {}) {
+  return createGithubUserAuthorizationState(
+    {
+      workspaceSlug,
+      installationId,
+      returnPath,
+      nonce: "nonce-state",
+      issuedAt: issuedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    },
+    "state-secret"
+  );
+}
+
+function createAuthorizationClient(overrides = {}) {
+  return {
+    async exchangeCodeForUserAccessToken() {
+      return "ghu_user";
+    },
+    async getUser() {
+      return { id: "12345", login: "henry" };
+    },
+    async listUserInstallations() {
+      return [{ installationId: "987", accountLogin: "the-platform" }];
+    },
+    async listUserInstallationRepositories() {
+      return [
+        {
+          providerRepositoryId: "42",
+          owner: "the-platform",
+          name: "platform-ops",
+          fullName: "the-platform/platform-ops",
+          defaultBranch: "main",
+          htmlUrl: "https://github.com/the-platform/platform-ops",
+          isPrivate: true,
+        },
+      ];
+    },
+    ...overrides,
+  };
+}
+
+async function completeFlow(overrides = {}) {
+  return completeGithubUserAuthorization({
+    code: "oauth-code",
+    signedState: createFlowState(),
+    pkceVerifier: "verifier-123",
+    session: createSession(),
+    stateSecret: "state-secret",
+    appBaseUrl: "http://localhost:3000",
+    now: fixedNow,
+    client: createAuthorizationClient(),
+    ...overrides,
+  });
+}
+
+function assertNoUnsafeRedirectParams(redirectPath) {
+  const searchParams = new URL(redirectPath, "http://local.test").searchParams;
+
+  for (const param of ["code", "access_token", "token", "state"]) {
+    assert.equal(searchParams.has(param), false, param);
+  }
 }
 
 test("github user authorization state is signed, expiring, and tamper-resistant", () => {
@@ -718,5 +798,186 @@ test("callback helper creates proof only for user-accessible installation reposi
       installationId: "987",
     }).status,
     "valid"
+  );
+});
+
+test("authorization success redirects do not propagate unsafe returnPath query params", async () => {
+  const result = await completeFlow({
+    signedState: createFlowState({
+      returnPath:
+        "/workspaces/platform-ops/projects?githubSetupAction=install&code=oauth-code&access_token=secret-token&token=secret-token&state=signed-state",
+    }),
+  });
+
+  assert.equal(result.status, "success");
+  assert.equal(
+    result.redirectPath,
+    "/workspaces/platform-ops/projects?githubSetupAction=install&githubInstallationId=987&githubAuthorized=1"
+  );
+  assertNoUnsafeRedirectParams(result.redirectPath);
+});
+
+test("authorization error redirects do not propagate unsafe returnPath query params", async () => {
+  const result = await completeFlow({
+    pkceVerifier: null,
+    signedState: createFlowState({
+      returnPath:
+        "/workspaces/platform-ops/projects?githubSetupAction=install&code=oauth-code&access_token=secret-token&token=secret-token&state=signed-state",
+    }),
+  });
+
+  assert.deepEqual(result, {
+    status: "error",
+    redirectPath:
+      "/workspaces/platform-ops/projects?githubSetupAction=install&githubInstallationId=987&githubAuthorizationError=pkce_missing",
+    errorCode: "pkce_missing",
+  });
+  assertNoUnsafeRedirectParams(result.redirectPath);
+});
+
+test("projects return path rejects hostile workspace slugs", () => {
+  for (const workspaceSlug of [
+    "../admin",
+    "platform-ops/other",
+    "platform-ops?x=1",
+  ]) {
+    assert.throws(
+      () => buildGithubProjectsReturnPath(workspaceSlug, "987"),
+      /Invalid workspace slug/
+    );
+  }
+});
+
+test("callback helper maps invalid state to safe root redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      signedState: "not-a-token",
+    }),
+    {
+      status: "error",
+      redirectPath: "/?githubAuthorizationError=state_invalid",
+      errorCode: "state_invalid",
+    }
+  );
+
+  assert.deepEqual(
+    await completeFlow({
+      signedState: createFlowState({ workspaceSlug: "../admin" }),
+    }),
+    {
+      status: "error",
+      redirectPath: "/?githubAuthorizationError=state_invalid",
+      errorCode: "state_invalid",
+    }
+  );
+
+  assert.deepEqual(
+    await completeFlow({
+      signedState: createGithubUserAuthorizationState(
+        {
+          workspaceSlug: "platform-ops",
+          returnPath: "/workspaces/platform-ops/projects",
+          nonce: "nonce-state",
+          issuedAt: fixedNow.toISOString(),
+          expiresAt: addMinutes(fixedNow, 10).toISOString(),
+        },
+        "state-secret"
+      ),
+    }),
+    {
+      status: "error",
+      redirectPath: "/?githubAuthorizationError=state_invalid",
+      errorCode: "state_invalid",
+    }
+  );
+});
+
+test("callback helper maps expired state to projects error redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      signedState: createFlowState({
+        returnPath:
+          "/workspaces/platform-ops/projects?githubSetupAction=install&code=oauth-code",
+        expiresAt: addMinutes(fixedNow, -1),
+      }),
+    }),
+    {
+      status: "error",
+      redirectPath:
+        "/workspaces/platform-ops/projects?githubSetupAction=install&githubInstallationId=987&githubAuthorizationError=state_expired",
+      errorCode: "state_expired",
+    }
+  );
+});
+
+test("callback helper maps missing pkce to projects error redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      pkceVerifier: "",
+      signedState: createFlowState({
+        returnPath:
+          "/workspaces/platform-ops/projects?githubSetupAction=install",
+      }),
+    }),
+    {
+      status: "error",
+      redirectPath:
+        "/workspaces/platform-ops/projects?githubSetupAction=install&githubInstallationId=987&githubAuthorizationError=pkce_missing",
+      errorCode: "pkce_missing",
+    }
+  );
+});
+
+test("callback helper maps token exchange failure to projects error redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      client: createAuthorizationClient({
+        async exchangeCodeForUserAccessToken() {
+          throw new Error("do not leak this");
+        },
+      }),
+    }),
+    {
+      status: "error",
+      redirectPath:
+        "/workspaces/platform-ops/projects?githubInstallationId=987&githubAuthorizationError=token_exchange_failed",
+      errorCode: "token_exchange_failed",
+    }
+  );
+});
+
+test("callback helper maps inaccessible installation to projects error redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      client: createAuthorizationClient({
+        async listUserInstallations() {
+          return [];
+        },
+      }),
+    }),
+    {
+      status: "error",
+      redirectPath:
+        "/workspaces/platform-ops/projects?githubInstallationId=987&githubAuthorizationError=installation_inaccessible",
+      errorCode: "installation_inaccessible",
+    }
+  );
+});
+
+test("callback helper maps repository listing failure to projects error redirect", async () => {
+  assert.deepEqual(
+    await completeFlow({
+      client: createAuthorizationClient({
+        async listUserInstallationRepositories() {
+          throw new Error("do not leak this");
+        },
+      }),
+    }),
+    {
+      status: "error",
+      redirectPath:
+        "/workspaces/platform-ops/projects?githubInstallationId=987&githubAuthorizationError=repositories_inaccessible",
+      errorCode: "repositories_inaccessible",
+    }
   );
 });
