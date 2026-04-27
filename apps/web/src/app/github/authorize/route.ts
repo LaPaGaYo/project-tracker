@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { getAppSession } from "@/server/auth";
 import { getGithubUserAuthorizationMissingConfiguration } from "@/server/github/user-authorization";
@@ -10,32 +9,29 @@ import { createWorkspaceRepository } from "@/server/workspaces/repository";
 
 export const dynamic = "force-dynamic";
 
-function readParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
-
 function isSecureCookie() {
   return process.env.NODE_ENV === "production";
 }
 
-export default async function GithubAuthorizePage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+function redirectTo(request: NextRequest, path: string) {
+  return NextResponse.redirect(new URL(path, request.nextUrl.origin));
+}
+
+export async function GET(request: NextRequest) {
   const session = await getAppSession();
   if (!session) {
-    redirect("/sign-in");
+    return redirectTo(request, "/sign-in");
   }
 
-  const params = await searchParams;
-  const workspaceSlug = readParam(params.workspaceSlug).trim();
-  const installationId = readParam(params.githubInstallationId).trim();
+  const workspaceSlug =
+    request.nextUrl.searchParams.get("workspaceSlug")?.trim() ?? "";
+  const installationId =
+    request.nextUrl.searchParams.get("githubInstallationId")?.trim() ?? "";
   const workspaceRepository = createWorkspaceRepository();
   const workspace =
     await workspaceRepository.findWorkspaceBySlug(workspaceSlug);
   if (!workspace || !installationId) {
-    redirect("/");
+    return redirectTo(request, "/");
   }
 
   await requireWorkspaceMembership(
@@ -47,7 +43,7 @@ export default async function GithubAuthorizePage({
 
   const returnPath = `/workspaces/${workspaceSlug}/projects?githubInstallationId=${encodeURIComponent(installationId)}`;
   if (getGithubUserAuthorizationMissingConfiguration().length > 0) {
-    redirect(returnPath);
+    return redirectTo(request, returnPath);
   }
 
   const prepared = prepareGithubUserAuthorizationRedirect({
@@ -60,8 +56,8 @@ export default async function GithubAuthorizePage({
     stateSecret: process.env.GITHUB_USER_AUTH_STATE_SECRET ?? "",
   });
 
-  const cookieStore = await cookies();
-  cookieStore.set(GITHUB_USER_AUTH_PKCE_COOKIE, prepared.pkceVerifier, {
+  const response = NextResponse.redirect(prepared.authorizationUrl);
+  response.cookies.set(GITHUB_USER_AUTH_PKCE_COOKIE, prepared.pkceVerifier, {
     httpOnly: true,
     maxAge: 10 * 60,
     path: "/github/authorize/callback",
@@ -69,5 +65,5 @@ export default async function GithubAuthorizePage({
     secure: isSecureCookie(),
   });
 
-  redirect(prepared.authorizationUrl);
+  return response;
 }
