@@ -38,6 +38,7 @@ function createJsonResponse(body, init = {}) {
     statusText: init.statusText,
     headers: {
       "content-type": "application/json",
+      ...init.headers,
     },
   });
 }
@@ -395,8 +396,197 @@ test("github user authorization client exchanges code and reads user installatio
   assert.equal(repositories[0].providerRepositoryId, "42");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.headers.accept, "application/json");
-  assert.match(String(calls[0].init.body), /client_id=client-123/);
+  const tokenRequestBody = new URLSearchParams(String(calls[0].init.body));
+  assert.equal(tokenRequestBody.get("client_id"), "client-123");
+  assert.equal(tokenRequestBody.get("client_secret"), "secret-456");
+  assert.equal(tokenRequestBody.get("code"), "oauth-code");
+  assert.equal(
+    tokenRequestBody.get("redirect_uri"),
+    "http://localhost:3000/github/authorize/callback"
+  );
+  assert.equal(tokenRequestBody.get("code_verifier"), "verifier-123");
   assert.equal(calls[1].init.headers.authorization, "Bearer ghu_user");
+});
+
+test("github user authorization client token exchange failures use sanitized errors", async () => {
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    githubBaseUrl: "https://github.test",
+    fetch: async () =>
+      createJsonResponse(
+        { error: "bad_verification_code", access_token: "ghu_leaked_token" },
+        { status: 401, statusText: "Unauthorized" }
+      ),
+  });
+
+  await assert.rejects(
+    client.exchangeCodeForUserAccessToken({
+      code: "oauth-code",
+      redirectUri: "http://localhost:3000/github/authorize/callback",
+      codeVerifier: "verifier-123",
+    }),
+    (error) => {
+      assert.equal(
+        error.message,
+        "GitHub user token exchange failed: 401 Unauthorized"
+      );
+      assert.doesNotMatch(error.message, /bad_verification_code/);
+      assert.doesNotMatch(error.message, /ghu_leaked_token/);
+      return true;
+    }
+  );
+});
+
+test("github user authorization client rejects token exchange responses without access token", async () => {
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    githubBaseUrl: "https://github.test",
+    fetch: async () => createJsonResponse({ token_type: "bearer" }),
+  });
+
+  await assert.rejects(
+    client.exchangeCodeForUserAccessToken({
+      code: "oauth-code",
+      redirectUri: "http://localhost:3000/github/authorize/callback",
+      codeVerifier: "verifier-123",
+    }),
+    /GitHub user token exchange response was incomplete\./
+  );
+});
+
+test("github user authorization client rejects malformed user responses", async () => {
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    apiBaseUrl: "https://api.github.test",
+    fetch: async () => createJsonResponse({ id: 12345 }),
+  });
+
+  await assert.rejects(
+    client.getUser("ghu_user"),
+    /GitHub user response was incomplete\./
+  );
+});
+
+test("github user authorization client returns empty lists for malformed list envelopes", async () => {
+  const calls = [];
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    apiBaseUrl: "https://api.github.test",
+    fetch: async (url) => {
+      calls.push(serializeFetchUrl(url));
+      return createJsonResponse({ not_the_expected_list: "ghu_leaked_token" });
+    },
+  });
+
+  assert.deepEqual(await client.listUserInstallations("ghu_user"), []);
+  assert.deepEqual(
+    await client.listUserInstallationRepositories("ghu_user", "987"),
+    []
+  );
+  assert.deepEqual(calls, [
+    "https://api.github.test/user/installations?per_page=100",
+    "https://api.github.test/user/installations/987/repositories?per_page=100",
+  ]);
+});
+
+test("github user authorization client follows paginated installation and repository links", async () => {
+  const calls = [];
+  const client = createGithubUserAuthorizationClient({
+    clientId: "client-123",
+    clientSecret: "secret-456",
+    apiBaseUrl: "https://api.github.test",
+    fetch: async (url) => {
+      const requestUrl = serializeFetchUrl(url);
+      calls.push(requestUrl);
+
+      if (
+        requestUrl === "https://api.github.test/user/installations?per_page=100"
+      ) {
+        return createJsonResponse(
+          { installations: [{ id: 987, account: { login: "the-platform" } }] },
+          {
+            headers: {
+              link: '<https://api.github.test/user/installations?page=2&per_page=100>; rel="next"',
+            },
+          }
+        );
+      }
+
+      if (
+        requestUrl ===
+        "https://api.github.test/user/installations?page=2&per_page=100"
+      ) {
+        return createJsonResponse({
+          installations: [{ id: 988, account: { login: "other-platform" } }],
+        });
+      }
+
+      if (
+        requestUrl ===
+        "https://api.github.test/user/installations/987/repositories?per_page=100"
+      ) {
+        return createJsonResponse(
+          {
+            repositories: [
+              {
+                id: 42,
+                name: "platform-ops",
+                full_name: "the-platform/platform-ops",
+                default_branch: "main",
+                private: true,
+                html_url: "https://github.com/the-platform/platform-ops",
+                owner: { login: "the-platform" },
+              },
+            ],
+          },
+          {
+            headers: {
+              link: '<https://api.github.test/user/installations/987/repositories?page=2&per_page=100>; rel="next"',
+            },
+          }
+        );
+      }
+
+      return createJsonResponse({
+        repositories: [
+          {
+            id: 77,
+            name: "platform-web",
+            full_name: "the-platform/platform-web",
+            default_branch: "main",
+            private: false,
+            html_url: "https://github.com/the-platform/platform-web",
+            owner: { login: "the-platform" },
+          },
+        ],
+      });
+    },
+  });
+
+  const installations = await client.listUserInstallations("ghu_user");
+  const repositories = await client.listUserInstallationRepositories(
+    "ghu_user",
+    "987"
+  );
+
+  assert.deepEqual(installations, [
+    { installationId: "987", accountLogin: "the-platform" },
+    { installationId: "988", accountLogin: "other-platform" },
+  ]);
+  assert.deepEqual(
+    repositories.map((repository) => repository.providerRepositoryId),
+    ["42", "77"]
+  );
+  assert.deepEqual(calls, [
+    "https://api.github.test/user/installations?per_page=100",
+    "https://api.github.test/user/installations?page=2&per_page=100",
+    "https://api.github.test/user/installations/987/repositories?per_page=100",
+    "https://api.github.test/user/installations/987/repositories?page=2&per_page=100",
+  ]);
 });
 
 test("github user authorization missing configuration names required env vars", () => {

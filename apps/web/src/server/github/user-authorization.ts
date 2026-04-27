@@ -136,6 +136,59 @@ function createRestHeaders(userAccessToken: string) {
   };
 }
 
+function readNextLink(response: Response) {
+  const linkHeader = response.headers.get("link");
+  if (!linkHeader) {
+    return null;
+  }
+
+  for (const link of linkHeader.split(",")) {
+    const match = link.match(/^\s*<([^>]+)>;\s*rel="next"\s*$/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function readArrayProperty(value: unknown, propertyName: string): unknown[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const propertyValue = value[propertyName];
+  return Array.isArray(propertyValue) ? Array.from(propertyValue) : [];
+}
+
+async function fetchPaginatedGithubItems(input: {
+  fetchImpl: typeof fetch;
+  initialUrl: string;
+  headers: ReturnType<typeof createRestHeaders>;
+  step: string;
+  readItems(body: unknown): unknown[];
+}) {
+  const items: unknown[] = [];
+  let nextUrl: string | null = input.initialUrl;
+
+  while (nextUrl) {
+    const response = await input.fetchImpl(nextUrl, {
+      headers: input.headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `${input.step} failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    items.push(...input.readItems(await response.json()));
+    nextUrl = readNextLink(response);
+  }
+
+  return items;
+}
+
 export function buildGithubAppUserAuthorizationUrl(input: {
   clientId: string;
   redirectUri: string;
@@ -254,18 +307,17 @@ export function createGithubUserAuthorizationClient(
       const url = new URL(`${apiBaseUrl}/user/installations`);
       url.searchParams.set("per_page", "100");
 
-      const response = await fetchImpl(url.toString(), {
+      const installations = await fetchPaginatedGithubItems({
+        fetchImpl,
+        initialUrl: url.toString(),
         headers: createRestHeaders(userAccessToken),
+        step: "GitHub user installations request",
+        readItems(body) {
+          return readArrayProperty(body, "installations");
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(
-          `GitHub user installations request failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const body = (await response.json()) as { installations?: unknown[] };
-      return (Array.isArray(body.installations) ? body.installations : [])
+      return installations
         .map(serializeInstallation)
         .filter((installation): installation is GithubUserInstallation =>
           Boolean(installation)
@@ -278,18 +330,17 @@ export function createGithubUserAuthorizationClient(
       );
       url.searchParams.set("per_page", "100");
 
-      const response = await fetchImpl(url.toString(), {
+      const repositories = await fetchPaginatedGithubItems({
+        fetchImpl,
+        initialUrl: url.toString(),
         headers: createRestHeaders(userAccessToken),
+        step: "GitHub user installation repositories request",
+        readItems(body) {
+          return readArrayProperty(body, "repositories");
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(
-          `GitHub user installation repositories request failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const body = (await response.json()) as { repositories?: unknown[] };
-      return (Array.isArray(body.repositories) ? body.repositories : [])
+      return repositories
         .map(serializeRepository)
         .filter((repository): repository is GithubInstallationRepository =>
           Boolean(repository)
