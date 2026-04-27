@@ -12,10 +12,22 @@ export interface GithubImportPanelRepository {
   isPrivate: boolean;
 }
 
+type GithubAuthorizationStatus =
+  | "not_required"
+  | "missing"
+  | "expired"
+  | "invalid"
+  | "error"
+  | "authorized";
+
 interface GithubImportPanelProps {
   workspaceSlug: string;
   canImport: boolean;
   installUrl: string | null;
+  authorizationUrl: string | null;
+  authorizationStatus: GithubAuthorizationStatus;
+  authorizationErrorCode: string | null;
+  authorizedGithubLogin: string | null;
   installationId: string | null;
   repositories: GithubImportPanelRepository[];
   errorMessage: string | null;
@@ -49,57 +61,121 @@ export function GithubImportPanel({
   workspaceSlug,
   canImport,
   installUrl,
+  authorizationUrl,
+  authorizationStatus,
+  authorizationErrorCode,
+  authorizedGithubLogin,
   installationId,
   repositories,
   errorMessage,
-  missingConfiguration
+  missingConfiguration,
 }: GithubImportPanelProps) {
   return (
     <section className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Repository onboarding</p>
-      <h2 className="mt-4 text-2xl font-semibold text-planka-text">Import from GitHub</h2>
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">
+        Repository onboarding
+      </p>
+      <h2 className="mt-4 text-2xl font-semibold text-planka-text">
+        Import from GitHub
+      </h2>
       <p className="mt-3 text-sm leading-7 text-planka-text-muted">
-        Install the workspace GitHub App, choose a repository, and start with engineering signals connected from day one.
+        Install the workspace GitHub App, choose a repository, and start with
+        engineering signals connected from day one.
       </p>
 
       {!canImport ? (
-        <StateCard>Workspace admin access is required to install or import GitHub repositories.</StateCard>
+        <StateCard>
+          Workspace admin access is required to install or import GitHub
+          repositories.
+        </StateCard>
       ) : missingConfiguration.length > 0 ? (
         <StateCard>
-          <p className="font-semibold text-planka-text">GitHub App setup is not configured yet.</p>
+          <p className="font-semibold text-planka-text">
+            GitHub App setup is not configured yet.
+          </p>
           <p className="mt-2">
-            Missing configuration: <span>{missingConfiguration.join(", ")}</span>
+            Missing configuration:{" "}
+            <span>{missingConfiguration.join(", ")}</span>
           </p>
         </StateCard>
       ) : !installationId ? (
         <div className="mt-6 grid gap-4 rounded-3xl border border-white/8 bg-planka-card/50 p-5">
           <p className="text-sm leading-7 text-planka-text-muted">
-            Start by installing the GitHub App for the organization or account that owns the repositories this workspace
-            should track.
+            Start by installing the GitHub App for the organization or account
+            that owns the repositories this workspace should track.
           </p>
           <InstallLink href={installUrl} label="Install GitHub App" />
         </div>
+      ) : installationId && authorizationStatus !== "authorized" ? (
+        <StateCard>
+          <p className="font-semibold text-planka-text">
+            {authorizationStatus === "expired"
+              ? "GitHub authorization expired."
+              : "GitHub user authorization is required."}
+          </p>
+          <p className="mt-2">
+            Authorize the GitHub App as a user who can access this installation
+            before importing repositories.
+          </p>
+          {authorizationErrorCode ? (
+            <p className="mt-2">
+              Authorization failed: {authorizationErrorCode}
+            </p>
+          ) : null}
+          <div className="mt-4">
+            <InstallLink
+              href={authorizationUrl}
+              label={
+                authorizationStatus === "expired"
+                  ? "Re-authorize GitHub access"
+                  : "Authorize GitHub access"
+              }
+            />
+          </div>
+        </StateCard>
       ) : errorMessage ? (
         <StateCard>
-          <p className="font-semibold text-planka-text">Could not load repositories from this installation.</p>
+          <p className="font-semibold text-planka-text">
+            Could not load repositories from this installation.
+          </p>
           <p className="mt-2">{errorMessage}</p>
           <div className="mt-4">
-            <InstallLink href={installUrl} label="Update GitHub App installation" />
+            <InstallLink
+              href={installUrl}
+              label="Update GitHub App installation"
+            />
           </div>
         </StateCard>
       ) : repositories.length === 0 ? (
         <StateCard>
-          <p className="font-semibold text-planka-text">No repositories are available from this installation.</p>
-          <p className="mt-2">Update the installation and select at least one repository for this workspace.</p>
+          <p className="font-semibold text-planka-text">
+            No repositories are available from this installation.
+          </p>
+          <p className="mt-2">
+            Update the installation and select at least one repository for this
+            workspace.
+          </p>
           <div className="mt-4">
-            <InstallLink href={installUrl} label="Update GitHub App installation" />
+            <InstallLink
+              href={installUrl}
+              label="Update GitHub App installation"
+            />
           </div>
         </StateCard>
       ) : (
         <form
-          action={importInstalledGithubRepositoryAction.bind(null, workspaceSlug, installationId)}
+          action={importInstalledGithubRepositoryAction.bind(
+            null,
+            workspaceSlug,
+            installationId
+          )}
           className="mt-6 grid gap-5"
         >
+          {authorizedGithubLogin ? (
+            <p className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-planka-text-muted">
+              Authorized as {authorizedGithubLogin}
+            </p>
+          ) : null}
           <div className="grid gap-3">
             {repositories.map((repository) => (
               <label
@@ -116,9 +192,12 @@ export function GithubImportPanel({
                     value={repository.providerRepositoryId}
                   />
                   <span>
-                    <span className="block font-semibold">{repository.fullName}</span>
+                    <span className="block font-semibold">
+                      {repository.fullName}
+                    </span>
                     <span className="mt-1 block text-xs uppercase tracking-[0.2em] text-planka-text-muted">
-                      {repository.isPrivate ? "Private" : "Public"} - default {repository.defaultBranch}
+                      {repository.isPrivate ? "Private" : "Public"} - default{" "}
+                      {repository.defaultBranch}
                     </span>
                   </span>
                 </span>
@@ -166,8 +245,8 @@ export function GithubImportPanel({
           </div>
 
           <p className="rounded-3xl border border-white/8 bg-black/10 px-4 py-3 text-xs leading-6 text-planka-text-muted">
-            Repository metadata is resolved server-side from the GitHub App installation. Installation access tokens stay
-            server-only.
+            Repository metadata is resolved server-side from the GitHub App
+            installation. Installation access tokens stay server-only.
           </p>
           <button className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover">
             Import selected repository
