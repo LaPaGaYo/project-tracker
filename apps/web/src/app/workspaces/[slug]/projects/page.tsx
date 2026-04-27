@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
+import { GithubImportPanel } from "@/features/github-import/github-import-panel";
 import { getAppSession, isClerkConfigured } from "@/server/auth";
 import { createProjectRepository } from "@/server/projects/repository";
 import { listProjectsForUser } from "@/server/projects/service";
@@ -40,6 +41,7 @@ export default async function WorkspaceProjectsPage({
     ]);
 
     const canCreate = membership.role !== "viewer";
+    const canImport = membership.role === "owner" || membership.role === "admin";
 
     return (
       <AppShell
@@ -92,6 +94,7 @@ export default async function WorkspaceProjectsPage({
 
           <aside className="grid gap-6">
             <CreateProjectDialog workspaceSlug={slug} canCreate={canCreate} />
+            <GithubImportPanel workspaceSlug={slug} canImport={canImport} />
             <div className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-planka-accent">Workspace Context</p>
               <p className="mt-4 text-sm text-planka-text-muted">
