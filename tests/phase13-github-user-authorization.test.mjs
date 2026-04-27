@@ -19,7 +19,12 @@ import {
   completeGithubUserAuthorization,
   prepareGithubUserAuthorizationRedirect,
 } from "../apps/web/src/server/github/user-authorization-flow.ts";
+import { importGithubInstallationRepositoryForUser } from "../apps/web/src/server/github/installation-import.ts";
+import { createGithubConnectionRepository } from "../apps/web/src/server/github/repository.ts";
+import { createProjectRepository } from "../apps/web/src/server/projects/repository.ts";
+import { createWorkspaceRepository } from "../apps/web/src/server/workspaces/repository.ts";
 import { resolveGithubSetupRedirect } from "../apps/web/src/server/github/setup.ts";
+import { sql } from "../packages/db/src/client.ts";
 
 const fixedNow = new Date("2026-04-27T12:00:00.000Z");
 
@@ -53,14 +58,59 @@ function serializeFetchUrl(url) {
   return typeof url === "string" ? url : url.url;
 }
 
-function createSession() {
+function createSession(userId = "user-1", email = "henry@example.com") {
   return {
-    userId: "user-1",
-    email: "henry@example.com",
+    userId,
+    email,
     displayName: "Henry",
     provider: "demo",
   };
 }
+
+function uniqueSuffix() {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createRepositories() {
+  return {
+    githubRepository: createGithubConnectionRepository(),
+    projectRepository: createProjectRepository(),
+    workspaceRepository: createWorkspaceRepository(),
+  };
+}
+
+function createPersistedHarness(t) {
+  const repositories = createRepositories();
+  const workspaceIds = [];
+
+  t.after(async () => {
+    for (const workspaceId of workspaceIds) {
+      await sql`delete from workspaces where id = ${workspaceId}`;
+    }
+  });
+
+  return {
+    repositories,
+    async createWorkspace(session, label) {
+      const suffix = uniqueSuffix();
+      const workspace = await repositories.workspaceRepository.createWorkspace({
+        name: `${label} ${suffix}`,
+        slug: `${label.toLowerCase()}-${suffix}`,
+      });
+      await repositories.workspaceRepository.addMembership({
+        workspaceId: workspace.id,
+        userId: session.userId,
+        role: "owner",
+      });
+      workspaceIds.push(workspace.id);
+      return workspace;
+    },
+  };
+}
+
+test.after(async () => {
+  await sql.end({ timeout: 0 });
+});
 
 function createFlowState({
   workspaceSlug = "platform-ops",
@@ -390,6 +440,85 @@ test("github user authorization proof rejects missing and invalid signed values"
       options
     ).status,
     "invalid"
+  );
+});
+
+test("installation import rejects missing github user authorization proof before calling GitHub", async (t) => {
+  const harness = createPersistedHarness(t);
+  const admin = createSession(`admin-${uniqueSuffix()}`, "admin@example.com");
+  const workspace = await harness.createWorkspace(
+    admin,
+    "phase13-missing-proof"
+  );
+  let githubWasCalled = false;
+
+  await assert.rejects(
+    importGithubInstallationRepositoryForUser(
+      {
+        projectRepository: harness.repositories.projectRepository,
+        githubRepository: harness.repositories.githubRepository,
+        installationClient: {
+          async listRepositories() {
+            githubWasCalled = true;
+            return [];
+          },
+        },
+        authorizationProof: null,
+      },
+      admin,
+      workspace.slug,
+      "987",
+      { providerRepositoryId: "42", projectName: "Platform Ops", key: "P13" }
+    ),
+    /GitHub user authorization is required/
+  );
+
+  assert.equal(githubWasCalled, false);
+});
+
+test("installation import rejects repositories not covered by proof", async (t) => {
+  const harness = createPersistedHarness(t);
+  const admin = createSession(`admin-${uniqueSuffix()}`, "admin@example.com");
+  const workspace = await harness.createWorkspace(admin, "phase13-proof-repo");
+
+  await assert.rejects(
+    importGithubInstallationRepositoryForUser(
+      {
+        projectRepository: harness.repositories.projectRepository,
+        githubRepository: harness.repositories.githubRepository,
+        installationClient: {
+          async listRepositories() {
+            return [
+              {
+                providerRepositoryId: "42",
+                owner: "the-platform",
+                name: "platform-ops",
+                fullName: "the-platform/platform-ops",
+                defaultBranch: "main",
+                htmlUrl: "https://github.com/the-platform/platform-ops",
+                isPrivate: true,
+              },
+            ];
+          },
+        },
+        authorizationProof: {
+          productUserId: admin.userId,
+          workspaceSlug: workspace.slug,
+          githubUserId: "12345",
+          githubLogin: "henry",
+          installationId: "987",
+          allowedProviderRepositoryIds: ["77"],
+          nonce: "nonce-proof",
+          issuedAt: fixedNow.toISOString(),
+          expiresAt: addMinutes(fixedNow, 15).toISOString(),
+        },
+      },
+      admin,
+      workspace.slug,
+      "987",
+      { providerRepositoryId: "42", projectName: "Platform Ops", key: "P13" }
+    ),
+    /selected repository is not authorized for this GitHub user/
   );
 });
 

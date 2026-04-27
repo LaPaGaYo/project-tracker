@@ -1,13 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { clearDemoSession, createDemoSession, getAppSession, isClerkConfigured } from "@/server/auth";
+import {
+  clearDemoSession,
+  createDemoSession,
+  getAppSession,
+  isClerkConfigured,
+} from "@/server/auth";
 import { createGithubAppInstallationClient } from "@/server/github/app-installation";
 import { createGithubConnectionRepository } from "@/server/github/repository";
 import { importGithubProjectForUser } from "@/server/github/import";
 import { importGithubInstallationRepositoryForUser } from "@/server/github/installation-import";
+import {
+  GITHUB_USER_AUTH_PROOF_COOKIE,
+  verifyGithubUserAuthorizationProof,
+} from "@/server/github/user-authorization-state";
 import { createProjectRepository } from "@/server/projects/repository";
 import { createProjectForUser } from "@/server/projects/service";
 import { createWorkItemRepository } from "@/server/work-items/repository";
@@ -17,7 +27,7 @@ import {
   createWorkspaceForUser,
   removeWorkspaceMemberForUser,
   updateWorkspaceForUser,
-  updateWorkspaceMemberRoleForUser
+  updateWorkspaceMemberRoleForUser,
 } from "@/server/workspaces/service";
 import { createWorkspaceRepository } from "@/server/workspaces/repository";
 import { requireWorkspaceRole } from "@/server/workspaces/service";
@@ -27,7 +37,11 @@ function readFormString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function resolveProjectReturnTo(workspaceSlug: string, projectKey: string, value: FormDataEntryValue | null) {
+function resolveProjectReturnTo(
+  workspaceSlug: string,
+  projectKey: string,
+  value: FormDataEntryValue | null
+) {
   const defaultPath = `/workspaces/${workspaceSlug}/projects/${projectKey}`;
 
   if (typeof value !== "string") {
@@ -40,7 +54,12 @@ function resolveProjectReturnTo(workspaceSlug: string, projectKey: string, value
   }
 
   const nextCharacter = normalized.charAt(defaultPath.length);
-  if (nextCharacter && nextCharacter !== "/" && nextCharacter !== "?" && nextCharacter !== "#") {
+  if (
+    nextCharacter &&
+    nextCharacter !== "/" &&
+    nextCharacter !== "?" &&
+    nextCharacter !== "#"
+  ) {
     return defaultPath;
   }
 
@@ -70,7 +89,7 @@ export async function signInDemoAction(formData: FormData) {
 
   await createDemoSession({
     email,
-    displayName
+    displayName,
   });
 
   redirect("/");
@@ -90,33 +109,44 @@ export async function createWorkspaceAction(formData: FormData) {
 
   const workspace = await createWorkspaceForUser(repository, session, {
     name: formData.get("name"),
-    slug: formData.get("slug")
+    slug: formData.get("slug"),
   });
 
   revalidatePath("/", "layout");
   redirect(`/workspaces/${workspace.slug}/projects`);
 }
 
-export async function updateWorkspaceAction(workspaceId: string, formData: FormData) {
+export async function updateWorkspaceAction(
+  workspaceId: string,
+  formData: FormData
+) {
   const session = await requireSessionForAction();
   const repository = createWorkspaceRepository();
 
-  const workspace = await updateWorkspaceForUser(repository, session, workspaceId, {
-    name: formData.get("name"),
-    slug: formData.get("slug")
-  });
+  const workspace = await updateWorkspaceForUser(
+    repository,
+    session,
+    workspaceId,
+    {
+      name: formData.get("name"),
+      slug: formData.get("slug"),
+    }
+  );
 
   revalidatePath("/", "layout");
   redirect(`/workspaces/${workspace.slug}`);
 }
 
-export async function inviteMemberAction(workspaceId: string, formData: FormData) {
+export async function inviteMemberAction(
+  workspaceId: string,
+  formData: FormData
+) {
   const session = await requireSessionForAction();
   const repository = createWorkspaceRepository();
 
   await createInvitationForUser(repository, session, workspaceId, {
     email: formData.get("email"),
-    role: formData.get("role")
+    role: formData.get("role"),
   });
 
   const workspace = await repository.getWorkspaceById(workspaceId);
@@ -168,26 +198,37 @@ export async function removeMemberAction(workspaceId: string, userId: string) {
   redirect(`/workspaces/${workspace.slug}`);
 }
 
-export async function createProjectAction(workspaceSlug: string, formData: FormData) {
+export async function createProjectAction(
+  workspaceSlug: string,
+  formData: FormData
+) {
   const session = await requireSessionForAction();
   const repository = createProjectRepository();
 
-  const project = await createProjectForUser(repository, session, workspaceSlug, {
-    name: formData.get("name"),
-    key: formData.get("key"),
-    description: formData.get("description")
-  });
+  const project = await createProjectForUser(
+    repository,
+    session,
+    workspaceSlug,
+    {
+      name: formData.get("name"),
+      key: formData.get("key"),
+      description: formData.get("description"),
+    }
+  );
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
   redirect(`/workspaces/${workspaceSlug}/projects/${project.key}`);
 }
 
-export async function importGithubProjectAction(workspaceSlug: string, formData: FormData) {
+export async function importGithubProjectAction(
+  workspaceSlug: string,
+  formData: FormData
+) {
   const session = await requireSessionForAction();
   const result = await importGithubProjectForUser(
     {
       projectRepository: createProjectRepository(),
-      githubRepository: createGithubConnectionRepository()
+      githubRepository: createGithubConnectionRepository(),
     },
     session,
     workspaceSlug,
@@ -200,12 +241,14 @@ export async function importGithubProjectAction(workspaceSlug: string, formData:
       projectName: formData.get("projectName"),
       key: formData.get("key"),
       stagingEnvironmentName: formData.get("stagingEnvironmentName"),
-      productionEnvironmentName: formData.get("productionEnvironmentName")
+      productionEnvironmentName: formData.get("productionEnvironmentName"),
     }
   );
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
-  redirect(`/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`);
+  redirect(
+    `/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`
+  );
 }
 
 export async function importInstalledGithubRepositoryAction(
@@ -214,11 +257,24 @@ export async function importInstalledGithubRepositoryAction(
   formData: FormData
 ) {
   const session = await requireSessionForAction();
+  const cookieStore = await cookies();
+  const proofResult = verifyGithubUserAuthorizationProof(
+    cookieStore.get(GITHUB_USER_AUTH_PROOF_COOKIE)?.value,
+    {
+      secret: process.env.GITHUB_USER_AUTH_STATE_SECRET ?? "",
+      now: new Date(),
+      productUserId: session.userId,
+      workspaceSlug,
+      installationId,
+    }
+  );
   const result = await importGithubInstallationRepositoryForUser(
     {
       projectRepository: createProjectRepository(),
       githubRepository: createGithubConnectionRepository(),
-      installationClient: createGithubAppInstallationClient()
+      installationClient: createGithubAppInstallationClient(),
+      authorizationProof:
+        proofResult.status === "valid" ? proofResult.proof : null,
     },
     session,
     workspaceSlug,
@@ -228,18 +284,28 @@ export async function importInstalledGithubRepositoryAction(
       projectName: formData.get("projectName"),
       key: formData.get("key"),
       stagingEnvironmentName: formData.get("stagingEnvironmentName"),
-      productionEnvironmentName: formData.get("productionEnvironmentName")
+      productionEnvironmentName: formData.get("productionEnvironmentName"),
     }
   );
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
-  redirect(`/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`);
+  redirect(
+    `/workspaces/${workspaceSlug}/projects/${result.project.key}/engineering`
+  );
 }
 
-export async function createWorkItemAction(workspaceSlug: string, projectKey: string, formData: FormData) {
+export async function createWorkItemAction(
+  workspaceSlug: string,
+  projectKey: string,
+  formData: FormData
+) {
   const session = await requireSessionForAction();
   const repository = createWorkItemRepository();
-  const returnTo = resolveProjectReturnTo(workspaceSlug, projectKey, formData.get("returnTo"));
+  const returnTo = resolveProjectReturnTo(
+    workspaceSlug,
+    projectKey,
+    formData.get("returnTo")
+  );
 
   await createWorkItemForUser(repository, session, workspaceSlug, projectKey, {
     title: formData.get("title"),
@@ -249,7 +315,7 @@ export async function createWorkItemAction(workspaceSlug: string, projectKey: st
     workflowStateId: formData.get("workflowStateId"),
     stageId: formData.get("stageId"),
     planItemId: formData.get("planItemId"),
-    labels: formData.get("labels")
+    labels: formData.get("labels"),
   });
 
   revalidatePath(`/workspaces/${workspaceSlug}/projects`);
