@@ -8,6 +8,10 @@ import {
   githubCheckRollupStatuses,
   githubDeploymentEnvironments,
   githubDeploymentStatuses,
+  githubIssueStates,
+  githubIssueSyncOperationStatuses,
+  githubIssueSyncOperationTypes,
+  githubIssueSyncStatuses,
   githubPullRequestStates,
   githubRepositoryProviders,
   githubWebhookDeliveryStatuses,
@@ -21,6 +25,13 @@ import {
   githubDeployments,
   githubDeploymentEnvironmentEnum,
   githubDeploymentStatusEnum,
+  githubIssueComments,
+  githubIssues,
+  githubIssueStateEnum,
+  githubIssueSyncOperationStatusEnum,
+  githubIssueSyncOperations,
+  githubIssueSyncOperationTypeEnum,
+  githubIssueSyncStatusEnum,
   githubPullRequests,
   githubPullRequestStateEnum,
   githubRepositories,
@@ -31,6 +42,7 @@ import {
   projectGithubConnections,
   schemaTableNames,
   taskGithubStatus,
+  workItemGithubIssueLinks,
   workItemGithubLinks,
   workItemGithubLinkSourceEnum
 } from "./schema";
@@ -47,6 +59,10 @@ void test("github schema adds normalized engineering tables without replacing ta
     "github_repositories",
     "project_github_connections",
     "github_pull_requests",
+    "github_issues",
+    "work_item_github_issue_links",
+    "github_issue_sync_operations",
+    "github_issue_comments",
     "github_check_rollups",
     "github_deployments",
     "work_item_github_links",
@@ -62,6 +78,10 @@ void test("github schema adds normalized engineering tables without replacing ta
   assert.equal(getTableName(githubRepositories), "github_repositories");
   assert.equal(getTableName(projectGithubConnections), "project_github_connections");
   assert.equal(getTableName(githubPullRequests), "github_pull_requests");
+  assert.equal(getTableName(githubIssues), "github_issues");
+  assert.equal(getTableName(workItemGithubIssueLinks), "work_item_github_issue_links");
+  assert.equal(getTableName(githubIssueSyncOperations), "github_issue_sync_operations");
+  assert.equal(getTableName(githubIssueComments), "github_issue_comments");
   assert.equal(getTableName(githubCheckRollups), "github_check_rollups");
   assert.equal(getTableName(githubDeployments), "github_deployments");
   assert.equal(getTableName(workItemGithubLinks), "work_item_github_links");
@@ -74,6 +94,10 @@ void test("github schema enums stay aligned with shared contracts", () => {
   assert.deepEqual(githubCheckRollupStatusEnum.enumValues, githubCheckRollupStatuses);
   assert.deepEqual(githubDeploymentEnvironmentEnum.enumValues, githubDeploymentEnvironments);
   assert.deepEqual(githubDeploymentStatusEnum.enumValues, githubDeploymentStatuses);
+  assert.deepEqual(githubIssueStateEnum.enumValues, githubIssueStates);
+  assert.deepEqual(githubIssueSyncStatusEnum.enumValues, githubIssueSyncStatuses);
+  assert.deepEqual(githubIssueSyncOperationStatusEnum.enumValues, githubIssueSyncOperationStatuses);
+  assert.deepEqual(githubIssueSyncOperationTypeEnum.enumValues, githubIssueSyncOperationTypes);
   assert.deepEqual(workItemGithubLinkSourceEnum.enumValues, workItemGithubLinkSources);
   assert.deepEqual(githubWebhookEventNameEnum.enumValues, githubWebhookEventNames);
   assert.deepEqual(githubWebhookDeliveryStatusEnum.enumValues, githubWebhookDeliveryStatuses);
@@ -93,6 +117,24 @@ void test("github schema defines the unique keys and replay indexes needed for l
     "github_pull_requests_head_sha_idx",
     "github_pull_requests_repository_number_unique",
     "github_pull_requests_repository_provider_pr_unique"
+  ]);
+  assert.deepEqual(getIndexNames(githubIssues), [
+    "github_issues_repository_state_updated_idx",
+    "github_issues_repository_number_unique",
+    "github_issues_repository_provider_issue_unique"
+  ]);
+  assert.deepEqual(getIndexNames(workItemGithubIssueLinks), [
+    "work_item_github_issue_links_repository_status_idx",
+    "work_item_github_issue_links_work_item_unique",
+    "work_item_github_issue_links_github_issue_unique"
+  ]);
+  assert.deepEqual(getIndexNames(githubIssueSyncOperations), [
+    "github_issue_sync_operations_link_status_requested_idx",
+    "github_issue_sync_operations_operation_key_unique"
+  ]);
+  assert.deepEqual(getIndexNames(githubIssueComments), [
+    "github_issue_comments_issue_created_idx",
+    "github_issue_comments_issue_provider_comment_unique"
   ]);
   assert.deepEqual(getIndexNames(githubCheckRollups), [
     "github_check_rollups_status_idx",
