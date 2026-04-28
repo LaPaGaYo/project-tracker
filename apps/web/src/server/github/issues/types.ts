@@ -212,6 +212,7 @@ export interface GithubIssueSyncRepository {
   }): Promise<{
     workItem: WorkItemRecord;
     link: GithubIssueLinkRecord;
+    created: boolean;
   }>;
   updateWorkItemFromGithubIssue(input: {
     projectId: string;
@@ -223,7 +224,7 @@ export interface GithubIssueSyncRepository {
     workflowStateId?: string | null;
     completedAt?: string | null;
     actorId: string;
-  }): Promise<WorkItemRecord | null>;
+  }): Promise<{ workItem: WorkItemRecord; changed: boolean } | null>;
   upsertGithubIssueLink(input: {
     workItemId: string;
     repositoryId: string;

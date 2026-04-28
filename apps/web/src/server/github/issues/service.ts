@@ -53,8 +53,18 @@ function workflowStateForUpdate(issue: GithubIssueWithComments, settings: Github
   return settings.reopenedWorkflowStateId ?? undefined;
 }
 
-function canUpdateLinkedWorkItem(link: GithubIssueLinkRecord) {
-  return link.syncEnabled && link.syncStatus !== "conflict" && link.syncStatus !== "paused" && link.syncStatus !== "error";
+function shouldSkipLinkedWorkItemUpdate(link: GithubIssueLinkRecord) {
+  return !link.syncEnabled || link.syncStatus === "conflict" || link.syncStatus === "paused" || link.syncStatus === "error";
+}
+
+function hasWorkItemUpdatePatch(input: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0]) {
+  return (
+    input.title !== undefined ||
+    input.description !== undefined ||
+    input.status !== undefined ||
+    input.workflowStateId !== undefined ||
+    input.completedAt !== undefined
+  );
 }
 
 async function upsertComments(
@@ -176,8 +186,10 @@ export async function importGithubIssuesForProject(
       const link = await repository.getGithubIssueLinkByIssueId(projection.id);
 
       if (link) {
-        if (!canUpdateLinkedWorkItem(link)) {
-          summary.conflicted += 1;
+        if (shouldSkipLinkedWorkItemUpdate(link)) {
+          if (link.syncStatus === "conflict") {
+            summary.conflicted += 1;
+          }
           await upsertComments(repository, projection.id, issue.comments);
           continue;
         }
@@ -203,9 +215,14 @@ export async function importGithubIssuesForProject(
           }
         }
 
-        const updated = await repository.updateWorkItemFromGithubIssue(updateInput);
+        if (!hasWorkItemUpdatePatch(updateInput)) {
+          await upsertComments(repository, projection.id, issue.comments);
+          continue;
+        }
 
-        if (updated) {
+        const updateResult = await repository.updateWorkItemFromGithubIssue(updateInput);
+
+        if (updateResult?.changed) {
           await upsertSyncedLink(repository, {
             link,
             workItemId: link.workItemId,
@@ -214,14 +231,14 @@ export async function importGithubIssuesForProject(
             issue,
             settings,
             source: "initial_import",
-            lastSyncedWorkItemUpdatedAt: updated.updatedAt
+            lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
           });
           summary.updated += 1;
-        } else {
+        } else if (!updateResult) {
           summary.failed += 1;
         }
       } else {
-        await repository.createWorkItemAndLinkGithubIssue({
+        const createResult = await repository.createWorkItemAndLinkGithubIssue({
           projectId: project.id,
           workspaceId: workspace.id,
           workItem: {
@@ -254,7 +271,9 @@ export async function importGithubIssuesForProject(
           },
           actorId: session.userId
         });
-        summary.created += 1;
+        if (createResult.created) {
+          summary.created += 1;
+        }
       }
 
       await upsertComments(repository, projection.id, issue.comments);

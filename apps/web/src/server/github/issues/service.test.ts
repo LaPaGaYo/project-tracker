@@ -74,6 +74,8 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   readonly upsertedLinks: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0][] = [];
   readonly upsertedComments: Parameters<GithubIssueSyncRepository["upsertGithubIssueComment"]>[0][] = [];
   readonly localPlatformComments: unknown[] = [];
+  createAndLinkCreated = true;
+  updateChanged = true;
 
   private readonly state = workspace();
   connection: Awaited<ReturnType<GithubIssueSyncRepository["getProjectGithubConnection"]>> = {
@@ -243,34 +245,38 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         errorMessage: input.link.errorMessage,
         createdAt: now,
         updatedAt: now
-      }
+      },
+      created: this.createAndLinkCreated
     };
   }
 
   async updateWorkItemFromGithubIssue(input: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0]) {
     this.updatedWorkItems.push(input);
     return {
-      id: input.workItemId,
-      projectId: this.state.project.id,
-      workspaceId: this.state.workspace.id,
-      identifier: "WEB-1",
-      title: input.title ?? "Existing title",
-      description: input.description ?? "Existing body",
-      status: input.status ?? "Todo",
-      type: "task" as const,
-      parentId: null,
-      assigneeId: null,
-      priority: "none" as const,
-      labels: null,
-      workflowStateId: input.workflowStateId ?? null,
-      stageId: null,
-      planItemId: null,
-      position: 0,
-      blockedReason: null,
-      dueDate: null,
-      completedAt: input.completedAt ?? null,
-      createdAt: now,
-      updatedAt: now
+      workItem: {
+        id: input.workItemId,
+        projectId: this.state.project.id,
+        workspaceId: this.state.workspace.id,
+        identifier: "WEB-1",
+        title: input.title ?? "Existing title",
+        description: input.description ?? "Existing body",
+        status: input.status ?? "Todo",
+        type: "task" as const,
+        parentId: null,
+        assigneeId: null,
+        priority: "none" as const,
+        labels: null,
+        workflowStateId: input.workflowStateId ?? null,
+        stageId: null,
+        planItemId: null,
+        position: 0,
+        blockedReason: null,
+        dueDate: null,
+        completedAt: input.completedAt ?? null,
+        createdAt: now,
+        updatedAt: now
+      },
+      changed: this.updateChanged
     };
   }
 
@@ -454,6 +460,148 @@ describe("importGithubIssuesForProject", () => {
       description: "Updated body",
       status: "Done"
     });
+  });
+
+  it("does not count disabled default links as conflicted and still imports comments", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-issue-1",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: false,
+      syncTitle: true,
+      syncBody: true,
+      syncState: true,
+      lastSyncedGithubUpdatedAt: now,
+      lastSyncedWorkItemUpdatedAt: now,
+      lastSyncedTitleHash: null,
+      lastSyncedBodyHash: null,
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const summary = await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      client([
+        issue({
+          comments: [
+            {
+              providerCommentId: "comment-1",
+              body: "Still projected",
+              url: "https://github.com/acme/web/issues/42#issuecomment-1",
+              authorLogin: "octocat",
+              githubCreatedAt: "2026-04-28T10:05:00.000Z",
+              githubUpdatedAt: "2026-04-28T10:10:00.000Z"
+            }
+          ]
+        })
+      ])
+    );
+
+    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(repository.updatedWorkItems).toHaveLength(0);
+    expect(repository.upsertedComments).toHaveLength(1);
+  });
+
+  it("does not increment created when atomic create and link finds an existing link", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.createAndLinkCreated = false;
+
+    const summary = await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      client([issue()])
+    );
+
+    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(repository.createdWorkItemsAndLinks).toHaveLength(1);
+    expect(repository.createdWorkItems).toHaveLength(0);
+    expect(repository.upsertedLinks).toHaveLength(0);
+  });
+
+  it("does not update or count updated when linked sync flags produce no patch", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-issue-1",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: true,
+      syncTitle: false,
+      syncBody: false,
+      syncState: false,
+      lastSyncedGithubUpdatedAt: now,
+      lastSyncedWorkItemUpdatedAt: now,
+      lastSyncedTitleHash: null,
+      lastSyncedBodyHash: null,
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const summary = await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      client([issue()])
+    );
+
+    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(repository.updatedWorkItems).toHaveLength(0);
+  });
+
+  it("does not count updated when repository reports the linked work item was unchanged", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.updateChanged = false;
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-issue-1",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: true,
+      syncTitle: true,
+      syncBody: true,
+      syncState: true,
+      lastSyncedGithubUpdatedAt: now,
+      lastSyncedWorkItemUpdatedAt: now,
+      lastSyncedTitleHash: null,
+      lastSyncedBodyHash: null,
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const summary = await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      client([issue()])
+    );
+
+    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(repository.updatedWorkItems).toHaveLength(1);
+    expect(repository.upsertedLinks).toHaveLength(0);
   });
 
   it("upserts GitHub issue comments without creating local platform comments", async () => {

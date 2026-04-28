@@ -349,6 +349,37 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
 
     async createWorkItemAndLinkGithubIssue(input) {
       return db.transaction(async (tx) => {
+        const [lockedIssue] = await tx
+          .select({ id: githubIssues.id })
+          .from(githubIssues)
+          .where(eq(githubIssues.id, input.link.githubIssueId))
+          .limit(1)
+          .for("update");
+
+        if (!lockedIssue) {
+          throw new Error("GitHub issue not found.");
+        }
+
+        const [existing] = await tx
+          .select({
+            link: workItemGithubIssueLinks,
+            task: tasks,
+            workspaceId: projects.workspaceId
+          })
+          .from(workItemGithubIssueLinks)
+          .innerJoin(tasks, eq(workItemGithubIssueLinks.workItemId, tasks.id))
+          .innerJoin(projects, eq(tasks.projectId, projects.id))
+          .where(eq(workItemGithubIssueLinks.githubIssueId, input.link.githubIssueId))
+          .limit(1);
+
+        if (existing) {
+          return {
+            workItem: serializeWorkItem(existing.task, existing.workspaceId),
+            link: serializeGithubIssueLink(existing.link),
+            created: false
+          };
+        }
+
         const workItem = await createWorkItemForGithubIssueInTransaction(tx, {
           projectId: input.projectId,
           workspaceId: input.workspaceId,
@@ -383,7 +414,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           errorMessage: input.link.errorMessage
         });
 
-        return { workItem, link };
+        return { workItem, link, created: true };
       });
     },
 
@@ -402,14 +433,31 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         return null;
       }
 
+      const current = currentRow.task;
+      const completedAt = input.completedAt !== undefined ? (input.completedAt ? new Date(input.completedAt) : null) : undefined;
+      const updates = {
+        ...(input.title !== undefined && input.title !== current.title ? { title: input.title } : {}),
+        ...(input.description !== undefined && input.description !== current.description
+          ? { description: input.description }
+          : {}),
+        ...(input.status !== undefined && input.status !== current.status ? { status: input.status } : {}),
+        ...(input.workflowStateId !== undefined && input.workflowStateId !== current.workflowStateId
+          ? { workflowStateId: input.workflowStateId }
+          : {}),
+        ...(completedAt !== undefined && toIso(completedAt) !== toIso(current.completedAt) ? { completedAt } : {})
+      };
+
+      if (Object.keys(updates).length === 0) {
+        return {
+          workItem: serializeWorkItem(current, currentRow.workspaceId),
+          changed: false
+        };
+      }
+
       const [updated] = await db
         .update(tasks)
         .set({
-          ...(input.title !== undefined ? { title: input.title } : {}),
-          ...(input.description !== undefined ? { description: input.description } : {}),
-          ...(input.status !== undefined ? { status: input.status } : {}),
-          ...(input.workflowStateId !== undefined ? { workflowStateId: input.workflowStateId } : {}),
-          ...(input.completedAt !== undefined ? { completedAt: input.completedAt ? new Date(input.completedAt) : null } : {}),
+          ...updates,
           updatedAt: new Date()
         })
         .where(eq(tasks.id, input.workItemId))
@@ -431,7 +479,10 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         }
       });
 
-      return serializeWorkItem(updated, currentRow.workspaceId);
+      return {
+        workItem: serializeWorkItem(updated, currentRow.workspaceId),
+        changed: true
+      };
     },
 
     async upsertGithubIssue(input) {
