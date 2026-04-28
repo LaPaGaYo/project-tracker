@@ -296,7 +296,7 @@ export async function syncWorkItemGithubOwnedFields(
     changedFields: Record<string, unknown>;
     now?: () => Date;
   }
-): Promise<{ attempted: false } | { attempted: true; succeeded: boolean }> {
+): Promise<{ attempted: false } | { attempted: true; succeeded: boolean; pending?: boolean }> {
   if (!repository.getGithubIssueLinkForWorkItem) {
     return { attempted: false };
   }
@@ -343,6 +343,10 @@ export async function syncWorkItemGithubOwnedFields(
 
   if (operation.reused && operation.status === "succeeded") {
     return { attempted: true, succeeded: true };
+  }
+
+  if (operation.reused && operation.status === "pending") {
+    return { attempted: true, succeeded: false, pending: true };
   }
 
   const target: GithubIssueImportTarget = {

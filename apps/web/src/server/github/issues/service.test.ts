@@ -729,6 +729,25 @@ describe("syncWorkItemGithubOwnedFields", () => {
     expect(repository.failedOperations).toHaveLength(0);
     expect(repository.completedOperations).toHaveLength(0);
   });
+
+  it("treats an existing pending operation for the same key as an idempotent no-op", async () => {
+    const repository = linkedRepository();
+    repository.existingOperationStatus = "pending";
+    const githubClient = updateClient();
+
+    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
+      actorId: "user-1",
+      projectId: "project-1",
+      workItemId: "work-item-1",
+      changedFields: { title: "Platform title" }
+    });
+
+    expect(result).toEqual({ attempted: true, succeeded: false, pending: true });
+    expect(githubClient.calls).toHaveLength(0);
+    expect(repository.linkErrors).toHaveLength(0);
+    expect(repository.failedOperations).toHaveLength(0);
+    expect(repository.completedOperations).toHaveLength(0);
+  });
 });
 
 describe("importGithubIssuesForProject", () => {
