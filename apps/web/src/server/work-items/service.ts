@@ -68,7 +68,7 @@ function participantRecipients(assigneeId: string | null, participantIds: string
   ]);
 }
 
-function changedFieldsForIntegration(input: UpdateWorkItemInput, updated: WorkItemRecord) {
+function changedFieldsForIntegration(input: UpdateWorkItemInput, current: WorkItemRecord, updated: WorkItemRecord) {
   const changedFields: Record<string, unknown> = {};
 
   if (input.title !== undefined) {
@@ -77,6 +77,11 @@ function changedFieldsForIntegration(input: UpdateWorkItemInput, updated: WorkIt
 
   if (input.description !== undefined) {
     changedFields.description = updated.description;
+  }
+
+  if (current.status !== updated.status || current.completedAt !== updated.completedAt) {
+    changedFields.status = updated.status;
+    changedFields.completedAt = updated.completedAt;
   }
 
   return changedFields;
@@ -723,7 +728,7 @@ export async function updateWorkItemForUser(
     actorId: session.userId,
     projectId: project.id,
     workItemId: updated.id,
-    changedFields: changedFieldsForIntegration(input, updated)
+    changedFields: changedFieldsForIntegration(input, current, updated)
   });
 
   return updated;

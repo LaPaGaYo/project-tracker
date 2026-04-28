@@ -59,6 +59,28 @@ const workflowState: WorkflowStateRecord = {
   updatedAt: "2026-04-20T12:00:00.000Z"
 };
 
+const activeWorkflowState: WorkflowStateRecord = {
+  id: "state-active",
+  projectId: project.id,
+  name: "In Progress",
+  category: "active",
+  position: 1,
+  color: null,
+  createdAt: "2026-04-20T12:00:00.000Z",
+  updatedAt: "2026-04-20T12:00:00.000Z"
+};
+
+const doneWorkflowState: WorkflowStateRecord = {
+  id: "state-done",
+  projectId: project.id,
+  name: "Done",
+  category: "done",
+  position: 2,
+  color: null,
+  createdAt: "2026-04-20T12:00:00.000Z",
+  updatedAt: "2026-04-20T12:00:00.000Z"
+};
+
 const projectStage: ProjectStageRecord = {
   id: "stage-1",
   projectId: project.id,
@@ -214,6 +236,67 @@ describe("work item planning linkage", () => {
       "OPS",
       "OPS-1",
       input as never,
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).not.toHaveBeenCalled();
+  });
+
+  it("derives GitHub state writeback from a persisted status change after workflow movement", async () => {
+    const repository = createRepository();
+    const completedAt = "2026-04-28T12:00:00.000Z";
+    repository.getWorkflowState.mockResolvedValue(doneWorkflowState);
+    repository.updateWorkItem.mockResolvedValue({
+      ...workItem,
+      workflowStateId: doneWorkflowState.id,
+      status: "Done",
+      completedAt
+    });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: true, succeeded: true })
+    };
+
+    await updateWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      { workflowStateId: doneWorkflowState.id },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).toHaveBeenCalledWith({
+      actorId: session.userId,
+      projectId: project.id,
+      workItemId: workItem.id,
+      changedFields: {
+        status: "Done",
+        completedAt
+      }
+    });
+  });
+
+  it("does not send GitHub state fields when workflow movement leaves persisted status unchanged", async () => {
+    const repository = createRepository();
+    repository.getWorkflowState.mockResolvedValue(activeWorkflowState);
+    repository.updateWorkItem.mockResolvedValue({
+      ...workItem,
+      workflowStateId: activeWorkflowState.id,
+      status: workItem.status,
+      completedAt: workItem.completedAt
+    });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: false })
+    };
+
+    await updateWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      { workflowStateId: activeWorkflowState.id },
       { githubIssueSync } as never
     );
 
