@@ -9,7 +9,13 @@ import type {
 } from "@the-platform/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createWorkItemForUser, updateDescriptionForUser, updateWorkItemForUser } from "./service";
+import {
+  createWorkItemForUser,
+  moveWorkItemForUser,
+  moveWorkItemsForUser,
+  updateDescriptionForUser,
+  updateWorkItemForUser
+} from "./service";
 import type { AppSession } from "../workspaces/types";
 
 const session: AppSession = {
@@ -301,6 +307,110 @@ describe("work item planning linkage", () => {
     );
 
     expect(githubIssueSync.syncWorkItemFields).not.toHaveBeenCalled();
+  });
+
+  it("syncs GitHub state when a board move persists a done status", async () => {
+    const repository = createRepository();
+    const completedAt = "2026-04-28T12:00:00.000Z";
+    repository.getWorkflowState.mockResolvedValue(doneWorkflowState);
+    repository.moveWorkItem.mockResolvedValue({
+      ...workItem,
+      workflowStateId: doneWorkflowState.id,
+      status: "Done",
+      completedAt
+    });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: true, succeeded: true })
+    };
+
+    await moveWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      { position: 1, workflowStateId: doneWorkflowState.id },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).toHaveBeenCalledWith({
+      actorId: session.userId,
+      projectId: project.id,
+      workItemId: workItem.id,
+      changedFields: {
+        status: "Done",
+        completedAt
+      }
+    });
+  });
+
+  it("does not sync GitHub state when a board move leaves persisted status unchanged", async () => {
+    const repository = createRepository();
+    repository.getWorkflowState.mockResolvedValue(activeWorkflowState);
+    repository.moveWorkItem.mockResolvedValue({
+      ...workItem,
+      workflowStateId: activeWorkflowState.id,
+      status: workItem.status,
+      completedAt: workItem.completedAt
+    });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: false })
+    };
+
+    await moveWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      { position: 1, workflowStateId: activeWorkflowState.id },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).not.toHaveBeenCalled();
+  });
+
+  it("syncs GitHub state when a multi-item board move persists done status for the primary item", async () => {
+    const repository = createRepository();
+    const completedAt = "2026-04-28T12:00:00.000Z";
+    repository.getWorkflowState.mockResolvedValue(doneWorkflowState);
+    repository.moveWorkItems.mockResolvedValue({
+      ...workItem,
+      workflowStateId: doneWorkflowState.id,
+      status: "Done",
+      completedAt
+    });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: true, succeeded: true })
+    };
+
+    await moveWorkItemsForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      {
+        affectedItems: [
+          {
+            identifier: "OPS-1",
+            position: 1,
+            workflowStateId: doneWorkflowState.id
+          }
+        ]
+      },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).toHaveBeenCalledWith({
+      actorId: session.userId,
+      projectId: project.id,
+      workItemId: workItem.id,
+      changedFields: {
+        status: "Done",
+        completedAt
+      }
+    });
   });
 
   it("does not fail the local update when GitHub issue field sync fails", async () => {

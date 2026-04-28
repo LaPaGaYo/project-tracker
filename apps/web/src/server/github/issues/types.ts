@@ -179,6 +179,7 @@ export interface GithubIssueSyncOperationRecord {
   githubUpdatedAtBefore: string | null;
   targetFields: Record<string, unknown>;
   errorMessage: string | null;
+  reused?: boolean;
 }
 
 export interface GithubIssueSyncRepository {

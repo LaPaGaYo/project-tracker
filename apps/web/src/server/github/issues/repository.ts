@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import {
   db,
@@ -622,13 +622,22 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           githubUpdatedAtBefore: input.githubUpdatedAtBefore ? new Date(input.githubUpdatedAtBefore) : null,
           targetFields: input.targetFields
         })
+        .onConflictDoUpdate({
+          target: githubIssueSyncOperations.operationKey,
+          set: {
+            operationKey: sql`${githubIssueSyncOperations.operationKey}`
+          }
+        })
         .returning();
 
       if (!row) {
         throw new Error("Failed to create GitHub issue sync operation.");
       }
 
-      return serializeGithubIssueSyncOperation(row);
+      return {
+        ...serializeGithubIssueSyncOperation(row),
+        reused: row.requestedBy !== input.requestedBy || row.status !== input.status
+      };
     },
 
     async completeGithubIssueSyncOperation(input) {

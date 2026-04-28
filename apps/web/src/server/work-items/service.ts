@@ -517,6 +517,13 @@ export async function moveWorkItemForUser(
     updated
   );
 
+  await syncGithubIssueFields(notificationDependencies, {
+    actorId: session.userId,
+    projectId: project.id,
+    workItemId: updated.id,
+    changedFields: changedFieldsForIntegration({}, current, updated)
+  });
+
   return updated;
 }
 
@@ -599,6 +606,13 @@ export async function moveWorkItemsForUser(
     primaryCurrent,
     updated
   );
+
+  await syncGithubIssueFields(notificationDependencies, {
+    actorId: session.userId,
+    projectId: project.id,
+    workItemId: updated.id,
+    changedFields: changedFieldsForIntegration({}, primaryCurrent, updated)
+  });
 
   return updated;
 }

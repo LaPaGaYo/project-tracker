@@ -85,6 +85,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   issueProjection: GithubIssueProjectionRecord | null = null;
   createAndLinkCreated = true;
   updateChanged = true;
+  existingOperationStatus: "pending" | "succeeded" | "failed" | null = null;
 
   private readonly state = workspace();
   connection: Awaited<ReturnType<GithubIssueSyncRepository["getProjectGithubConnection"]>> = {
@@ -272,13 +273,14 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       linkId: operation.linkId,
       operationKey: operation.operationKey,
       operationType: operation.operationType,
-      status: operation.status,
+      status: this.existingOperationStatus ?? operation.status,
       requestedBy: operation.requestedBy,
       requestedAt: now,
-      completedAt: null,
+      completedAt: this.existingOperationStatus === "succeeded" ? now : null,
       githubUpdatedAtBefore: operation.githubUpdatedAtBefore,
       targetFields: operation.targetFields,
-      errorMessage: null
+      errorMessage: null,
+      reused: this.existingOperationStatus !== null
     };
   }
 
@@ -707,6 +709,25 @@ describe("syncWorkItemGithubOwnedFields", () => {
     expect(firstRepository.createdOperations[0]).toMatchObject({
       operationKey: (secondRepository.createdOperations[0] as { operationKey: string }).operationKey
     });
+  });
+
+  it("treats an existing succeeded operation for the same key as idempotent without marking link error", async () => {
+    const repository = linkedRepository();
+    repository.existingOperationStatus = "succeeded";
+    const githubClient = updateClient();
+
+    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
+      actorId: "user-1",
+      projectId: "project-1",
+      workItemId: "work-item-1",
+      changedFields: { title: "Platform title" }
+    });
+
+    expect(result).toEqual({ attempted: true, succeeded: true });
+    expect(githubClient.calls).toHaveLength(0);
+    expect(repository.linkErrors).toHaveLength(0);
+    expect(repository.failedOperations).toHaveLength(0);
+    expect(repository.completedOperations).toHaveLength(0);
   });
 });
 

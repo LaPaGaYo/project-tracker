@@ -1,6 +1,8 @@
 import { handlePatchWorkItemPosition } from "@/server/api/project-handlers";
 import { createActivityRepository } from "@/server/activity/repository";
 import { getAppSession } from "@/server/auth";
+import { createGithubIssueSyncRepository } from "@/server/github/issues/repository";
+import { createGithubIssuesClient, syncWorkItemGithubOwnedFields } from "@/server/github/issues/service";
 import { createNotificationRepository } from "@/server/notifications/repository";
 import { createProjectRepository } from "@/server/projects/repository";
 import { createWorkItemRepository } from "@/server/work-items/repository";
@@ -11,6 +13,14 @@ const dependencies = {
   projectRepository: createProjectRepository(),
   workItemRepository: createWorkItemRepository(),
   notificationRepository: createNotificationRepository(),
+  githubIssueSync: {
+    syncWorkItemFields: (input: {
+      actorId: string;
+      projectId: string;
+      workItemId: string;
+      changedFields: Record<string, unknown>;
+    }) => syncWorkItemGithubOwnedFields(createGithubIssueSyncRepository(), createGithubIssuesClient(), input)
+  },
   workflowStateRepository: createWorkflowStateRepository(),
   activityRepository: createActivityRepository()
 };

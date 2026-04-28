@@ -341,6 +341,10 @@ export async function syncWorkItemGithubOwnedFields(
     targetFields: { ...patch }
   });
 
+  if (operation.reused && operation.status === "succeeded") {
+    return { attempted: true, succeeded: true };
+  }
+
   const target: GithubIssueImportTarget = {
     owner: linked.repository.owner,
     name: linked.repository.name,
