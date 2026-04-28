@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import {
   db,
@@ -29,6 +29,7 @@ import type {
   GithubIssueCommentProjectionRecord,
   GithubIssueLinkRecord,
   GithubIssueProjectionRecord,
+  GithubIssueSyncView,
   GithubIssueSyncOperationRecord,
   GithubIssueSyncRepository,
   GithubIssueSyncSettings
@@ -196,6 +197,34 @@ function serializeGithubIssueComment(row: typeof githubIssueComments.$inferSelec
     lastSyncedAt: toIso(row.lastSyncedAt),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeGithubIssueTimelineComment(row: typeof githubIssueComments.$inferSelect) {
+  return {
+    id: row.id,
+    providerCommentId: row.providerCommentId,
+    body: row.body,
+    url: row.url,
+    authorLogin: row.authorLogin,
+    githubCreatedAt: row.githubCreatedAt.toISOString(),
+    githubUpdatedAt: row.githubUpdatedAt.toISOString()
+  };
+}
+
+function serializeGithubIssueSyncView(row: {
+  link: typeof workItemGithubIssueLinks.$inferSelect;
+  issue: typeof githubIssues.$inferSelect;
+  repository: typeof githubRepositories.$inferSelect;
+}): GithubIssueSyncView {
+  return {
+    status: row.link.syncStatus,
+    issueNumber: row.issue.number,
+    issueUrl: row.issue.url,
+    repositoryFullName: row.repository.fullName,
+    conflictFields: row.link.conflictFields ?? [],
+    errorMessage: row.link.errorMessage,
+    syncEnabled: row.link.syncEnabled
   };
 }
 
@@ -574,6 +603,35 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
             repository: serializeGithubRepository(row.repository)
           }
         : null;
+    },
+
+    async listGithubIssueCommentsForWorkItem(workItemId) {
+      const rows = await db
+        .select({
+          comment: githubIssueComments
+        })
+        .from(workItemGithubIssueLinks)
+        .innerJoin(githubIssueComments, eq(workItemGithubIssueLinks.githubIssueId, githubIssueComments.githubIssueId))
+        .where(and(eq(workItemGithubIssueLinks.workItemId, workItemId), isNull(githubIssueComments.githubDeletedAt)))
+        .orderBy(githubIssueComments.githubCreatedAt);
+
+      return rows.map((row) => serializeGithubIssueTimelineComment(row.comment));
+    },
+
+    async getGithubIssueSyncViewForWorkItem(workItemId) {
+      const [row] = await db
+        .select({
+          link: workItemGithubIssueLinks,
+          issue: githubIssues,
+          repository: githubRepositories
+        })
+        .from(workItemGithubIssueLinks)
+        .innerJoin(githubIssues, eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id))
+        .innerJoin(githubRepositories, eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id))
+        .where(eq(workItemGithubIssueLinks.workItemId, workItemId))
+        .limit(1);
+
+      return row ? serializeGithubIssueSyncView(row) : null;
     },
 
     async upsertGithubIssueLink(input) {

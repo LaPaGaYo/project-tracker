@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import type { GithubIssueSyncView } from "../server/github/issues/types";
 import { CommentInput } from "./comment-input";
 import { CommentList } from "./comment-list";
 import { DescriptionEditor } from "./description-editor";
@@ -32,6 +33,7 @@ interface DetailPanelProps {
   basePath: string;
   item: WorkItemRecord;
   itemEngineering?: ProjectWorkspaceEngineeringItemView | null;
+  githubIssueSync?: GithubIssueSyncView | null;
   comments: CommentRecord[];
   versions: DescriptionVersionRecord[];
   timeline: TimelineEntry[];
@@ -47,12 +49,32 @@ function canModerate(role: WorkspaceRole) {
   return role === "owner" || role === "admin";
 }
 
+function githubIssueSyncStatusLabel(sync: GithubIssueSyncView) {
+  if (!sync.syncEnabled || sync.status === "paused") {
+    return "Sync paused";
+  }
+
+  switch (sync.status) {
+    case "synced":
+      return "Synced";
+    case "conflict":
+      return "Sync conflict";
+    case "error":
+      return "Sync failed";
+    case "pending_outbound":
+      return "Sync pending";
+    default:
+      return sync.status;
+  }
+}
+
 export function DetailPanel({
   workspaceSlug,
   projectKey,
   basePath,
   item,
   itemEngineering,
+  githubIssueSync,
   comments,
   versions,
   timeline,
@@ -332,6 +354,45 @@ export function DetailPanel({
 
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="grid gap-6">
+            {githubIssueSync ? (
+              <section className="grid gap-4 rounded-3xl border border-white/8 bg-black/15 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-planka-accent">
+                      GitHub issue sync
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-planka-text">
+                      {githubIssueSync.repositoryFullName}
+                    </h3>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-planka-text">
+                    {githubIssueSyncStatusLabel(githubIssueSync)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <a
+                    href={githubIssueSync.issueUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-planka-accent transition hover:text-white"
+                  >
+                    #{githubIssueSync.issueNumber}
+                  </a>
+                  <span className="text-planka-text-muted">
+                    {githubIssueSync.syncEnabled ? "Automatic sync enabled" : "Automatic sync disabled"}
+                  </span>
+                </div>
+                {githubIssueSync.conflictFields.length > 0 ? (
+                  <p className="text-sm text-amber-100">
+                    Conflict fields: {githubIssueSync.conflictFields.join(", ")}
+                  </p>
+                ) : null}
+                {githubIssueSync.errorMessage ? (
+                  <p className="text-sm text-rose-100">{githubIssueSync.errorMessage}</p>
+                ) : null}
+              </section>
+            ) : null}
+
             {itemEngineering ? (
               <section className="grid gap-4 rounded-3xl border border-white/8 bg-black/15 p-4">
                 <div>

@@ -13,6 +13,7 @@ import {
   listCommentsForUser,
   listWorkItemTimelineForUser
 } from "@/server/comments/service";
+import { createGithubIssueSyncRepository } from "@/server/github/issues/repository";
 import { createWorkItemRepository } from "@/server/work-items/repository";
 import {
   getWorkItemForUser,
@@ -83,6 +84,7 @@ export async function ProjectDetailContent({
   const workflowStateRepository = createWorkflowStateRepository();
   const commentRepository = createCommentRepository();
   const activityRepository = createActivityRepository();
+  const githubIssueRepository = createGithubIssueSyncRepository();
   try {
     const {
       canCreate,
@@ -128,7 +130,7 @@ export async function ProjectDetailContent({
       ? await getWorkItemForUser(workItemRepository, session, workspaceSlug, projectKey, selectedIdentifier)
       : null;
 
-    const [comments, versions, timeline] = selectedItem
+    const [comments, versions, timeline, selectedItemGithubIssueSync] = selectedItem
       ? await Promise.all([
           listCommentsForUser(commentRepository, session, workspaceSlug, projectKey, selectedIdentifier!),
           listDescriptionVersionsForUser(workItemRepository, session, workspaceSlug, projectKey, selectedIdentifier!),
@@ -136,15 +138,20 @@ export async function ProjectDetailContent({
             {
               activityRepository,
               commentRepository,
+              githubIssueRepository: {
+                listGithubIssueCommentsForWorkItem: (workItemId) =>
+                  githubIssueRepository.listGithubIssueCommentsForWorkItem?.(workItemId) ?? Promise.resolve([])
+              },
               workItemRepository
             },
             session,
             workspaceSlug,
             projectKey,
             selectedIdentifier!
-          ) as Promise<TimelineEntry[]>
+          ) as Promise<TimelineEntry[]>,
+          githubIssueRepository.getGithubIssueSyncViewForWorkItem?.(selectedItem.id) ?? Promise.resolve(null)
         ])
-      : [[], [], [] as TimelineEntry[]];
+      : [[], [], [] as TimelineEntry[], null];
 
     const basePath = `/workspaces/${workspaceSlug}/projects/${projectKey}`;
 
@@ -181,6 +188,7 @@ export async function ProjectDetailContent({
                   basePath={basePath}
                   items={items}
                   itemEngineering={workspaceView.engineering.items}
+                  selectedItemGithubIssueSync={selectedItemGithubIssueSync}
                   members={members}
                   states={states}
                   selectedItem={selectedItem}

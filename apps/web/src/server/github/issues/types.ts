@@ -48,6 +48,16 @@ export interface GithubIssueSyncView {
   syncEnabled: boolean;
 }
 
+export interface GithubIssueTimelineComment {
+  id: string;
+  providerCommentId: string;
+  body: string;
+  url: string;
+  authorLogin: string | null;
+  githubCreatedAt: string;
+  githubUpdatedAt: string;
+}
+
 export interface GithubIssueWithComments extends NormalizedGithubIssue {
   comments: NormalizedGithubIssueComment[];
 }
@@ -207,6 +217,8 @@ export interface GithubIssueSyncRepository {
       installationId?: string | null;
     };
   } | null>;
+  listGithubIssueCommentsForWorkItem?(workItemId: string): Promise<GithubIssueTimelineComment[]>;
+  getGithubIssueSyncViewForWorkItem?(workItemId: string): Promise<GithubIssueSyncView | null>;
   getWorkItemForGithubIssueLink?(workItemId: string): Promise<WorkItemRecord | null>;
   createWorkItemForGithubIssue(input: {
     projectId: string;
