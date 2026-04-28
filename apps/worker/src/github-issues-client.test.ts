@@ -213,7 +213,9 @@ void test("updateIssue patches issue fields and returns a normalized issue snaps
 
   assert.equal(requests[0]?.url, "https://github.test/repos/the-platform/platform-ops/issues/7");
   assert.equal(requests[0]?.init.method, "PATCH");
-  assert.deepEqual(JSON.parse(String(requests[0]?.init.body)), {
+  const requestBody = requests[0]?.init.body;
+  assert.equal(typeof requestBody, "string");
+  assert.deepEqual(JSON.parse(requestBody), {
     title: "Updated title",
     body: "Updated body",
     state: "closed"
