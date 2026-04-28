@@ -63,6 +63,14 @@ export interface ListWorkItemFilters {
 
 export interface WorkItemNotificationDependencies {
   notificationRepository?: NotificationRepository;
+  githubIssueSync?: {
+    syncWorkItemFields(input: {
+      actorId: string;
+      projectId: string;
+      workItemId: string;
+      changedFields: Record<string, unknown>;
+    }): Promise<unknown>;
+  };
 }
 
 export interface WorkItemRepository

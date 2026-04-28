@@ -9,7 +9,7 @@ import type {
 } from "@the-platform/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createWorkItemForUser, updateWorkItemForUser } from "./service";
+import { createWorkItemForUser, updateDescriptionForUser, updateWorkItemForUser } from "./service";
 import type { AppSession } from "../workspaces/types";
 
 const session: AppSession = {
@@ -165,5 +165,83 @@ describe("work item planning linkage", () => {
         planItemId: planItem.id
       })
     );
+  });
+
+  it("calls GitHub issue field sync after a successful user update with only explicitly changed fields", async () => {
+    const repository = createRepository();
+    repository.updateWorkItem.mockResolvedValue({ ...workItem, title: "Updated title", priority: "low" });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: true, succeeded: true })
+    };
+
+    await updateWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      {
+        title: "Updated title",
+        priority: "low"
+      },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).toHaveBeenCalledWith({
+      actorId: session.userId,
+      projectId: project.id,
+      workItemId: workItem.id,
+      changedFields: {
+        title: "Updated title",
+        priority: "low"
+      }
+    });
+  });
+
+  it("does not fail the local update when GitHub issue field sync fails", async () => {
+    const repository = createRepository();
+    repository.updateWorkItem.mockResolvedValue({ ...workItem, title: "Updated title" });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockRejectedValue(new Error("GitHub unavailable"))
+    };
+
+    await expect(
+      updateWorkItemForUser(
+        repository as never,
+        session,
+        "platform-ops",
+        "OPS",
+        "OPS-1",
+        { title: "Updated title" },
+        { githubIssueSync } as never
+      )
+    ).resolves.toMatchObject({ title: "Updated title" });
+  });
+
+  it("threads description updates through GitHub issue body sync", async () => {
+    const repository = createRepository();
+    repository.updateWorkItem.mockResolvedValue({ ...workItem, description: "Updated body" });
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: true, succeeded: true })
+    };
+
+    await updateDescriptionForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      { content: "Updated body" },
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).toHaveBeenCalledWith({
+      actorId: session.userId,
+      projectId: project.id,
+      workItemId: workItem.id,
+      changedFields: {
+        description: "Updated body"
+      }
+    });
   });
 });

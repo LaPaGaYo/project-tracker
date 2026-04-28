@@ -11,7 +11,7 @@ import {
   updateDescriptionForUser
 } from "../work-items/service";
 import type { NotificationRepository } from "../notifications/types";
-import type { WorkItemRepository } from "../work-items/types";
+import type { WorkItemNotificationDependencies, WorkItemRepository } from "../work-items/types";
 import { WorkspaceError } from "../workspaces/core";
 import type { AppSession } from "../workspaces/types";
 
@@ -19,6 +19,7 @@ export interface DetailHandlerDependencies {
   getSession: () => Promise<AppSession | null>;
   commentRepository: CommentRepository;
   notificationRepository?: NotificationRepository;
+  githubIssueSync?: WorkItemNotificationDependencies["githubIssueSync"];
   workItemRepository: WorkItemRepository;
   activityRepository: ActivityRepository;
 }
@@ -188,6 +189,12 @@ export async function handlePatchDescription(
       params.identifier,
       {
         content: body.content
+      },
+      {
+        ...(dependencies.notificationRepository
+          ? { notificationRepository: dependencies.notificationRepository }
+          : {}),
+        ...(dependencies.githubIssueSync ? { githubIssueSync: dependencies.githubIssueSync } : {})
       }
     );
 

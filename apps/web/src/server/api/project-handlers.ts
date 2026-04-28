@@ -39,6 +39,7 @@ export interface ProjectHandlerDependencies {
   projectRepository: ProjectRepository;
   workItemRepository: WorkItemRepository;
   notificationRepository?: NotificationRepository;
+  githubIssueSync?: WorkItemNotificationDependencies["githubIssueSync"];
   workflowStateRepository: WorkflowStateRepository;
   activityRepository: ActivityRepository;
 }
@@ -115,8 +116,13 @@ function workItemNotificationDependencies(
   dependencies: ProjectHandlerDependencies
 ): WorkItemNotificationDependencies {
   return dependencies.notificationRepository
-    ? { notificationRepository: dependencies.notificationRepository }
-    : {};
+    ? {
+        notificationRepository: dependencies.notificationRepository,
+        ...(dependencies.githubIssueSync ? { githubIssueSync: dependencies.githubIssueSync } : {})
+      }
+    : {
+        ...(dependencies.githubIssueSync ? { githubIssueSync: dependencies.githubIssueSync } : {})
+      };
 }
 
 export async function handleListProjects(

@@ -1,5 +1,7 @@
 import type {
   GithubIssueState,
+  GithubIssueSyncOperationStatus,
+  GithubIssueSyncOperationType,
   GithubIssueSyncStatus,
   GithubRepositoryRecord,
   ProjectGithubConnectionRecord,
@@ -69,6 +71,20 @@ export interface GithubIssueImportClient {
     fetchedAt: string;
     issues: GithubIssueWithComments[];
   }>;
+}
+
+export interface GithubIssueUpdateInput {
+  title?: string;
+  body?: string | null;
+  state?: GithubIssueState;
+}
+
+export interface GithubIssueUpdateClient {
+  updateIssue(
+    target: GithubIssueImportTarget,
+    issueNumber: number,
+    input: GithubIssueUpdateInput
+  ): Promise<GithubIssueWithComments>;
 }
 
 export interface ImportGithubIssuesSummary {
@@ -151,6 +167,20 @@ export interface GithubIssueCommentProjectionRecord {
   updatedAt: string;
 }
 
+export interface GithubIssueSyncOperationRecord {
+  id: string;
+  linkId: string;
+  operationKey: string;
+  operationType: GithubIssueSyncOperationType;
+  status: GithubIssueSyncOperationStatus;
+  requestedBy: string;
+  requestedAt: string;
+  completedAt: string | null;
+  githubUpdatedAtBefore: string | null;
+  targetFields: Record<string, unknown>;
+  errorMessage: string | null;
+}
+
 export interface GithubIssueSyncRepository {
   findWorkspaceBySlug(slug: string): Promise<WorkspaceRecord | null>;
   getMembership(workspaceId: string, userId: string): Promise<WorkspaceMemberRecord | null>;
@@ -169,6 +199,13 @@ export interface GithubIssueSyncRepository {
     providerIssueId: string
   ): Promise<GithubIssueProjectionRecord | null>;
   getGithubIssueLinkByIssueId(githubIssueId: string): Promise<GithubIssueLinkRecord | null>;
+  getGithubIssueLinkForWorkItem?(workItemId: string): Promise<{
+    link: GithubIssueLinkRecord;
+    issue: GithubIssueProjectionRecord;
+    repository: Omit<GithubRepositoryRecord, "installationId"> & {
+      installationId?: string | null;
+    };
+  } | null>;
   getWorkItemForGithubIssueLink?(workItemId: string): Promise<WorkItemRecord | null>;
   createWorkItemForGithubIssue(input: {
     projectId: string;
@@ -259,4 +296,24 @@ export interface GithubIssueSyncRepository {
     providerCommentId: string;
     githubDeletedAt: string;
   }): Promise<GithubIssueCommentProjectionRecord | void>;
+  createGithubIssueSyncOperation?(input: {
+    linkId: string;
+    operationKey: string;
+    operationType: "update_issue";
+    status: "pending";
+    requestedBy: string;
+    githubUpdatedAtBefore: string | null;
+    targetFields: Record<string, unknown>;
+  }): Promise<GithubIssueSyncOperationRecord>;
+  completeGithubIssueSyncOperation?(input: { operationId: string }): Promise<void>;
+  failGithubIssueSyncOperation?(input: { operationId: string; errorMessage: string }): Promise<void>;
+  markGithubIssueLinkError?(input: { linkId: string; errorMessage: string }): Promise<void>;
+  updateIssueProjectionFromOutbound?(input: {
+    githubIssueId: string;
+    issue: GithubIssueWithComments;
+  }): Promise<GithubIssueProjectionRecord | void>;
+  updateGithubIssueLinkBaseline?(input: {
+    linkId: string;
+    issue: GithubIssueWithComments;
+  }): Promise<GithubIssueLinkRecord | void>;
 }

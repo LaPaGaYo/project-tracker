@@ -68,6 +68,41 @@ function participantRecipients(assigneeId: string | null, participantIds: string
   ]);
 }
 
+function changedFieldsForIntegration(input: UpdateWorkItemInput, updated: WorkItemRecord) {
+  const changedFields: Record<string, unknown> = {};
+  for (const field of Object.keys(input) as Array<keyof UpdateWorkItemInput>) {
+    if (field === "title") {
+      changedFields.title = updated.title;
+    } else if (field === "description") {
+      changedFields.description = updated.description;
+    } else {
+      changedFields[field] = input[field];
+    }
+  }
+
+  return changedFields;
+}
+
+async function syncGithubIssueFields(
+  dependencies: WorkItemNotificationDependencies,
+  input: {
+    actorId: string;
+    projectId: string;
+    workItemId: string;
+    changedFields: Record<string, unknown>;
+  }
+) {
+  if (!dependencies.githubIssueSync || Object.keys(input.changedFields).length === 0) {
+    return;
+  }
+
+  try {
+    await dependencies.githubIssueSync.syncWorkItemFields(input);
+  } catch {
+    // GitHub writeback failures are persisted by the integration layer and must not block local edits.
+  }
+}
+
 async function emitWorkItemChangeNotifications(
   notificationRepository: NotificationRepository | undefined,
   session: AppSession,
@@ -604,11 +639,12 @@ export async function updateDescriptionForUser(
   workspaceSlug: string,
   projectKey: string,
   identifier: string,
-  input: { content?: unknown }
+  input: { content?: unknown },
+  notificationDependencies: WorkItemNotificationDependencies = {}
 ) {
   return updateWorkItemForUser(repository, session, workspaceSlug, projectKey, identifier, {
     description: normalizeDescriptionContent(input.content)
-  });
+  }, notificationDependencies);
 }
 
 export async function updateWorkItemForUser(
@@ -683,6 +719,13 @@ export async function updateWorkItemForUser(
     current,
     updated
   );
+
+  await syncGithubIssueFields(notificationDependencies, {
+    actorId: session.userId,
+    projectId: project.id,
+    workItemId: updated.id,
+    changedFields: changedFieldsForIntegration(input, updated)
+  });
 
   return updated;
 }

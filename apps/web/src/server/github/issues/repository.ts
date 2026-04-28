@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
+
 import { and, eq } from "drizzle-orm";
 
 import {
   db,
   githubIssueComments,
   githubIssues,
+  githubIssueSyncOperations,
   githubRepositories,
   projectGithubConnections,
   projects,
@@ -26,6 +29,7 @@ import type {
   GithubIssueCommentProjectionRecord,
   GithubIssueLinkRecord,
   GithubIssueProjectionRecord,
+  GithubIssueSyncOperationRecord,
   GithubIssueSyncRepository,
   GithubIssueSyncSettings
 } from "./types";
@@ -45,6 +49,10 @@ const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
 
 function toIso(value: Date | null) {
   return value ? value.toISOString() : null;
+}
+
+function hashBaseline(value: string | null) {
+  return createHash("sha256").update(value ?? "").digest("hex");
 }
 
 function serializeProject(row: typeof projects.$inferSelect): ProjectRecord {
@@ -188,6 +196,24 @@ function serializeGithubIssueComment(row: typeof githubIssueComments.$inferSelec
     lastSyncedAt: toIso(row.lastSyncedAt),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeGithubIssueSyncOperation(
+  row: typeof githubIssueSyncOperations.$inferSelect
+): GithubIssueSyncOperationRecord {
+  return {
+    id: row.id,
+    linkId: row.linkId,
+    operationKey: row.operationKey,
+    operationType: row.operationType,
+    status: row.status,
+    requestedBy: row.requestedBy,
+    requestedAt: row.requestedAt.toISOString(),
+    completedAt: toIso(row.completedAt),
+    githubUpdatedAtBefore: toIso(row.githubUpdatedAtBefore),
+    targetFields: row.targetFields,
+    errorMessage: row.errorMessage
   };
 }
 
@@ -528,6 +554,28 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       return row ? serializeGithubIssueLink(row) : null;
     },
 
+    async getGithubIssueLinkForWorkItem(workItemId) {
+      const [row] = await db
+        .select({
+          link: workItemGithubIssueLinks,
+          issue: githubIssues,
+          repository: githubRepositories
+        })
+        .from(workItemGithubIssueLinks)
+        .innerJoin(githubIssues, eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id))
+        .innerJoin(githubRepositories, eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id))
+        .where(eq(workItemGithubIssueLinks.workItemId, workItemId))
+        .limit(1);
+
+      return row
+        ? {
+            link: serializeGithubIssueLink(row.link),
+            issue: serializeGithubIssue(row.issue),
+            repository: serializeGithubRepository(row.repository)
+          }
+        : null;
+    },
+
     async upsertGithubIssueLink(input) {
       return upsertGithubIssueLinkInTransaction(db, input);
     },
@@ -560,6 +608,96 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       }
 
       return serializeGithubIssueComment(row);
+    },
+
+    async createGithubIssueSyncOperation(input) {
+      const [row] = await db
+        .insert(githubIssueSyncOperations)
+        .values({
+          linkId: input.linkId,
+          operationKey: input.operationKey,
+          operationType: input.operationType,
+          status: input.status,
+          requestedBy: input.requestedBy,
+          githubUpdatedAtBefore: input.githubUpdatedAtBefore ? new Date(input.githubUpdatedAtBefore) : null,
+          targetFields: input.targetFields
+        })
+        .returning();
+
+      if (!row) {
+        throw new Error("Failed to create GitHub issue sync operation.");
+      }
+
+      return serializeGithubIssueSyncOperation(row);
+    },
+
+    async completeGithubIssueSyncOperation(input) {
+      await db
+        .update(githubIssueSyncOperations)
+        .set({
+          status: "succeeded",
+          completedAt: new Date()
+        })
+        .where(eq(githubIssueSyncOperations.id, input.operationId));
+    },
+
+    async failGithubIssueSyncOperation(input) {
+      await db
+        .update(githubIssueSyncOperations)
+        .set({
+          status: "failed",
+          completedAt: new Date(),
+          errorMessage: input.errorMessage
+        })
+        .where(eq(githubIssueSyncOperations.id, input.operationId));
+    },
+
+    async markGithubIssueLinkError(input) {
+      await db
+        .update(workItemGithubIssueLinks)
+        .set({
+          syncStatus: "error",
+          errorMessage: input.errorMessage,
+          updatedAt: new Date()
+        })
+        .where(eq(workItemGithubIssueLinks.id, input.linkId));
+    },
+
+    async updateIssueProjectionFromOutbound(input) {
+      const [row] = await db
+        .update(githubIssues)
+        .set({
+          title: input.issue.title,
+          body: input.issue.body,
+          state: input.issue.state,
+          githubUpdatedAt: new Date(input.issue.githubUpdatedAt),
+          githubClosedAt: input.issue.githubClosedAt ? new Date(input.issue.githubClosedAt) : null,
+          lastSyncedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(githubIssues.id, input.githubIssueId))
+        .returning();
+
+      return row ? serializeGithubIssue(row) : undefined;
+    },
+
+    async updateGithubIssueLinkBaseline(input) {
+      const [row] = await db
+        .update(workItemGithubIssueLinks)
+        .set({
+          syncStatus: "synced",
+          lastSyncedGithubUpdatedAt: new Date(input.issue.githubUpdatedAt),
+          lastSyncedTitleHash: hashBaseline(input.issue.title),
+          lastSyncedBodyHash: hashBaseline(input.issue.body),
+          lastSyncedState: input.issue.state,
+          conflictFields: null,
+          errorMessage: null,
+          updatedAt: new Date()
+        })
+        .where(eq(workItemGithubIssueLinks.id, input.linkId))
+        .returning();
+
+      return row ? serializeGithubIssueLink(row) : undefined;
     }
   };
 }
