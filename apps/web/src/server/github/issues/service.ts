@@ -904,7 +904,7 @@ export async function projectGithubIssueWebhookEvent(
         settings,
         actorId: "github-webhook",
       });
-    } else {
+    } else if (settings.syncEnabled) {
       await createOrFindLinkedWorkItemForIssue(repository, {
         connection,
         projection,
@@ -1035,58 +1035,23 @@ export async function importGithubIssuesForProject(
       const link = await repository.getGithubIssueLinkByIssueId(projection.id);
 
       if (link) {
-        if (shouldSkipLinkedWorkItemUpdate(link)) {
-          if (link.syncStatus === "conflict") {
-            summary.conflicted += 1;
-          }
-          await upsertComments(repository, projection.id, issue.comments);
-          continue;
-        }
-
-        const updateInput: Parameters<
-          GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
-        >[0] = {
+        const result = await applyLinkedWorkItemIssueSync(repository, {
+          link,
           projectId: project.id,
           workspaceId: workspace.id,
-          workItemId: link.workItemId,
+          repositoryId: connection.repository.id,
+          githubIssueId: projection.id,
+          issue,
+          settings,
           actorId: session.userId,
-        };
-        if (settings.syncTitle && link.syncTitle) {
-          updateInput.title = issue.title;
-        }
-        if (settings.syncBody && link.syncBody) {
-          updateInput.description = issue.body ?? "";
-        }
-        if (settings.syncState && link.syncState) {
-          updateInput.status = statusFromGithubState(issue.state);
-          updateInput.completedAt = completedAtFromGithubIssue(issue);
-          const workflowStateId = workflowStateForUpdate(issue, settings);
-          if (workflowStateId !== undefined) {
-            updateInput.workflowStateId = workflowStateId;
-          }
-        }
-
-        if (!hasWorkItemUpdatePatch(updateInput)) {
-          await upsertComments(repository, projection.id, issue.comments);
-          continue;
-        }
-
-        const updateResult =
-          await repository.updateWorkItemFromGithubIssue(updateInput);
-
-        if (updateResult?.changed) {
-          await upsertSyncedLink(repository, {
-            link,
-            workItemId: link.workItemId,
-            repositoryId: connection.repository.id,
-            githubIssueId: projection.id,
-            issue,
-            settings,
-            source: "initial_import",
-            lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt,
-          });
+        });
+        if (result.updated) {
           summary.updated += 1;
-        } else if (!updateResult) {
+        }
+        if (result.conflicted) {
+          summary.conflicted += 1;
+        }
+        if (result.failed) {
           summary.failed += 1;
         }
       } else {

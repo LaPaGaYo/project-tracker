@@ -10,6 +10,11 @@ import {
   type GithubReconcileTarget
 } from "./github-reconcile";
 import type { GithubClient, GithubRepositorySnapshot } from "./github-client";
+import type { GithubIssuesClient, GithubIssueSnapshot } from "./github-issues-client";
+import type {
+  GithubIssuesProjectionWriter,
+  GithubIssuesReconcileTarget
+} from "./github-issues-reconcile";
 
 function createTarget(overrides: Partial<GithubReconcileTarget> = {}): GithubReconcileTarget {
   return {
@@ -78,6 +83,7 @@ class MemoryGithubReconcileRepository implements GithubReconcileRepository {
       connected?: GithubReconcileTarget[];
       failed?: GithubReconcileTarget[];
       linked?: GithubReconcileTarget[];
+      issueSync?: GithubIssuesReconcileTarget[];
     } = {}
   ) {}
 
@@ -91,6 +97,10 @@ class MemoryGithubReconcileRepository implements GithubReconcileRepository {
 
   listRepositoriesWithLinkedWorkItems() {
     return Promise.resolve(this.fixtures.linked ?? []);
+  }
+
+  listConnectedRepositoriesForIssueSync() {
+    return Promise.resolve(this.fixtures.issueSync ?? []);
   }
 
   markFailedDeliveriesProcessed(repositoryId: string, input: { processedAt: string; note: string }) {
@@ -151,6 +161,64 @@ function createSnapshot(label: string) {
   };
 }
 
+function createIssueTarget(overrides: Partial<GithubIssuesReconcileTarget> = {}): GithubIssuesReconcileTarget {
+  return {
+    ...createTarget(),
+    projectId: "project-1",
+    issueSyncEnabled: true,
+    importClosedIssues: false,
+    ...overrides
+  };
+}
+
+function createIssue(overrides: Partial<GithubIssueSnapshot> = {}): GithubIssueSnapshot {
+  return {
+    providerIssueId: "issue-provider-1",
+    number: 101,
+    title: "OPS-101 reconcile GitHub issues",
+    body: "Backfill issue projections.",
+    url: "https://github.com/the-platform/platform-ops/issues/101",
+    state: "open",
+    authorLogin: "octocat",
+    githubCreatedAt: "2026-04-24T11:00:00.000Z",
+    githubUpdatedAt: "2026-04-24T11:30:00.000Z",
+    githubClosedAt: null,
+    comments: [],
+    ...overrides
+  };
+}
+
+class MemoryGithubIssuesClient implements GithubIssuesClient {
+  calls: Array<{ repositoryId: string; includeClosed: boolean | undefined }> = [];
+
+  constructor(private readonly snapshots: Record<string, GithubIssueSnapshot[]>) {}
+
+  getRepositoryIssuesSnapshot(target: GithubIssuesReconcileTarget, options?: { includeClosed?: boolean }) {
+    this.calls.push({
+      repositoryId: target.id,
+      includeClosed: options?.includeClosed
+    });
+
+    return Promise.resolve({
+      fetchedAt: "2026-04-24T12:00:00.000Z",
+      issues: this.snapshots[target.id] ?? []
+    });
+  }
+
+  updateIssue() {
+    return Promise.reject(new Error("not implemented"));
+  }
+}
+
+class MemoryGithubIssuesProjectionWriter implements GithubIssuesProjectionWriter {
+  applied: Array<{ repositoryId: string; projectId: string; issue: GithubIssueSnapshot }> = [];
+
+  applyGithubIssueSnapshot(input: { repositoryId: string; projectId: string; issue: GithubIssueSnapshot }) {
+    this.applied.push(input);
+    return Promise.resolve();
+  }
+}
+
 void test("backfillConnectedGithubRepositories reprojects every connected repository snapshot through the projector", async () => {
   const target = createTarget();
   const repository = new MemoryGithubReconcileRepository({
@@ -177,6 +245,42 @@ void test("backfillConnectedGithubRepositories reprojects every connected reposi
   assert.equal(summary.repositories[0]?.pullRequestsApplied, 1);
   assert.equal(summary.totals.pullRequestsApplied, 1);
   assert.equal(summary.totals.deploymentsApplied, 1);
+});
+
+void test("runGithubReconciliationCycle invokes issue backfill during backfill mode", async () => {
+  const target = createTarget();
+  const issueTarget = createIssueTarget();
+  const repository = new MemoryGithubReconcileRepository({
+    connected: [target],
+    issueSync: [issueTarget]
+  });
+  const projector = new MemoryGithubProjectionWriter();
+  const client = new MemoryGithubClient({
+    [target.id]: createSnapshot("platform-ops")
+  });
+  const issueClient = new MemoryGithubIssuesClient({
+    [issueTarget.id]: [createIssue()]
+  });
+  const issueProjector = new MemoryGithubIssuesProjectionWriter();
+
+  const summary = await runGithubReconciliationCycle({
+    mode: "backfill",
+    repository,
+    projector,
+    client,
+    issues: {
+      repository,
+      client: issueClient,
+      projector: issueProjector
+    },
+    now: () => new Date("2026-04-24T12:00:00.000Z")
+  });
+
+  assert.deepEqual(client.calls, ["the-platform/platform-ops"]);
+  assert.deepEqual(issueClient.calls, [{ repositoryId: "repo-1", includeClosed: false }]);
+  assert.equal(issueProjector.applied.length, 1);
+  assert.equal(summary.totals.pullRequestsApplied, 1);
+  assert.equal(summary.totals.issuesApplied, 1);
 });
 
 void test("replayFailedGithubDeliveries deduplicates repositories and marks failed receipts processed after reconciliation", async () => {
@@ -246,4 +350,65 @@ void test("runGithubReconciliationCycle performs scheduled linked-repository res
   assert.equal(summary.totals.repositoriesReconciled, 2);
   assert.equal(summary.totals.failedDeliveriesResolved, 1);
   assert.equal(summary.totals.pullRequestsApplied, 2);
+});
+
+void test("runGithubReconciliationCycle invokes enabled issue backfill during the default cycle and skips disabled targets", async () => {
+  const replayed = createTarget();
+  const linked = createTarget({
+    id: "repo-2",
+    providerRepositoryId: "repo_provider_2",
+    name: "ops-linked",
+    fullName: "the-platform/ops-linked"
+  });
+  const issueEnabled = createIssueTarget({
+    id: "repo-3",
+    providerRepositoryId: "repo_provider_3",
+    name: "ops-issues",
+    fullName: "the-platform/ops-issues",
+    importClosedIssues: true
+  });
+  const issueDisabled = createIssueTarget({
+    id: "repo-4",
+    providerRepositoryId: "repo_provider_4",
+    name: "ops-disabled",
+    fullName: "the-platform/ops-disabled",
+    issueSyncEnabled: false
+  });
+  const repository = new MemoryGithubReconcileRepository({
+    failed: [replayed],
+    linked: [replayed, linked],
+    issueSync: [issueEnabled, issueDisabled]
+  });
+  const projector = new MemoryGithubProjectionWriter();
+  const client = new MemoryGithubClient({
+    [replayed.id]: createSnapshot("platform-ops"),
+    [linked.id]: createSnapshot("ops-linked")
+  });
+  const issueClient = new MemoryGithubIssuesClient({
+    [issueEnabled.id]: [createIssue({ providerIssueId: "issue-provider-3", number: 103 })],
+    [issueDisabled.id]: [createIssue({ providerIssueId: "issue-provider-4", number: 104 })]
+  });
+  const issueProjector = new MemoryGithubIssuesProjectionWriter();
+
+  const summary = await runGithubReconciliationCycle({
+    mode: "cycle",
+    repository,
+    projector,
+    client,
+    issues: {
+      repository,
+      client: issueClient,
+      projector: issueProjector
+    },
+    now: () => new Date("2026-04-24T13:00:00.000Z")
+  });
+
+  assert.deepEqual(client.calls, ["the-platform/platform-ops", "the-platform/ops-linked"]);
+  assert.deepEqual(issueClient.calls, [{ repositoryId: "repo-3", includeClosed: true }]);
+  assert.deepEqual(
+    issueProjector.applied.map((entry) => entry.repositoryId),
+    ["repo-3"]
+  );
+  assert.equal(summary.totals.repositoriesReconciled, 3);
+  assert.equal(summary.totals.issuesApplied, 1);
 });

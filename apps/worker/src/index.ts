@@ -5,6 +5,10 @@ import { APP_NAME } from "@the-platform/shared";
 import { createGithubConnectionRepository } from "../../web/src/server/github/repository";
 
 import { createGithubClient } from "./github-client";
+import { createGithubIssuesClient } from "./github-issues-client";
+import type {
+  GithubIssuesProjectionWriter
+} from "./github-issues-reconcile";
 import {
   createGithubReconcileRepository,
   runGithubReconciliationCycle,
@@ -62,8 +66,43 @@ function createScopedRepository(
     listConnectedRepositories: () => filter(() => repository.listConnectedRepositories()),
     listRepositoriesWithFailedDeliveries: () => filter(() => repository.listRepositoriesWithFailedDeliveries()),
     listRepositoriesWithLinkedWorkItems: () => filter(() => repository.listRepositoriesWithLinkedWorkItems()),
+    listConnectedRepositoriesForIssueSync: () => filter(() => repository.listConnectedRepositoriesForIssueSync()),
     markFailedDeliveriesProcessed: (repositoryId, input) =>
       repository.markFailedDeliveriesProcessed(repositoryId, input)
+  };
+}
+
+function createGithubIssuesProjectionWriter(
+  repository: ReturnType<typeof createGithubConnectionRepository>
+): GithubIssuesProjectionWriter {
+  return {
+    async applyGithubIssueSnapshot(input) {
+      const projection = await repository.upsertGithubIssue({
+        repositoryId: input.repositoryId,
+        providerIssueId: input.issue.providerIssueId,
+        number: input.issue.number,
+        title: input.issue.title,
+        body: input.issue.body,
+        url: input.issue.url,
+        state: input.issue.state,
+        authorLogin: input.issue.authorLogin,
+        githubCreatedAt: input.issue.githubCreatedAt,
+        githubUpdatedAt: input.issue.githubUpdatedAt,
+        githubClosedAt: input.issue.githubClosedAt
+      });
+
+      for (const comment of input.issue.comments) {
+        await repository.upsertGithubIssueComment({
+          githubIssueId: projection.id,
+          providerCommentId: comment.providerCommentId,
+          body: comment.body,
+          url: comment.url,
+          authorLogin: comment.authorLogin,
+          githubCreatedAt: comment.githubCreatedAt,
+          githubUpdatedAt: comment.githubUpdatedAt
+        });
+      }
+    }
   };
 }
 
@@ -75,7 +114,9 @@ export function formatGithubWorkerSummary(summary: GithubReconcileSummary) {
     `Pull requests applied: ${summary.totals.pullRequestsApplied}`,
     `Check rollups applied: ${summary.totals.checkRollupsApplied}`,
     `Deployments applied: ${summary.totals.deploymentsApplied}`,
-    `Failed deliveries resolved: ${summary.totals.failedDeliveriesResolved}`
+    `Failed deliveries resolved: ${summary.totals.failedDeliveriesResolved}`,
+    `Issues applied: ${summary.totals.issuesApplied}`,
+    `Issue comments applied: ${summary.totals.issueCommentsApplied}`
   ];
 
   const repositories = summary.repositories.map((repository) =>
@@ -131,12 +172,18 @@ export async function runWorkerFromEnvironment() {
   const repository = createScopedRepository(createGithubReconcileRepository(), repositoryScope);
   const projector = createGithubConnectionRepository();
   const client = createGithubClient();
+  const issuesClient = createGithubIssuesClient();
 
   const summary = await runGithubReconciliationCycle({
     mode,
     repository,
     projector,
     client,
+    issues: {
+      repository,
+      projector: createGithubIssuesProjectionWriter(projector),
+      client: issuesClient
+    },
     now: () => new Date()
   });
 

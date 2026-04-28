@@ -300,7 +300,21 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }
 
   getGithubIssueSyncSettings() {
-    return Promise.resolve(null);
+    if (!this.connection) {
+      return Promise.resolve(null);
+    }
+
+    return Promise.resolve({
+      syncEnabled: this.connection.connection.issueSyncEnabled,
+      importClosedIssues: this.connection.connection.issueImportClosed,
+      syncTitle: this.connection.connection.issueSyncTitle,
+      syncBody: this.connection.connection.issueSyncBody,
+      syncState: this.connection.connection.issueSyncState,
+      closedWorkflowStateId:
+        this.connection.connection.issueClosedWorkflowStateId,
+      reopenedWorkflowStateId:
+        this.connection.connection.issueReopenedWorkflowStateId,
+    });
   }
 
   updateGithubIssueSyncSettings(
@@ -596,7 +610,33 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }
 
   getWorkItemForGithubIssueLink() {
-    return Promise.resolve(this.workItemForLink);
+    if (this.workItemForLink || !this.link) {
+      return Promise.resolve(this.workItemForLink);
+    }
+
+    return Promise.resolve({
+      id: this.link.workItemId,
+      projectId: this.state.project.id,
+      workspaceId: this.state.workspace.id,
+      identifier: "WEB-1",
+      title: "Existing title",
+      description: "Existing body",
+      status: "Todo" as const,
+      type: "task" as const,
+      parentId: null,
+      assigneeId: null,
+      priority: "none" as const,
+      labels: null,
+      workflowStateId: "backlog-state-1",
+      stageId: null,
+      planItemId: null,
+      position: 0,
+      blockedReason: null,
+      dueDate: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 }
 
@@ -1286,6 +1326,92 @@ describe("importGithubIssuesForProject", () => {
     });
   });
 
+  it("marks existing linked imports as conflicted instead of overwriting when both sides changed", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-issue-1",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: true,
+      syncTitle: true,
+      syncBody: true,
+      syncState: true,
+      lastSyncedGithubUpdatedAt: "2026-04-28T09:00:00.000Z",
+      lastSyncedWorkItemUpdatedAt: "2026-04-28T09:00:00.000Z",
+      lastSyncedTitleHash:
+        "7d94e2e7acad3b70eb76f83fbf6ce2314194503e524d5bc054df0bad880cd0eb",
+      lastSyncedBodyHash: null,
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    repository.workItemForLink = {
+      id: "work-item-1",
+      projectId: "project-1",
+      workspaceId: "workspace-1",
+      identifier: "WEB-1",
+      title: "Changed locally",
+      description: "GitHub issue body",
+      status: "Todo",
+      type: "task",
+      parentId: null,
+      assigneeId: null,
+      priority: "none",
+      labels: null,
+      workflowStateId: "backlog-state-1",
+      stageId: null,
+      planItemId: null,
+      position: 0,
+      blockedReason: null,
+      dueDate: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: "2026-04-28T10:30:00.000Z",
+    };
+
+    const summary = await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      client([
+        issue({
+          title: "Changed on GitHub",
+          comments: [
+            {
+              providerCommentId: "comment-1",
+              body: "Still imported",
+              url: "https://github.com/acme/web/issues/42#issuecomment-1",
+              authorLogin: "octocat",
+              githubCreatedAt: "2026-04-28T10:05:00.000Z",
+              githubUpdatedAt: "2026-04-28T10:10:00.000Z",
+            },
+          ],
+        }),
+      ])
+    );
+
+    expect(summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      conflicted: 1,
+      failed: 0,
+    });
+    expect(repository.updatedWorkItems).toHaveLength(0);
+    expect(repository.upsertedLinks).toHaveLength(1);
+    expect(repository.upsertedLinks[0]).toMatchObject({
+      workItemId: "work-item-1",
+      syncStatus: "conflict",
+      conflictFields: ["title"],
+    });
+    expect(repository.upsertedComments).toHaveLength(1);
+  });
+
   it("does not count disabled default links as conflicted and still imports comments", async () => {
     const repository = new FakeGithubIssueSyncRepository("admin");
     repository.link = {
@@ -1445,7 +1571,11 @@ describe("importGithubIssuesForProject", () => {
       failed: 0,
     });
     expect(repository.updatedWorkItems).toHaveLength(1);
-    expect(repository.upsertedLinks).toHaveLength(0);
+    expect(repository.upsertedLinks).toHaveLength(1);
+    expect(repository.upsertedLinks[0]).toMatchObject({
+      workItemId: "work-item-1",
+      syncStatus: "synced",
+    });
   });
 
   it("upserts GitHub issue comments without creating local platform comments", async () => {
@@ -1627,6 +1757,7 @@ function githubIssueCommentPayload(overrides: Record<string, unknown> = {}) {
 describe("projectGithubIssueWebhookEvent", () => {
   it("projects issues opened into a linked work item and issue projection", async () => {
     const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.connection!.connection.issueSyncEnabled = true;
 
     const result = await projectGithubIssueWebhookEvent(
       repository,
@@ -1660,6 +1791,23 @@ describe("projectGithubIssueWebhookEvent", () => {
         syncStatus: "synced",
       },
     });
+  });
+
+  it("projects unlinked issue webhooks without creating work items when issue sync is disabled", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+
+    const result = await projectGithubIssueWebhookEvent(
+      repository,
+      repository.connection!.repository,
+      "issues",
+      { action: "opened", issue: githubIssuePayload() },
+      now
+    );
+
+    expect(result).toEqual({ ignored: false });
+    expect(repository.upsertedIssues).toHaveLength(1);
+    expect(repository.createdWorkItemsAndLinks).toHaveLength(0);
+    expect(repository.createdWorkItems).toHaveLength(0);
   });
 
   it("ignores issues payloads that represent pull requests", async () => {
