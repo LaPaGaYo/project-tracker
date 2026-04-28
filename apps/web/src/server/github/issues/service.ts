@@ -236,18 +236,16 @@ async function applyLinkedWorkItemIssueSync(
     return { conflicted: false, updated: false, failed: true };
   }
 
-  if (updateResult.changed) {
-    await upsertSyncedLink(repository, {
-      link: input.link,
-      workItemId: input.link.workItemId,
-      repositoryId: input.repositoryId,
-      githubIssueId: input.githubIssueId,
-      issue: input.issue,
-      settings: input.settings,
-      source: input.link.source,
-      lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
-    });
-  }
+  await upsertSyncedLink(repository, {
+    link: input.link,
+    workItemId: input.link.workItemId,
+    repositoryId: input.repositoryId,
+    githubIssueId: input.githubIssueId,
+    issue: input.issue,
+    settings: input.settings,
+    source: input.link.source,
+    lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
+  });
 
   return { conflicted: false, updated: updateResult.changed, failed: false };
 }

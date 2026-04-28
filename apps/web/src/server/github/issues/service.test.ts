@@ -910,6 +910,80 @@ describe("projectGithubIssueWebhookEvent", () => {
     });
   });
 
+  it("refreshes the linked issue webhook sync baseline when the work item already matches GitHub", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.updateChanged = false;
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-1001",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: true,
+      syncTitle: true,
+      syncBody: true,
+      syncState: true,
+      lastSyncedGithubUpdatedAt: "2026-04-28T09:00:00.000Z",
+      lastSyncedWorkItemUpdatedAt: "2026-04-28T09:00:00.000Z",
+      lastSyncedTitleHash: "stale-title-hash",
+      lastSyncedBodyHash: "stale-body-hash",
+      lastSyncedState: "closed",
+      conflictFields: ["title"],
+      errorMessage: "stale conflict",
+      createdAt: now,
+      updatedAt: now
+    };
+    repository.workItemForLink = {
+      id: "work-item-1",
+      projectId: "project-1",
+      workspaceId: "workspace-1",
+      identifier: "WEB-1",
+      title: "GitHub issue",
+      description: "GitHub issue body",
+      status: "Todo",
+      type: "task",
+      parentId: null,
+      assigneeId: null,
+      priority: "none",
+      labels: null,
+      workflowStateId: "backlog-state-1",
+      stageId: null,
+      planItemId: null,
+      position: 0,
+      blockedReason: null,
+      dueDate: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: "2026-04-28T10:30:00.000Z"
+    };
+
+    const result = await projectGithubIssueWebhookEvent(
+      repository,
+      repository.connection!.repository,
+      "issues",
+      { action: "edited", issue: githubIssuePayload() },
+      now
+    );
+
+    expect(result).toEqual({ ignored: false });
+    expect(repository.updatedWorkItems).toHaveLength(1);
+    expect(repository.upsertedLinks).toHaveLength(1);
+    expect(repository.upsertedLinks[0]).toMatchObject({
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-1001",
+      syncStatus: "synced",
+      lastSyncedGithubUpdatedAt: "2026-04-28T11:00:00.000Z",
+      lastSyncedWorkItemUpdatedAt: now,
+      lastSyncedTitleHash: "7d94e2e7acad3b70eb76f83fbf6ce2314194503e524d5bc054df0bad880cd0eb",
+      lastSyncedBodyHash: "3a370c18db71cdf372040daee6c8e55ddeb6719af5b2c9816d32863b9546ac26",
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null
+    });
+  });
+
   it("upserts external GitHub issue comments on created and edited events", async () => {
     const repository = new FakeGithubIssueSyncRepository("admin");
     repository.link = {
