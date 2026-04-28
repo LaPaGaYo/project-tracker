@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { WorkspaceError } from "@/server/workspaces/core";
 
-import { parseGithubIssueSettingsBody } from "./route";
+import { parseGithubIssueSettingsBody } from "./body";
 
 describe("parseGithubIssueSettingsBody", () => {
   it.each([null, [], "sync", 1, true])(
