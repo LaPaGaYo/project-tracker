@@ -1,12 +1,19 @@
 import { createHash, createSign } from "node:crypto";
 
-import type { GithubIssueState, TaskStatus, WorkflowStateRecord } from "@the-platform/shared";
+import type {
+  GithubIssueState,
+  TaskStatus,
+  WorkflowStateRecord,
+} from "@the-platform/shared";
 
 import { resolveWorkspaceContext } from "../../work-management/utils";
 import { WorkspaceError } from "../../workspaces/core";
 import type { AppSession } from "../../workspaces/types";
 
-import { normalizeGithubIssueCommentPayload, normalizeGithubIssuePayload } from "./parsers";
+import {
+  normalizeGithubIssueCommentPayload,
+  normalizeGithubIssuePayload,
+} from "./parsers";
 import type {
   GithubIssueImportClient,
   GithubIssueImportTarget,
@@ -18,7 +25,8 @@ import type {
   GithubIssueUpdateInput,
   GithubIssueWithComments,
   ImportGithubIssuesSummary,
-  ProjectGithubConnectionWithRepository
+  ProjectGithubConnectionWithRepository,
+  UpdateGithubIssueSyncSettingsInput,
 } from "./types";
 
 const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
@@ -28,11 +36,13 @@ const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
   syncBody: true,
   syncState: true,
   closedWorkflowStateId: null,
-  reopenedWorkflowStateId: null
+  reopenedWorkflowStateId: null,
 };
 
 function hashBaseline(value: string | null) {
-  return createHash("sha256").update(value ?? "").digest("hex");
+  return createHash("sha256")
+    .update(value ?? "")
+    .digest("hex");
 }
 
 function readNonEmpty(value: string | undefined) {
@@ -48,13 +58,19 @@ function base64UrlJson(value: unknown) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
 
-function createGithubAppJwt(input: { appId: string; privateKey: string; now: Date }) {
+function createGithubAppJwt(input: {
+  appId: string;
+  privateKey: string;
+  now: Date;
+}) {
   const issuedAt = Math.floor(input.now.getTime() / 1000) - 60;
   const unsigned = [
     base64UrlJson({ alg: "RS256", typ: "JWT" }),
-    base64UrlJson({ iat: issuedAt, exp: issuedAt + 9 * 60, iss: input.appId })
+    base64UrlJson({ iat: issuedAt, exp: issuedAt + 9 * 60, iss: input.appId }),
   ].join(".");
-  const signature = createSign("RSA-SHA256").update(unsigned).sign(input.privateKey, "base64url");
+  const signature = createSign("RSA-SHA256")
+    .update(unsigned)
+    .sign(input.privateKey, "base64url");
   return `${unsigned}.${signature}`;
 }
 
@@ -65,7 +81,9 @@ function privateKeyFromEnv(env: Record<string, string | undefined>) {
   }
 
   const base64PrivateKey = readNonEmpty(env.GITHUB_APP_PRIVATE_KEY_BASE64);
-  return base64PrivateKey ? Buffer.from(base64PrivateKey, "base64").toString("utf8") : undefined;
+  return base64PrivateKey
+    ? Buffer.from(base64PrivateKey, "base64").toString("utf8")
+    : undefined;
 }
 
 async function mintInstallationToken(input: {
@@ -76,7 +94,11 @@ async function mintInstallationToken(input: {
   fetchImpl: typeof fetch;
   now: Date;
 }) {
-  const jwt = createGithubAppJwt({ appId: input.appId, privateKey: input.privateKey, now: input.now });
+  const jwt = createGithubAppJwt({
+    appId: input.appId,
+    privateKey: input.privateKey,
+    now: input.now,
+  });
   const response = await input.fetchImpl(
     `${input.apiBaseUrl}/app/installations/${encodeURIComponent(input.installationId)}/access_tokens`,
     {
@@ -84,13 +106,15 @@ async function mintInstallationToken(input: {
       headers: {
         accept: "application/vnd.github+json",
         authorization: `Bearer ${jwt}`,
-        "x-github-api-version": "2022-11-28"
-      }
+        "x-github-api-version": "2022-11-28",
+      },
     }
   );
 
   if (!response.ok) {
-    throw new Error(`GitHub App installation token request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `GitHub App installation token request failed: ${response.status} ${response.statusText}`
+    );
   }
 
   const body = (await response.json()) as { token?: string };
@@ -109,34 +133,106 @@ export function createGithubIssuesClient(options?: {
   fetch?: typeof fetch | undefined;
   env?: Record<string, string | undefined> | undefined;
   now?: (() => Date) | undefined;
-}): GithubIssueUpdateClient {
+}): GithubIssueImportClient & GithubIssueUpdateClient {
   const env = options?.env ?? process.env;
   const appId = readNonEmpty(options?.appId) ?? readNonEmpty(env.GITHUB_APP_ID);
   const privateKey =
     readNonEmpty(options?.privateKey)?.replace(/\\n/g, "\n") ??
-    (options?.privateKeyBase64 ? Buffer.from(options.privateKeyBase64, "base64").toString("utf8") : undefined) ??
+    (options?.privateKeyBase64
+      ? Buffer.from(options.privateKeyBase64, "base64").toString("utf8")
+      : undefined) ??
     privateKeyFromEnv(env);
-  const apiBaseUrl = normalizeApiBaseUrl(options?.apiBaseUrl ?? env.GITHUB_API_BASE_URL);
+  const apiBaseUrl = normalizeApiBaseUrl(
+    options?.apiBaseUrl ?? env.GITHUB_API_BASE_URL
+  );
   const fetchImpl = options?.fetch ?? fetch;
   const now = options?.now ?? (() => new Date());
 
+  async function installationToken(target: GithubIssueImportTarget) {
+    if (!target.installationId) {
+      throw new Error("GitHub installation id is required to access issues.");
+    }
+    if (!appId || !privateKey) {
+      throw new Error("GitHub App credentials are required to access issues.");
+    }
+
+    return mintInstallationToken({
+      installationId: target.installationId,
+      apiBaseUrl,
+      appId,
+      privateKey,
+      fetchImpl,
+      now: now(),
+    });
+  }
+
+  async function getJsonArray(url: string, token: string) {
+    const response = await fetchImpl(url, {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "x-github-api-version": "2022-11-28",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub issue request failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  }
+
   return {
-    async updateIssue(target, issueNumber, input) {
-      if (!target.installationId) {
-        throw new Error("GitHub installation id is required to update issues.");
-      }
-      if (!appId || !privateKey) {
-        throw new Error("GitHub App credentials are required to update issues.");
+    async getRepositoryIssuesSnapshot(target, importOptions) {
+      const fetchedAt = now().toISOString();
+      const token = await installationToken(target);
+      const state = importOptions?.includeClosed ? "all" : "open";
+      const payload = await getJsonArray(
+        `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues?state=${state}&per_page=100`,
+        token
+      );
+      const issues = [];
+
+      for (const item of payload) {
+        const issue = normalizeGithubIssuePayload(item, fetchedAt);
+        if (!issue) {
+          continue;
+        }
+
+        const commentsUrl =
+          typeof item === "object" &&
+          item !== null &&
+          "comments_url" in item &&
+          typeof item.comments_url === "string"
+            ? item.comments_url
+            : `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues/${issue.number}/comments?per_page=100`;
+        const commentsPayload = issue.isPullRequest
+          ? []
+          : await getJsonArray(commentsUrl, token);
+        issues.push({
+          ...issue,
+          comments: commentsPayload
+            .map((comment) =>
+              normalizeGithubIssueCommentPayload(comment, fetchedAt)
+            )
+            .filter(
+              (comment): comment is NonNullable<typeof comment> =>
+                comment !== null
+            ),
+        });
       }
 
-      const token = await mintInstallationToken({
-        installationId: target.installationId,
-        apiBaseUrl,
-        appId,
-        privateKey,
-        fetchImpl,
-        now: now()
-      });
+      return {
+        fetchedAt,
+        issues,
+      };
+    },
+
+    async updateIssue(target, issueNumber, input) {
+      const token = await installationToken(target);
       const response = await fetchImpl(
         `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues/${issueNumber}`,
         {
@@ -145,14 +241,16 @@ export function createGithubIssuesClient(options?: {
             accept: "application/vnd.github+json",
             authorization: `Bearer ${token}`,
             "content-type": "application/json",
-            "x-github-api-version": "2022-11-28"
+            "x-github-api-version": "2022-11-28",
           },
-          body: JSON.stringify(input)
+          body: JSON.stringify(input),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`GitHub issue update failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `GitHub issue update failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const payload = await response.json();
@@ -162,7 +260,7 @@ export function createGithubIssuesClient(options?: {
       }
 
       return { ...issue, comments: [] };
-    }
+    },
   };
 }
 
@@ -182,7 +280,10 @@ function firstBacklogState(states: WorkflowStateRecord[]) {
   return states.find((state) => state.category === "backlog")?.id ?? null;
 }
 
-function workflowStateForUpdate(issue: GithubIssueWithComments, settings: GithubIssueSyncSettings) {
+function workflowStateForUpdate(
+  issue: GithubIssueWithComments,
+  settings: GithubIssueSyncSettings
+) {
   if (issue.state === "closed") {
     return settings.closedWorkflowStateId ?? undefined;
   }
@@ -190,7 +291,41 @@ function workflowStateForUpdate(issue: GithubIssueWithComments, settings: Github
   return settings.reopenedWorkflowStateId ?? undefined;
 }
 
-function workItemGithubState(status: TaskStatus): GithubIssueWithComments["state"] {
+function toGithubIssueSyncSettings(
+  input: UpdateGithubIssueSyncSettingsInput
+): GithubIssueSyncSettings {
+  return {
+    syncEnabled: input.issueSyncEnabled,
+    importClosedIssues: input.importClosedIssues,
+    syncTitle: input.syncTitle,
+    syncBody: input.syncBody,
+    syncState: input.syncState,
+    closedWorkflowStateId: input.closedWorkflowStateId,
+    reopenedWorkflowStateId: input.reopenedWorkflowStateId,
+  };
+}
+
+async function assertWorkflowStateBelongsToProject(
+  repository: GithubIssueSyncRepository,
+  projectId: string,
+  stateId: string | null
+) {
+  if (!stateId) {
+    return;
+  }
+
+  const states = await repository.listWorkflowStates(projectId);
+  if (!states.some((state) => state.id === stateId)) {
+    throw new WorkspaceError(
+      400,
+      "workflow state must belong to the selected project."
+    );
+  }
+}
+
+function workItemGithubState(
+  status: TaskStatus
+): GithubIssueWithComments["state"] {
   return status === "Done" ? "closed" : "open";
 }
 
@@ -218,14 +353,19 @@ function outboundGithubState(changedFields: Record<string, unknown>) {
   return undefined;
 }
 
-function buildGithubIssueUpdate(link: GithubIssueLinkRecord, changedFields: Record<string, unknown>): GithubIssueUpdateInput {
+function buildGithubIssueUpdate(
+  link: GithubIssueLinkRecord,
+  changedFields: Record<string, unknown>
+): GithubIssueUpdateInput {
   const update: GithubIssueUpdateInput = {};
 
   if (link.syncTitle && typeof changedFields.title === "string") {
     update.title = changedFields.title;
   }
 
-  const body = Object.hasOwn(changedFields, "body") ? changedFields.body : changedFields.description;
+  const body = Object.hasOwn(changedFields, "body")
+    ? changedFields.body
+    : changedFields.description;
   if (link.syncBody && (typeof body === "string" || body === null)) {
     update.body = body;
   }
@@ -247,18 +387,31 @@ function stableOperationKey(input: {
     .update(
       JSON.stringify({
         linkId: input.linkId,
-        targetFields: Object.fromEntries(Object.entries(input.targetFields).sort(([left], [right]) => left.localeCompare(right))),
-        githubUpdatedAtBefore: input.githubUpdatedAtBefore
+        targetFields: Object.fromEntries(
+          Object.entries(input.targetFields).sort(([left], [right]) =>
+            left.localeCompare(right)
+          )
+        ),
+        githubUpdatedAtBefore: input.githubUpdatedAtBefore,
       })
     )
     .digest("hex");
 }
 
 function shouldSkipLinkedWorkItemUpdate(link: GithubIssueLinkRecord) {
-  return !link.syncEnabled || link.syncStatus === "conflict" || link.syncStatus === "paused" || link.syncStatus === "error";
+  return (
+    !link.syncEnabled ||
+    link.syncStatus === "conflict" ||
+    link.syncStatus === "paused" ||
+    link.syncStatus === "error"
+  );
 }
 
-function hasWorkItemUpdatePatch(input: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0]) {
+function hasWorkItemUpdatePatch(
+  input: Parameters<
+    GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
+  >[0]
+) {
   return (
     input.title !== undefined ||
     input.description !== undefined ||
@@ -281,7 +434,7 @@ async function upsertComments(
       url: comment.url,
       authorLogin: comment.authorLogin,
       githubCreatedAt: comment.githubCreatedAt,
-      githubUpdatedAt: comment.githubUpdatedAt
+      githubUpdatedAt: comment.githubUpdatedAt,
     });
   }
 }
@@ -296,12 +449,17 @@ export async function syncWorkItemGithubOwnedFields(
     changedFields: Record<string, unknown>;
     now?: () => Date;
   }
-): Promise<{ attempted: false } | { attempted: true; succeeded: boolean; pending?: boolean }> {
+): Promise<
+  | { attempted: false }
+  | { attempted: true; succeeded: boolean; pending?: boolean }
+> {
   if (!repository.getGithubIssueLinkForWorkItem) {
     return { attempted: false };
   }
 
-  const linked = await repository.getGithubIssueLinkForWorkItem(input.workItemId);
+  const linked = await repository.getGithubIssueLinkForWorkItem(
+    input.workItemId
+  );
   if (!linked || linked.issue.repositoryId !== linked.repository.id) {
     return { attempted: false };
   }
@@ -332,13 +490,13 @@ export async function syncWorkItemGithubOwnedFields(
     operationKey: stableOperationKey({
       linkId: linked.link.id,
       targetFields: patch,
-      githubUpdatedAtBefore: linked.issue.githubUpdatedAt
+      githubUpdatedAtBefore: linked.issue.githubUpdatedAt,
     }),
     operationType: "update_issue",
     status: "pending",
     requestedBy: input.actorId,
     githubUpdatedAtBefore: linked.issue.githubUpdatedAt,
-    targetFields: { ...patch }
+    targetFields: { ...patch },
   });
 
   if (operation.reused && operation.status === "succeeded") {
@@ -353,25 +511,33 @@ export async function syncWorkItemGithubOwnedFields(
     owner: linked.repository.owner,
     name: linked.repository.name,
     fullName: linked.repository.fullName,
-    installationId: linked.repository.installationId
+    installationId: linked.repository.installationId,
   };
 
   try {
     const issue = await client.updateIssue(target, linked.issue.number, patch);
     await repository.updateIssueProjectionFromOutbound({
       githubIssueId: linked.issue.id,
-      issue
+      issue,
     });
     await repository.updateGithubIssueLinkBaseline({
       linkId: linked.link.id,
-      issue
+      issue,
     });
-    await repository.completeGithubIssueSyncOperation({ operationId: operation.id });
+    await repository.completeGithubIssueSyncOperation({
+      operationId: operation.id,
+    });
     return { attempted: true, succeeded: true };
   } catch (error) {
     const errorMessage = sanitizeGithubError(error);
-    await repository.failGithubIssueSyncOperation({ operationId: operation.id, errorMessage });
-    await repository.markGithubIssueLinkError({ linkId: linked.link.id, errorMessage });
+    await repository.failGithubIssueSyncOperation({
+      operationId: operation.id,
+      errorMessage,
+    });
+    await repository.markGithubIssueLinkError({
+      linkId: linked.link.id,
+      errorMessage,
+    });
     return { attempted: true, succeeded: false };
   }
 }
@@ -405,7 +571,7 @@ async function upsertSyncedLink(
     lastSyncedBodyHash: hashBaseline(input.issue.body),
     lastSyncedState: input.issue.state,
     conflictFields: null,
-    errorMessage: null
+    errorMessage: null,
   });
 }
 
@@ -423,7 +589,11 @@ async function applyLinkedWorkItemIssueSync(
   }
 ) {
   if (shouldSkipLinkedWorkItemUpdate(input.link)) {
-    return { conflicted: input.link.syncStatus === "conflict", updated: false, failed: false };
+    return {
+      conflicted: input.link.syncStatus === "conflict",
+      updated: false,
+      failed: false,
+    };
   }
 
   const workItem = repository.getWorkItemForGithubIssueLink
@@ -485,16 +655,18 @@ async function applyLinkedWorkItemIssueSync(
       lastSyncedBodyHash: input.link.lastSyncedBodyHash,
       lastSyncedState: input.link.lastSyncedState,
       conflictFields,
-      errorMessage: null
+      errorMessage: null,
     });
     return { conflicted: true, updated: false, failed: false };
   }
 
-  const updateInput: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0] = {
+  const updateInput: Parameters<
+    GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
+  >[0] = {
     projectId: input.projectId,
     workspaceId: input.workspaceId,
     workItemId: input.link.workItemId,
-    actorId: input.actorId
+    actorId: input.actorId,
   };
   if (syncTitle) {
     updateInput.title = input.issue.title;
@@ -515,7 +687,8 @@ async function applyLinkedWorkItemIssueSync(
     return { conflicted: false, updated: false, failed: false };
   }
 
-  const updateResult = await repository.updateWorkItemFromGithubIssue(updateInput);
+  const updateResult =
+    await repository.updateWorkItemFromGithubIssue(updateInput);
   if (!updateResult) {
     return { conflicted: false, updated: false, failed: true };
   }
@@ -528,7 +701,7 @@ async function applyLinkedWorkItemIssueSync(
     issue: input.issue,
     settings: input.settings,
     source: input.link.source,
-    lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
+    lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt,
   });
 
   return { conflicted: false, updated: updateResult.changed, failed: false };
@@ -541,7 +714,9 @@ async function createOrFindLinkedWorkItemForIssue(
     projection: GithubIssueProjectionRecord;
     issue: GithubIssueWithComments;
     settings: GithubIssueSyncSettings;
-    workflowStates: Awaited<ReturnType<GithubIssueSyncRepository["listWorkflowStates"]>>;
+    workflowStates: Awaited<
+      ReturnType<GithubIssueSyncRepository["listWorkflowStates"]>
+    >;
     actorId: string;
   }
 ) {
@@ -562,7 +737,7 @@ async function createOrFindLinkedWorkItemForIssue(
       stageId: null,
       planItemId: null,
       position: 0,
-      completedAt: completedAtFromGithubIssue(input.issue)
+      completedAt: completedAtFromGithubIssue(input.issue),
     },
     link: {
       repositoryId: input.connection.repository.id,
@@ -578,9 +753,9 @@ async function createOrFindLinkedWorkItemForIssue(
       lastSyncedBodyHash: hashBaseline(input.issue.body),
       lastSyncedState: input.issue.state,
       conflictFields: null,
-      errorMessage: null
+      errorMessage: null,
     },
-    actorId: input.actorId
+    actorId: input.actorId,
   });
 }
 
@@ -599,7 +774,7 @@ export async function projectGithubIssueWebhookEvent(
   if (issue.isPullRequest && eventName === "issues") {
     return {
       ignored: true,
-      reason: "pull_request_issue"
+      reason: "pull_request_issue",
     };
   }
 
@@ -608,7 +783,9 @@ export async function projectGithubIssueWebhookEvent(
   }
 
   const connection = repository.getProjectGithubConnectionByRepositoryId
-    ? await repository.getProjectGithubConnectionByRepositoryId(githubRepository.id)
+    ? await repository.getProjectGithubConnectionByRepositoryId(
+        githubRepository.id
+      )
     : null;
   if (!connection) {
     return { ignored: true, reason: "repository_not_connected" };
@@ -616,7 +793,9 @@ export async function projectGithubIssueWebhookEvent(
 
   const settings = {
     ...defaultGithubIssueSyncSettings,
-    ...((await repository.getGithubIssueSyncSettings(connection.connection.projectId)) ?? {})
+    ...((await repository.getGithubIssueSyncSettings(
+      connection.connection.projectId
+    )) ?? {}),
   };
   const issueWithComments: GithubIssueWithComments = { ...issue, comments: [] };
   const projection = await repository.upsertGithubIssue({
@@ -630,7 +809,7 @@ export async function projectGithubIssueWebhookEvent(
     authorLogin: issue.authorLogin,
     githubCreatedAt: issue.githubCreatedAt,
     githubUpdatedAt: issue.githubUpdatedAt,
-    githubClosedAt: issue.githubClosedAt
+    githubClosedAt: issue.githubClosedAt,
   });
   const link = await repository.getGithubIssueLinkByIssueId(projection.id);
 
@@ -644,7 +823,7 @@ export async function projectGithubIssueWebhookEvent(
         githubIssueId: projection.id,
         issue: issueWithComments,
         settings,
-        actorId: "github-webhook"
+        actorId: "github-webhook",
       });
     } else {
       await createOrFindLinkedWorkItemForIssue(repository, {
@@ -652,15 +831,20 @@ export async function projectGithubIssueWebhookEvent(
         projection,
         issue: issueWithComments,
         settings,
-        workflowStates: await repository.listWorkflowStates(connection.connection.projectId),
-        actorId: "github-webhook"
+        workflowStates: await repository.listWorkflowStates(
+          connection.connection.projectId
+        ),
+        actorId: "github-webhook",
       });
     }
 
     return { ignored: false };
   }
 
-  const comment = normalizeGithubIssueCommentPayload(payload.comment, receivedAt);
+  const comment = normalizeGithubIssueCommentPayload(
+    payload.comment,
+    receivedAt
+  );
   if (!comment) {
     return { ignored: true, reason: "invalid_comment" };
   }
@@ -672,7 +856,7 @@ export async function projectGithubIssueWebhookEvent(
     await repository.markGithubIssueCommentDeleted({
       githubIssueId: projection.id,
       providerCommentId: comment.providerCommentId,
-      githubDeletedAt: receivedAt
+      githubDeletedAt: receivedAt,
     });
     return { ignored: false };
   }
@@ -688,7 +872,7 @@ export async function projectGithubIssueWebhookEvent(
     url: comment.url,
     authorLogin: comment.authorLogin,
     githubCreatedAt: comment.githubCreatedAt,
-    githubUpdatedAt: comment.githubUpdatedAt
+    githubUpdatedAt: comment.githubUpdatedAt,
   });
 
   return { ignored: false };
@@ -702,7 +886,12 @@ export async function importGithubIssuesForProject(
   client: GithubIssueImportClient,
   options?: { settings?: Partial<GithubIssueSyncSettings> }
 ): Promise<ImportGithubIssuesSummary> {
-  const { workspace } = await resolveWorkspaceContext(repository, session as AppSession, workspaceSlug, "admin");
+  const { workspace } = await resolveWorkspaceContext(
+    repository,
+    session as AppSession,
+    workspaceSlug,
+    "admin"
+  );
   const project = await repository.getProjectByKey(workspace.id, projectKey);
   if (!project) {
     throw new WorkspaceError(404, "project not found.");
@@ -710,14 +899,19 @@ export async function importGithubIssuesForProject(
 
   const connection = await repository.getProjectGithubConnection(project.id);
   if (!connection) {
-    throw new WorkspaceError(409, "project GitHub connection is required before importing issues.");
+    throw new WorkspaceError(
+      409,
+      "project GitHub connection is required before importing issues."
+    );
   }
 
-  const storedSettings = await repository.getGithubIssueSyncSettings(project.id);
+  const storedSettings = await repository.getGithubIssueSyncSettings(
+    project.id
+  );
   const settings = {
     ...defaultGithubIssueSyncSettings,
     ...(storedSettings ?? {}),
-    ...(options?.settings ?? {})
+    ...(options?.settings ?? {}),
   };
   const workflowStates = await repository.listWorkflowStates(project.id);
   const snapshot = await client.getRepositoryIssuesSnapshot(
@@ -725,7 +919,7 @@ export async function importGithubIssuesForProject(
       owner: connection.repository.owner,
       name: connection.repository.name,
       fullName: connection.repository.fullName,
-      installationId: connection.repository.installationId
+      installationId: connection.repository.installationId,
     },
     { includeClosed: settings.importClosedIssues }
   );
@@ -736,7 +930,7 @@ export async function importGithubIssuesForProject(
     updated: 0,
     skippedPullRequests: 0,
     conflicted: 0,
-    failed: 0
+    failed: 0,
   };
 
   for (const issue of issues) {
@@ -757,7 +951,7 @@ export async function importGithubIssuesForProject(
         authorLogin: issue.authorLogin,
         githubCreatedAt: issue.githubCreatedAt,
         githubUpdatedAt: issue.githubUpdatedAt,
-        githubClosedAt: issue.githubClosedAt
+        githubClosedAt: issue.githubClosedAt,
       });
       const link = await repository.getGithubIssueLinkByIssueId(projection.id);
 
@@ -770,11 +964,13 @@ export async function importGithubIssuesForProject(
           continue;
         }
 
-        const updateInput: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0] = {
+        const updateInput: Parameters<
+          GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
+        >[0] = {
           projectId: project.id,
           workspaceId: workspace.id,
           workItemId: link.workItemId,
-          actorId: session.userId
+          actorId: session.userId,
         };
         if (settings.syncTitle && link.syncTitle) {
           updateInput.title = issue.title;
@@ -796,7 +992,8 @@ export async function importGithubIssuesForProject(
           continue;
         }
 
-        const updateResult = await repository.updateWorkItemFromGithubIssue(updateInput);
+        const updateResult =
+          await repository.updateWorkItemFromGithubIssue(updateInput);
 
         if (updateResult?.changed) {
           await upsertSyncedLink(repository, {
@@ -807,7 +1004,7 @@ export async function importGithubIssuesForProject(
             issue,
             settings,
             source: "initial_import",
-            lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
+            lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt,
           });
           summary.updated += 1;
         } else if (!updateResult) {
@@ -827,7 +1024,7 @@ export async function importGithubIssuesForProject(
             stageId: null,
             planItemId: null,
             position: 0,
-            completedAt: completedAtFromGithubIssue(issue)
+            completedAt: completedAtFromGithubIssue(issue),
           },
           link: {
             repositoryId: connection.repository.id,
@@ -843,9 +1040,9 @@ export async function importGithubIssuesForProject(
             lastSyncedBodyHash: hashBaseline(issue.body),
             lastSyncedState: issue.state,
             conflictFields: null,
-            errorMessage: null
+            errorMessage: null,
           },
-          actorId: session.userId
+          actorId: session.userId,
         });
         if (createResult.created) {
           summary.created += 1;
@@ -859,4 +1056,60 @@ export async function importGithubIssuesForProject(
   }
 
   return summary;
+}
+
+export async function updateProjectGithubIssueSyncSettings(
+  repository: GithubIssueSyncRepository,
+  session: { userId: string },
+  workspaceSlug: string,
+  projectKey: string,
+  input: UpdateGithubIssueSyncSettingsInput
+): Promise<GithubIssueSyncSettings> {
+  if (!repository.updateGithubIssueSyncSettings) {
+    throw new WorkspaceError(
+      500,
+      "GitHub issue sync settings updates are not supported."
+    );
+  }
+
+  const { workspace } = await resolveWorkspaceContext(
+    repository,
+    session as AppSession,
+    workspaceSlug,
+    "admin"
+  );
+  const project = await repository.getProjectByKey(workspace.id, projectKey);
+  if (!project) {
+    throw new WorkspaceError(404, "project not found.");
+  }
+
+  const connection = await repository.getProjectGithubConnection(project.id);
+  if (!connection) {
+    throw new WorkspaceError(
+      409,
+      "project GitHub connection is required before updating issue sync settings."
+    );
+  }
+
+  await assertWorkflowStateBelongsToProject(
+    repository,
+    project.id,
+    input.closedWorkflowStateId
+  );
+  await assertWorkflowStateBelongsToProject(
+    repository,
+    project.id,
+    input.reopenedWorkflowStateId
+  );
+
+  const settings = toGithubIssueSyncSettings(input);
+  const updated = await repository.updateGithubIssueSyncSettings(
+    project.id,
+    settings
+  );
+  if (!updated) {
+    throw new WorkspaceError(404, "project GitHub connection not found.");
+  }
+
+  return updated;
 }

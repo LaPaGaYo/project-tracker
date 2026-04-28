@@ -12,14 +12,14 @@ import {
   projects,
   tasks,
   workflowStates,
-  workItemGithubIssueLinks
+  workItemGithubIssueLinks,
 } from "@the-platform/db";
 import type {
   GithubRepositoryRecord,
   ProjectGithubConnectionRecord,
   ProjectRecord,
   WorkflowStateRecord,
-  WorkItemRecord
+  WorkItemRecord,
 } from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../../activity/repository";
@@ -32,7 +32,7 @@ import type {
   GithubIssueSyncView,
   GithubIssueSyncOperationRecord,
   GithubIssueSyncRepository,
-  GithubIssueSyncSettings
+  GithubIssueSyncSettings,
 } from "./types";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -45,7 +45,7 @@ const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
   syncBody: true,
   syncState: true,
   closedWorkflowStateId: null,
-  reopenedWorkflowStateId: null
+  reopenedWorkflowStateId: null,
 };
 
 function toIso(value: Date | null) {
@@ -53,7 +53,9 @@ function toIso(value: Date | null) {
 }
 
 function hashBaseline(value: string | null) {
-  return createHash("sha256").update(value ?? "").digest("hex");
+  return createHash("sha256")
+    .update(value ?? "")
+    .digest("hex");
 }
 
 function serializeProject(row: typeof projects.$inferSelect): ProjectRecord {
@@ -67,11 +69,13 @@ function serializeProject(row: typeof projects.$inferSelect): ProjectRecord {
     stage: row.stage,
     dueDate: toIso(row.dueDate),
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeGithubRepository(row: typeof githubRepositories.$inferSelect): GithubRepositoryRecord {
+function serializeGithubRepository(
+  row: typeof githubRepositories.$inferSelect
+): GithubRepositoryRecord {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
@@ -84,23 +88,34 @@ function serializeGithubRepository(row: typeof githubRepositories.$inferSelect):
     installationId: row.installationId,
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeProjectGithubConnection(row: typeof projectGithubConnections.$inferSelect): ProjectGithubConnectionRecord {
+function serializeProjectGithubConnection(
+  row: typeof projectGithubConnections.$inferSelect
+): ProjectGithubConnectionRecord {
   return {
     id: row.id,
     projectId: row.projectId,
     repositoryId: row.repositoryId,
     stagingEnvironmentName: row.stagingEnvironmentName,
     productionEnvironmentName: row.productionEnvironmentName,
+    issueSyncEnabled: row.issueSyncEnabled,
+    issueImportClosed: row.issueImportClosed,
+    issueSyncTitle: row.issueSyncTitle,
+    issueSyncBody: row.issueSyncBody,
+    issueSyncState: row.issueSyncState,
+    issueClosedWorkflowStateId: row.issueClosedWorkflowStateId,
+    issueReopenedWorkflowStateId: row.issueReopenedWorkflowStateId,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeWorkflowState(row: typeof workflowStates.$inferSelect): WorkflowStateRecord {
+function serializeWorkflowState(
+  row: typeof workflowStates.$inferSelect
+): WorkflowStateRecord {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -109,11 +124,14 @@ function serializeWorkflowState(row: typeof workflowStates.$inferSelect): Workfl
     position: row.position,
     color: row.color,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string): WorkItemRecord {
+function serializeWorkItem(
+  row: typeof tasks.$inferSelect,
+  workspaceId: string
+): WorkItemRecord {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -135,11 +153,13 @@ function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string):
     dueDate: toIso(row.dueDate),
     completedAt: toIso(row.completedAt),
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeGithubIssue(row: typeof githubIssues.$inferSelect): GithubIssueProjectionRecord {
+function serializeGithubIssue(
+  row: typeof githubIssues.$inferSelect
+): GithubIssueProjectionRecord {
   return {
     id: row.id,
     repositoryId: row.repositoryId,
@@ -155,11 +175,13 @@ function serializeGithubIssue(row: typeof githubIssues.$inferSelect): GithubIssu
     githubClosedAt: toIso(row.githubClosedAt),
     lastSyncedAt: toIso(row.lastSyncedAt),
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeGithubIssueLink(row: typeof workItemGithubIssueLinks.$inferSelect): GithubIssueLinkRecord {
+function serializeGithubIssueLink(
+  row: typeof workItemGithubIssueLinks.$inferSelect
+): GithubIssueLinkRecord {
   return {
     id: row.id,
     workItemId: row.workItemId,
@@ -179,11 +201,13 @@ function serializeGithubIssueLink(row: typeof workItemGithubIssueLinks.$inferSel
     conflictFields: row.conflictFields,
     errorMessage: row.errorMessage,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeGithubIssueComment(row: typeof githubIssueComments.$inferSelect): GithubIssueCommentProjectionRecord {
+function serializeGithubIssueComment(
+  row: typeof githubIssueComments.$inferSelect
+): GithubIssueCommentProjectionRecord {
   return {
     id: row.id,
     githubIssueId: row.githubIssueId,
@@ -196,11 +220,13 @@ function serializeGithubIssueComment(row: typeof githubIssueComments.$inferSelec
     githubDeletedAt: toIso(row.githubDeletedAt),
     lastSyncedAt: toIso(row.lastSyncedAt),
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function serializeGithubIssueTimelineComment(row: typeof githubIssueComments.$inferSelect) {
+function serializeGithubIssueTimelineComment(
+  row: typeof githubIssueComments.$inferSelect
+) {
   return {
     id: row.id,
     providerCommentId: row.providerCommentId,
@@ -208,7 +234,7 @@ function serializeGithubIssueTimelineComment(row: typeof githubIssueComments.$in
     url: row.url,
     authorLogin: row.authorLogin,
     githubCreatedAt: row.githubCreatedAt.toISOString(),
-    githubUpdatedAt: row.githubUpdatedAt.toISOString()
+    githubUpdatedAt: row.githubUpdatedAt.toISOString(),
   };
 }
 
@@ -224,7 +250,7 @@ function serializeGithubIssueSyncView(row: {
     repositoryFullName: row.repository.fullName,
     conflictFields: row.link.conflictFields ?? [],
     errorMessage: row.link.errorMessage,
-    syncEnabled: row.link.syncEnabled
+    syncEnabled: row.link.syncEnabled,
   };
 }
 
@@ -242,15 +268,22 @@ function serializeGithubIssueSyncOperation(
     completedAt: toIso(row.completedAt),
     githubUpdatedAtBefore: toIso(row.githubUpdatedAtBefore),
     targetFields: row.targetFields,
-    errorMessage: row.errorMessage
+    errorMessage: row.errorMessage,
   };
 }
 
 async function createWorkItemForGithubIssueInTransaction(
   tx: Transaction,
-  input: Parameters<GithubIssueSyncRepository["createWorkItemForGithubIssue"]>[0]
+  input: Parameters<
+    GithubIssueSyncRepository["createWorkItemForGithubIssue"]
+  >[0]
 ) {
-  const [project] = await tx.select().from(projects).where(eq(projects.id, input.projectId)).limit(1).for("update");
+  const [project] = await tx
+    .select()
+    .from(projects)
+    .where(eq(projects.id, input.projectId))
+    .limit(1)
+    .for("update");
   if (!project) {
     throw new Error("Project not found.");
   }
@@ -277,7 +310,7 @@ async function createWorkItemForGithubIssueInTransaction(
       blockedReason: null,
       dueDate: null,
       completedAt: input.completedAt ? new Date(input.completedAt) : null,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     })
     .returning();
 
@@ -289,7 +322,7 @@ async function createWorkItemForGithubIssueInTransaction(
     .update(projects)
     .set({
       itemCounter: nextCounter,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     })
     .where(eq(projects.id, input.projectId));
 
@@ -303,8 +336,8 @@ async function createWorkItemForGithubIssueInTransaction(
       projectId: input.projectId,
       identifier,
       title: item.title,
-      source: "github_issue_import"
-    }
+      source: "github_issue_import",
+    },
   });
 
   return serializeWorkItem(item, project.workspaceId);
@@ -324,21 +357,25 @@ async function upsertGithubIssueLinkInTransaction(
     syncTitle: input.syncTitle,
     syncBody: input.syncBody,
     syncState: input.syncState,
-    lastSyncedGithubUpdatedAt: input.lastSyncedGithubUpdatedAt ? new Date(input.lastSyncedGithubUpdatedAt) : null,
-    lastSyncedWorkItemUpdatedAt: input.lastSyncedWorkItemUpdatedAt ? new Date(input.lastSyncedWorkItemUpdatedAt) : null,
+    lastSyncedGithubUpdatedAt: input.lastSyncedGithubUpdatedAt
+      ? new Date(input.lastSyncedGithubUpdatedAt)
+      : null,
+    lastSyncedWorkItemUpdatedAt: input.lastSyncedWorkItemUpdatedAt
+      ? new Date(input.lastSyncedWorkItemUpdatedAt)
+      : null,
     lastSyncedTitleHash: input.lastSyncedTitleHash,
     lastSyncedBodyHash: input.lastSyncedBodyHash,
     lastSyncedState: input.lastSyncedState,
     conflictFields: input.conflictFields,
     errorMessage: input.errorMessage,
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
   const [row] = await database
     .insert(workItemGithubIssueLinks)
     .values(values)
     .onConflictDoUpdate({
       target: workItemGithubIssueLinks.githubIssueId,
-      set: values
+      set: values,
     })
     .returning();
 
@@ -359,7 +396,12 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       const [project] = await db
         .select()
         .from(projects)
-        .where(and(eq(projects.workspaceId, workspaceId), eq(projects.key, projectKey)))
+        .where(
+          and(
+            eq(projects.workspaceId, workspaceId),
+            eq(projects.key, projectKey)
+          )
+        )
         .limit(1);
 
       return project ? serializeProject(project) : null;
@@ -369,23 +411,71 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       const [row] = await db
         .select({
           connection: projectGithubConnections,
-          repository: githubRepositories
+          repository: githubRepositories,
         })
         .from(projectGithubConnections)
-        .innerJoin(githubRepositories, eq(projectGithubConnections.repositoryId, githubRepositories.id))
+        .innerJoin(
+          githubRepositories,
+          eq(projectGithubConnections.repositoryId, githubRepositories.id)
+        )
         .where(eq(projectGithubConnections.projectId, projectId))
         .limit(1);
 
       return row
         ? {
             connection: serializeProjectGithubConnection(row.connection),
-            repository: serializeGithubRepository(row.repository)
+            repository: serializeGithubRepository(row.repository),
           }
         : null;
     },
 
-    async getGithubIssueSyncSettings() {
-      return defaultGithubIssueSyncSettings;
+    async getGithubIssueSyncSettings(projectId) {
+      const [connection] = await db
+        .select()
+        .from(projectGithubConnections)
+        .where(eq(projectGithubConnections.projectId, projectId))
+        .limit(1);
+
+      return connection
+        ? {
+            syncEnabled: connection.issueSyncEnabled,
+            importClosedIssues: connection.issueImportClosed,
+            syncTitle: connection.issueSyncTitle,
+            syncBody: connection.issueSyncBody,
+            syncState: connection.issueSyncState,
+            closedWorkflowStateId: connection.issueClosedWorkflowStateId,
+            reopenedWorkflowStateId: connection.issueReopenedWorkflowStateId,
+          }
+        : defaultGithubIssueSyncSettings;
+    },
+
+    async updateGithubIssueSyncSettings(projectId, settings) {
+      const [connection] = await db
+        .update(projectGithubConnections)
+        .set({
+          issueSyncEnabled: settings.syncEnabled,
+          issueImportClosed: settings.importClosedIssues,
+          issueSyncTitle: settings.syncTitle,
+          issueSyncBody: settings.syncBody,
+          issueSyncState: settings.syncState,
+          issueClosedWorkflowStateId: settings.closedWorkflowStateId,
+          issueReopenedWorkflowStateId: settings.reopenedWorkflowStateId,
+          updatedAt: new Date(),
+        })
+        .where(eq(projectGithubConnections.projectId, projectId))
+        .returning();
+
+      return connection
+        ? {
+            syncEnabled: connection.issueSyncEnabled,
+            importClosedIssues: connection.issueImportClosed,
+            syncTitle: connection.issueSyncTitle,
+            syncBody: connection.issueSyncBody,
+            syncState: connection.issueSyncState,
+            closedWorkflowStateId: connection.issueClosedWorkflowStateId,
+            reopenedWorkflowStateId: connection.issueReopenedWorkflowStateId,
+          }
+        : null;
     },
 
     async listWorkflowStates(projectId) {
@@ -399,7 +489,9 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
     },
 
     async createWorkItemForGithubIssue(input) {
-      return db.transaction((tx) => createWorkItemForGithubIssueInTransaction(tx, input));
+      return db.transaction((tx) =>
+        createWorkItemForGithubIssueInTransaction(tx, input)
+      );
     },
 
     async createWorkItemAndLinkGithubIssue(input) {
@@ -419,19 +511,21 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           .select({
             link: workItemGithubIssueLinks,
             task: tasks,
-            workspaceId: projects.workspaceId
+            workspaceId: projects.workspaceId,
           })
           .from(workItemGithubIssueLinks)
           .innerJoin(tasks, eq(workItemGithubIssueLinks.workItemId, tasks.id))
           .innerJoin(projects, eq(tasks.projectId, projects.id))
-          .where(eq(workItemGithubIssueLinks.githubIssueId, input.link.githubIssueId))
+          .where(
+            eq(workItemGithubIssueLinks.githubIssueId, input.link.githubIssueId)
+          )
           .limit(1);
 
         if (existing) {
           return {
             workItem: serializeWorkItem(existing.task, existing.workspaceId),
             link: serializeGithubIssueLink(existing.link),
-            created: false
+            created: false,
           };
         }
 
@@ -448,7 +542,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           planItemId: input.workItem.planItemId,
           position: input.workItem.position,
           completedAt: input.workItem.completedAt,
-          actorId: input.actorId
+          actorId: input.actorId,
         });
         const link = await upsertGithubIssueLinkInTransaction(tx, {
           workItemId: workItem.id,
@@ -466,7 +560,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           lastSyncedBodyHash: input.link.lastSyncedBodyHash,
           lastSyncedState: input.link.lastSyncedState,
           conflictFields: input.link.conflictFields,
-          errorMessage: input.link.errorMessage
+          errorMessage: input.link.errorMessage,
         });
 
         return { workItem, link, created: true };
@@ -477,11 +571,16 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       const [currentRow] = await db
         .select({
           task: tasks,
-          workspaceId: projects.workspaceId
+          workspaceId: projects.workspaceId,
         })
         .from(tasks)
         .innerJoin(projects, eq(tasks.projectId, projects.id))
-        .where(and(eq(tasks.projectId, input.projectId), eq(tasks.id, input.workItemId)))
+        .where(
+          and(
+            eq(tasks.projectId, input.projectId),
+            eq(tasks.id, input.workItemId)
+          )
+        )
         .limit(1);
 
       if (!currentRow) {
@@ -489,23 +588,37 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
       }
 
       const current = currentRow.task;
-      const completedAt = input.completedAt !== undefined ? (input.completedAt ? new Date(input.completedAt) : null) : undefined;
+      const completedAt =
+        input.completedAt !== undefined
+          ? input.completedAt
+            ? new Date(input.completedAt)
+            : null
+          : undefined;
       const updates = {
-        ...(input.title !== undefined && input.title !== current.title ? { title: input.title } : {}),
-        ...(input.description !== undefined && input.description !== current.description
+        ...(input.title !== undefined && input.title !== current.title
+          ? { title: input.title }
+          : {}),
+        ...(input.description !== undefined &&
+        input.description !== current.description
           ? { description: input.description }
           : {}),
-        ...(input.status !== undefined && input.status !== current.status ? { status: input.status } : {}),
-        ...(input.workflowStateId !== undefined && input.workflowStateId !== current.workflowStateId
+        ...(input.status !== undefined && input.status !== current.status
+          ? { status: input.status }
+          : {}),
+        ...(input.workflowStateId !== undefined &&
+        input.workflowStateId !== current.workflowStateId
           ? { workflowStateId: input.workflowStateId }
           : {}),
-        ...(completedAt !== undefined && toIso(completedAt) !== toIso(current.completedAt) ? { completedAt } : {})
+        ...(completedAt !== undefined &&
+        toIso(completedAt) !== toIso(current.completedAt)
+          ? { completedAt }
+          : {}),
       };
 
       if (Object.keys(updates).length === 0) {
         return {
           workItem: serializeWorkItem(current, currentRow.workspaceId),
-          changed: false
+          changed: false,
         };
       }
 
@@ -513,7 +626,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .update(tasks)
         .set({
           ...updates,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(tasks.id, input.workItemId))
         .returning();
@@ -530,13 +643,13 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         actorId: input.actorId,
         metadata: {
           projectId: input.projectId,
-          source: "github_issue_import"
-        }
+          source: "github_issue_import",
+        },
       });
 
       return {
         workItem: serializeWorkItem(updated, currentRow.workspaceId),
-        changed: true
+        changed: true,
       };
     },
 
@@ -553,16 +666,18 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         authorLogin: input.authorLogin,
         githubCreatedAt: new Date(input.githubCreatedAt),
         githubUpdatedAt: new Date(input.githubUpdatedAt),
-        githubClosedAt: input.githubClosedAt ? new Date(input.githubClosedAt) : null,
+        githubClosedAt: input.githubClosedAt
+          ? new Date(input.githubClosedAt)
+          : null,
         lastSyncedAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
       const [row] = await db
         .insert(githubIssues)
         .values(values)
         .onConflictDoUpdate({
           target: [githubIssues.repositoryId, githubIssues.providerIssueId],
-          set: values
+          set: values,
         })
         .returning();
 
@@ -588,11 +703,17 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .select({
           link: workItemGithubIssueLinks,
           issue: githubIssues,
-          repository: githubRepositories
+          repository: githubRepositories,
         })
         .from(workItemGithubIssueLinks)
-        .innerJoin(githubIssues, eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id))
-        .innerJoin(githubRepositories, eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id))
+        .innerJoin(
+          githubIssues,
+          eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id)
+        )
+        .innerJoin(
+          githubRepositories,
+          eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id)
+        )
         .where(eq(workItemGithubIssueLinks.workItemId, workItemId))
         .limit(1);
 
@@ -600,7 +721,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         ? {
             link: serializeGithubIssueLink(row.link),
             issue: serializeGithubIssue(row.issue),
-            repository: serializeGithubRepository(row.repository)
+            repository: serializeGithubRepository(row.repository),
           }
         : null;
     },
@@ -608,14 +729,27 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
     async listGithubIssueCommentsForWorkItem(workItemId) {
       const rows = await db
         .select({
-          comment: githubIssueComments
+          comment: githubIssueComments,
         })
         .from(workItemGithubIssueLinks)
-        .innerJoin(githubIssueComments, eq(workItemGithubIssueLinks.githubIssueId, githubIssueComments.githubIssueId))
-        .where(and(eq(workItemGithubIssueLinks.workItemId, workItemId), isNull(githubIssueComments.githubDeletedAt)))
+        .innerJoin(
+          githubIssueComments,
+          eq(
+            workItemGithubIssueLinks.githubIssueId,
+            githubIssueComments.githubIssueId
+          )
+        )
+        .where(
+          and(
+            eq(workItemGithubIssueLinks.workItemId, workItemId),
+            isNull(githubIssueComments.githubDeletedAt)
+          )
+        )
         .orderBy(githubIssueComments.githubCreatedAt);
 
-      return rows.map((row) => serializeGithubIssueTimelineComment(row.comment));
+      return rows.map((row) =>
+        serializeGithubIssueTimelineComment(row.comment)
+      );
     },
 
     async getGithubIssueSyncViewForWorkItem(workItemId) {
@@ -623,11 +757,17 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .select({
           link: workItemGithubIssueLinks,
           issue: githubIssues,
-          repository: githubRepositories
+          repository: githubRepositories,
         })
         .from(workItemGithubIssueLinks)
-        .innerJoin(githubIssues, eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id))
-        .innerJoin(githubRepositories, eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id))
+        .innerJoin(
+          githubIssues,
+          eq(workItemGithubIssueLinks.githubIssueId, githubIssues.id)
+        )
+        .innerJoin(
+          githubRepositories,
+          eq(workItemGithubIssueLinks.repositoryId, githubRepositories.id)
+        )
         .where(eq(workItemGithubIssueLinks.workItemId, workItemId))
         .limit(1);
 
@@ -650,14 +790,17 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         githubUpdatedAt: new Date(input.githubUpdatedAt),
         githubDeletedAt: null,
         lastSyncedAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
       const [row] = await db
         .insert(githubIssueComments)
         .values(values)
         .onConflictDoUpdate({
-          target: [githubIssueComments.githubIssueId, githubIssueComments.providerCommentId],
-          set: values
+          target: [
+            githubIssueComments.githubIssueId,
+            githubIssueComments.providerCommentId,
+          ],
+          set: values,
         })
         .returning();
 
@@ -677,18 +820,20 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           operationType: input.operationType,
           status: input.status,
           requestedBy: input.requestedBy,
-          githubUpdatedAtBefore: input.githubUpdatedAtBefore ? new Date(input.githubUpdatedAtBefore) : null,
-          targetFields: input.targetFields
+          githubUpdatedAtBefore: input.githubUpdatedAtBefore
+            ? new Date(input.githubUpdatedAtBefore)
+            : null,
+          targetFields: input.targetFields,
         })
         .onConflictDoNothing({
-          target: githubIssueSyncOperations.operationKey
+          target: githubIssueSyncOperations.operationKey,
         })
         .returning();
 
       if (row) {
         return {
           ...serializeGithubIssueSyncOperation(row),
-          reused: false
+          reused: false,
         };
       }
 
@@ -704,7 +849,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
 
       return {
         ...serializeGithubIssueSyncOperation(existing),
-        reused: true
+        reused: true,
       };
     },
 
@@ -713,7 +858,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .update(githubIssueSyncOperations)
         .set({
           status: "succeeded",
-          completedAt: new Date()
+          completedAt: new Date(),
         })
         .where(eq(githubIssueSyncOperations.id, input.operationId));
     },
@@ -724,7 +869,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .set({
           status: "failed",
           completedAt: new Date(),
-          errorMessage: input.errorMessage
+          errorMessage: input.errorMessage,
         })
         .where(eq(githubIssueSyncOperations.id, input.operationId));
     },
@@ -735,7 +880,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
         .set({
           syncStatus: "error",
           errorMessage: input.errorMessage,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(workItemGithubIssueLinks.id, input.linkId));
     },
@@ -748,9 +893,11 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           body: input.issue.body,
           state: input.issue.state,
           githubUpdatedAt: new Date(input.issue.githubUpdatedAt),
-          githubClosedAt: input.issue.githubClosedAt ? new Date(input.issue.githubClosedAt) : null,
+          githubClosedAt: input.issue.githubClosedAt
+            ? new Date(input.issue.githubClosedAt)
+            : null,
           lastSyncedAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(githubIssues.id, input.githubIssueId))
         .returning();
@@ -769,12 +916,12 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
           lastSyncedState: input.issue.state,
           conflictFields: null,
           errorMessage: null,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(workItemGithubIssueLinks.id, input.linkId))
         .returning();
 
       return row ? serializeGithubIssueLink(row) : undefined;
-    }
+    },
   };
 }

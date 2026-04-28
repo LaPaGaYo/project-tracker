@@ -4,9 +4,15 @@ import type {
   GithubIssueImportClient,
   GithubIssueLinkRecord,
   GithubIssueProjectionRecord,
-  GithubIssueSyncRepository
+  GithubIssueSyncSettings,
+  GithubIssueSyncRepository,
 } from "./types";
-import { importGithubIssuesForProject, projectGithubIssueWebhookEvent, syncWorkItemGithubOwnedFields } from "./service";
+import {
+  importGithubIssuesForProject,
+  projectGithubIssueWebhookEvent,
+  syncWorkItemGithubOwnedFields,
+  updateProjectGithubIssueSyncSettings,
+} from "./service";
 import { WorkspaceError } from "../../workspaces/core";
 import { syncGithubWebhookRequest } from "../webhooks";
 
@@ -19,14 +25,14 @@ function workspace(role: "owner" | "admin" | "member" | "viewer" = "admin") {
       name: "Acme",
       slug: "acme",
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     },
     membership: {
       workspaceId: "workspace-1",
       userId: "user-1",
       role,
       invitedAt: now,
-      joinedAt: now
+      joinedAt: now,
     },
     project: {
       id: "project-1",
@@ -38,12 +44,14 @@ function workspace(role: "owner" | "admin" | "member" | "viewer" = "admin") {
       stage: "Active" as const,
       dueDate: null,
       createdAt: now,
-      updatedAt: now
-    }
+      updatedAt: now,
+    },
   };
 }
 
-function issue(overrides: Partial<GithubIssueImportClientIssue> = {}): GithubIssueImportClientIssue {
+function issue(
+  overrides: Partial<GithubIssueImportClientIssue> = {}
+): GithubIssueImportClientIssue {
   return {
     providerIssueId: "issue-1",
     number: 42,
@@ -57,7 +65,7 @@ function issue(overrides: Partial<GithubIssueImportClientIssue> = {}): GithubIss
     githubClosedAt: null,
     isPullRequest: false,
     comments: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -66,15 +74,27 @@ type GithubIssueImportClientIssue = Awaited<
 >["issues"][number];
 
 class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
-  readonly createdWorkItems: Parameters<GithubIssueSyncRepository["createWorkItemForGithubIssue"]>[0][] = [];
+  readonly createdWorkItems: Parameters<
+    GithubIssueSyncRepository["createWorkItemForGithubIssue"]
+  >[0][] = [];
   readonly createdWorkItemsAndLinks: Parameters<
     GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]
   >[0][] = [];
-  readonly updatedWorkItems: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0][] = [];
-  readonly upsertedIssues: Parameters<GithubIssueSyncRepository["upsertGithubIssue"]>[0][] = [];
-  readonly upsertedLinks: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0][] = [];
-  readonly upsertedComments: Parameters<GithubIssueSyncRepository["upsertGithubIssueComment"]>[0][] = [];
-  readonly deletedComments: Parameters<NonNullable<GithubIssueSyncRepository["markGithubIssueCommentDeleted"]>>[0][] = [];
+  readonly updatedWorkItems: Parameters<
+    GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
+  >[0][] = [];
+  readonly upsertedIssues: Parameters<
+    GithubIssueSyncRepository["upsertGithubIssue"]
+  >[0][] = [];
+  readonly upsertedLinks: Parameters<
+    GithubIssueSyncRepository["upsertGithubIssueLink"]
+  >[0][] = [];
+  readonly upsertedComments: Parameters<
+    GithubIssueSyncRepository["upsertGithubIssueComment"]
+  >[0][] = [];
+  readonly deletedComments: Parameters<
+    NonNullable<GithubIssueSyncRepository["markGithubIssueCommentDeleted"]>
+  >[0][] = [];
   readonly localPlatformComments: unknown[] = [];
   readonly createdOperations: unknown[] = [];
   readonly completedOperations: unknown[] = [];
@@ -82,6 +102,10 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   readonly linkErrors: unknown[] = [];
   readonly outboundProjectionUpdates: unknown[] = [];
   readonly baselineUpdates: unknown[] = [];
+  readonly settingsUpdates: {
+    projectId: string;
+    settings: GithubIssueSyncSettings;
+  }[] = [];
   issueProjection: GithubIssueProjectionRecord | null = null;
   createAndLinkCreated = true;
   updateChanged = true;
@@ -89,15 +113,24 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   existingOperationRequestedBy: string | null = null;
 
   private readonly state = workspace();
-  connection: Awaited<ReturnType<GithubIssueSyncRepository["getProjectGithubConnection"]>> = {
+  connection: Awaited<
+    ReturnType<GithubIssueSyncRepository["getProjectGithubConnection"]>
+  > = {
     connection: {
       id: "connection-1",
       projectId: "project-1",
       repositoryId: "repository-1",
       stagingEnvironmentName: null,
       productionEnvironmentName: null,
+      issueSyncEnabled: false,
+      issueImportClosed: false,
+      issueSyncTitle: true,
+      issueSyncBody: true,
+      issueSyncState: true,
+      issueClosedWorkflowStateId: null,
+      issueReopenedWorkflowStateId: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     },
     repository: {
       id: "repository-1",
@@ -111,11 +144,13 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       installationId: "installation-1",
       isActive: true,
       createdAt: now,
-      updatedAt: now
-    }
+      updatedAt: now,
+    },
   };
   link: GithubIssueLinkRecord | null = null;
-  workflowStates: Awaited<ReturnType<GithubIssueSyncRepository["listWorkflowStates"]>> = [
+  workflowStates: Awaited<
+    ReturnType<GithubIssueSyncRepository["listWorkflowStates"]>
+  > = [
     {
       id: "backlog-state-1",
       projectId: "project-1",
@@ -124,10 +159,14 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       position: 0,
       color: null,
       createdAt: now,
-      updatedAt: now
-    }
+      updatedAt: now,
+    },
   ];
-  workItemForLink: Awaited<ReturnType<NonNullable<GithubIssueSyncRepository["getWorkItemForGithubIssueLink"]>>> = null;
+  workItemForLink: Awaited<
+    ReturnType<
+      NonNullable<GithubIssueSyncRepository["getWorkItemForGithubIssueLink"]>
+    >
+  > = null;
 
   constructor(role: "owner" | "admin" | "member" | "viewer" = "admin") {
     this.state = workspace(role);
@@ -138,11 +177,16 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }
 
   async getMembership(workspaceId: string, userId: string) {
-    return workspaceId === this.state.workspace.id && userId === "user-1" ? this.state.membership : null;
+    return workspaceId === this.state.workspace.id && userId === "user-1"
+      ? this.state.membership
+      : null;
   }
 
   async getProjectByKey(workspaceId: string, projectKey: string) {
-    return workspaceId === this.state.workspace.id && projectKey === this.state.project.key ? this.state.project : null;
+    return workspaceId === this.state.workspace.id &&
+      projectKey === this.state.project.key
+      ? this.state.project
+      : null;
   }
 
   async getProjectGithubConnection(projectId: string) {
@@ -150,17 +194,24 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }
 
   async getProjectGithubConnectionByRepositoryId(repositoryId: string) {
-    return repositoryId === this.connection?.repository.id ? this.connection : null;
+    return repositoryId === this.connection?.repository.id
+      ? this.connection
+      : null;
   }
 
-  async findGithubRepositoryByProviderRepositoryId(providerRepositoryId: string) {
-    if (providerRepositoryId !== this.connection?.repository.providerRepositoryId) {
+  async findGithubRepositoryByProviderRepositoryId(
+    providerRepositoryId: string
+  ) {
+    if (
+      providerRepositoryId !== this.connection?.repository.providerRepositoryId
+    ) {
       return null;
     }
 
     return {
       ...this.connection.repository,
-      installationId: this.connection.repository.installationId ?? "installation-1"
+      installationId:
+        this.connection.repository.installationId ?? "installation-1",
     };
   }
 
@@ -171,7 +222,14 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   async createGithubWebhookDelivery(input: {
     repositoryId: string | null;
     deliveryId: string;
-    eventName: "pull_request" | "check_run" | "check_suite" | "deployment" | "deployment_status" | "issues" | "issue_comment";
+    eventName:
+      | "pull_request"
+      | "check_run"
+      | "check_suite"
+      | "deployment"
+      | "deployment_status"
+      | "issues"
+      | "issue_comment";
     status: "pending" | "processed" | "failed";
     receivedAt: string;
     processedAt: string | null;
@@ -179,7 +237,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }) {
     return {
       id: `webhook-${input.deliveryId}`,
-      ...input
+      ...input,
     };
   }
 
@@ -199,7 +257,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       status: input.status ?? "processed",
       receivedAt: now,
       processedAt: input.processedAt ?? now,
-      errorMessage: input.errorMessage ?? null
+      errorMessage: input.errorMessage ?? null,
     };
   }
 
@@ -211,11 +269,21 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     return null;
   }
 
+  async updateGithubIssueSyncSettings(
+    projectId: string,
+    settings: GithubIssueSyncSettings
+  ) {
+    this.settingsUpdates.push({ projectId, settings });
+    return settings;
+  }
+
   async listWorkflowStates(projectId: string) {
     return projectId === this.state.project.id ? this.workflowStates : [];
   }
 
-  async upsertGithubIssue(input: Parameters<GithubIssueSyncRepository["upsertGithubIssue"]>[0]) {
+  async upsertGithubIssue(
+    input: Parameters<GithubIssueSyncRepository["upsertGithubIssue"]>[0]
+  ) {
     this.upsertedIssues.push(input);
     const projection = {
       id: `github-${input.providerIssueId}`,
@@ -232,14 +300,18 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       githubClosedAt: input.githubClosedAt,
       lastSyncedAt: now,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     } satisfies GithubIssueProjectionRecord;
     this.issueProjection = projection;
     return projection;
   }
 
-  async findGithubIssueByProviderIssueId(repositoryId: string, providerIssueId: string) {
-    return this.issueProjection?.repositoryId === repositoryId && this.issueProjection.providerIssueId === providerIssueId
+  async findGithubIssueByProviderIssueId(
+    repositoryId: string,
+    providerIssueId: string
+  ) {
+    return this.issueProjection?.repositoryId === repositoryId &&
+      this.issueProjection.providerIssueId === providerIssueId
       ? this.issueProjection
       : null;
   }
@@ -253,7 +325,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       ? {
           link: this.link,
           issue: this.issueProjection,
-          repository: this.connection.repository
+          repository: this.connection.repository,
         }
       : null;
   }
@@ -270,7 +342,8 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       targetFields: Record<string, unknown>;
     };
     const status = this.existingOperationStatus ?? operation.status;
-    const requestedBy = this.existingOperationRequestedBy ?? operation.requestedBy;
+    const requestedBy =
+      this.existingOperationRequestedBy ?? operation.requestedBy;
     return {
       id: "operation-1",
       linkId: operation.linkId,
@@ -283,7 +356,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       githubUpdatedAtBefore: operation.githubUpdatedAtBefore,
       targetFields: operation.targetFields,
       errorMessage: null,
-      reused: this.existingOperationStatus !== null
+      reused: this.existingOperationStatus !== null,
     };
   }
 
@@ -301,7 +374,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       this.link = {
         ...this.link,
         syncStatus: "error",
-        errorMessage: (input as { errorMessage?: string }).errorMessage ?? null
+        errorMessage: (input as { errorMessage?: string }).errorMessage ?? null,
       };
     }
   }
@@ -314,7 +387,11 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     this.baselineUpdates.push(input);
   }
 
-  async createWorkItemForGithubIssue(input: Parameters<GithubIssueSyncRepository["createWorkItemForGithubIssue"]>[0]) {
+  async createWorkItemForGithubIssue(
+    input: Parameters<
+      GithubIssueSyncRepository["createWorkItemForGithubIssue"]
+    >[0]
+  ) {
     this.createdWorkItems.push(input);
     return {
       id: "work-item-1",
@@ -337,12 +414,14 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       dueDate: null,
       completedAt: input.completedAt,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
   }
 
   async createWorkItemAndLinkGithubIssue(
-    input: Parameters<GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]>[0]
+    input: Parameters<
+      GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]
+    >[0]
   ) {
     this.createdWorkItemsAndLinks.push(input);
     return {
@@ -367,7 +446,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         dueDate: null,
         completedAt: input.workItem.completedAt,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       },
       link: {
         id: "link-1",
@@ -388,13 +467,17 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         conflictFields: input.link.conflictFields,
         errorMessage: input.link.errorMessage,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       },
-      created: this.createAndLinkCreated
+      created: this.createAndLinkCreated,
     };
   }
 
-  async updateWorkItemFromGithubIssue(input: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0]) {
+  async updateWorkItemFromGithubIssue(
+    input: Parameters<
+      GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
+    >[0]
+  ) {
     this.updatedWorkItems.push(input);
     return {
       workItem: {
@@ -418,13 +501,15 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         dueDate: null,
         completedAt: input.completedAt ?? null,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       },
-      changed: this.updateChanged
+      changed: this.updateChanged,
     };
   }
 
-  async upsertGithubIssueLink(input: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0]) {
+  async upsertGithubIssueLink(
+    input: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0]
+  ) {
     this.upsertedLinks.push(input);
     return {
       id: "link-1",
@@ -445,16 +530,20 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       conflictFields: input.conflictFields,
       errorMessage: input.errorMessage,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
   }
 
-  async upsertGithubIssueComment(input: Parameters<GithubIssueSyncRepository["upsertGithubIssueComment"]>[0]) {
+  async upsertGithubIssueComment(
+    input: Parameters<GithubIssueSyncRepository["upsertGithubIssueComment"]>[0]
+  ) {
     this.upsertedComments.push(input);
   }
 
   async markGithubIssueCommentDeleted(
-    input: Parameters<NonNullable<GithubIssueSyncRepository["markGithubIssueCommentDeleted"]>>[0]
+    input: Parameters<
+      NonNullable<GithubIssueSyncRepository["markGithubIssueCommentDeleted"]>
+    >[0]
   ) {
     this.deletedComments.push(input);
   }
@@ -464,16 +553,18 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   }
 }
 
-function client(issues: GithubIssueImportClientIssue[]): GithubIssueImportClient & { calls: unknown[] } {
+function client(
+  issues: GithubIssueImportClientIssue[]
+): GithubIssueImportClient & { calls: unknown[] } {
   return {
     calls: [],
     async getRepositoryIssuesSnapshot(target, options) {
       this.calls.push({ target, options });
       return {
         fetchedAt: "2026-04-28T12:30:00.000Z",
-        issues
+        issues,
       };
-    }
+    },
   };
 }
 
@@ -494,7 +585,7 @@ function linkedRepository(overrides: Partial<GithubIssueLinkRecord> = {}) {
     githubClosedAt: null,
     lastSyncedAt: now,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
   repository.link = {
     id: "link-1",
@@ -516,12 +607,14 @@ function linkedRepository(overrides: Partial<GithubIssueLinkRecord> = {}) {
     errorMessage: null,
     createdAt: now,
     updatedAt: now,
-    ...overrides
+    ...overrides,
   };
   return repository;
 }
 
-function updateClient(snapshotOverrides: Partial<GithubIssueImportClientIssue> = {}) {
+function updateClient(
+  snapshotOverrides: Partial<GithubIssueImportClientIssue> = {}
+) {
   return {
     calls: [] as unknown[],
     async updateIssue(target: unknown, issueNumber: number, input: unknown) {
@@ -531,9 +624,9 @@ function updateClient(snapshotOverrides: Partial<GithubIssueImportClientIssue> =
         body: (input as { body?: string | null }).body ?? "GitHub issue body",
         state: (input as { state?: "open" | "closed" }).state ?? "open",
         githubUpdatedAt: "2026-04-28T12:45:00.000Z",
-        ...snapshotOverrides
+        ...snapshotOverrides,
       });
-    }
+    },
   };
 }
 
@@ -542,37 +635,47 @@ describe("syncWorkItemGithubOwnedFields", () => {
     const repository = linkedRepository();
     const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: { title: "Platform title" },
-      now: () => new Date("2026-04-28T12:40:00.000Z")
-    });
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: { title: "Platform title" },
+        now: () => new Date("2026-04-28T12:40:00.000Z"),
+      }
+    );
 
     expect(result).toEqual({ attempted: true, succeeded: true });
     expect(githubClient.calls).toEqual([
       {
-        target: expect.objectContaining({ owner: "acme", name: "web", fullName: "acme/web" }),
+        target: expect.objectContaining({
+          owner: "acme",
+          name: "web",
+          fullName: "acme/web",
+        }),
         issueNumber: 42,
-        input: { title: "Platform title" }
-      }
+        input: { title: "Platform title" },
+      },
     ]);
     expect(repository.createdOperations[0]).toMatchObject({
       operationType: "update_issue",
       status: "pending",
       requestedBy: "user-1",
       githubUpdatedAtBefore: "2026-04-28T11:00:00.000Z",
-      targetFields: { title: "Platform title" }
+      targetFields: { title: "Platform title" },
     });
-    expect(repository.completedOperations).toEqual([{ operationId: "operation-1" }]);
+    expect(repository.completedOperations).toEqual([
+      { operationId: "operation-1" },
+    ]);
     expect(repository.outboundProjectionUpdates[0]).toMatchObject({
       githubIssueId: "github-issue-1",
-      issue: expect.objectContaining({ title: "Platform title" })
+      issue: expect.objectContaining({ title: "Platform title" }),
     });
     expect(repository.baselineUpdates[0]).toMatchObject({
       linkId: "link-1",
-      issue: expect.objectContaining({ title: "Platform title" })
+      issue: expect.objectContaining({ title: "Platform title" }),
     });
   });
 
@@ -580,16 +683,22 @@ describe("syncWorkItemGithubOwnedFields", () => {
     const repository = linkedRepository();
     const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: { description: "Platform body" }
-    });
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: { description: "Platform body" },
+      }
+    );
 
     expect(result).toEqual({ attempted: true, succeeded: true });
     expect(githubClient.calls).toHaveLength(1);
-    expect(githubClient.calls[0]).toMatchObject({ input: { body: "Platform body" } });
+    expect(githubClient.calls[0]).toMatchObject({
+      input: { body: "Platform body" },
+    });
   });
 
   it.each([
@@ -598,39 +707,50 @@ describe("syncWorkItemGithubOwnedFields", () => {
     [{ status: "Todo" }, "open"],
     [{ completedAt: null }, "open"],
     [{ state: "closed" }, "closed"],
-    [{ state: "open" }, "open"]
-  ] as const)("writes state %s to GitHub as %s when state sync is enabled", async (changedFields, state) => {
-    const repository = linkedRepository();
-    const githubClient = updateClient();
+    [{ state: "open" }, "open"],
+  ] as const)(
+    "writes state %s to GitHub as %s when state sync is enabled",
+    async (changedFields, state) => {
+      const repository = linkedRepository();
+      const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields
-    });
+      const result = await syncWorkItemGithubOwnedFields(
+        repository,
+        githubClient,
+        {
+          actorId: "user-1",
+          projectId: "project-1",
+          workItemId: "work-item-1",
+          changedFields,
+        }
+      );
 
-    expect(result).toEqual({ attempted: true, succeeded: true });
-    expect(githubClient.calls[0]).toMatchObject({ input: { state } });
-  });
+      expect(result).toEqual({ attempted: true, succeeded: true });
+      expect(githubClient.calls[0]).toMatchObject({ input: { state } });
+    }
+  );
 
   it("does not write unsupported platform-only fields or arbitrary workflow movement", async () => {
     const repository = linkedRepository();
     const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: {
-        priority: "high",
-        workflowStateId: "state-2",
-        stageId: "stage-1",
-        planItemId: "plan-1",
-        assigneeId: "user-2",
-        blockedReason: "Waiting"
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: {
+          priority: "high",
+          workflowStateId: "state-2",
+          stageId: "stage-1",
+          planItemId: "plan-1",
+          assigneeId: "user-2",
+          blockedReason: "Waiting",
+        },
       }
-    });
+    );
 
     expect(result).toEqual({ attempted: false });
     expect(githubClient.calls).toHaveLength(0);
@@ -644,22 +764,29 @@ describe("syncWorkItemGithubOwnedFields", () => {
     [{ syncStatus: "paused" }, { title: "Platform title" }],
     [{ syncTitle: false }, { title: "Platform title" }],
     [{ syncBody: false }, { body: "Platform body" }],
-    [{ syncState: false }, { status: "Done" }]
-  ] as const)("does not write when link or field sync disallows it", async (linkOverrides, changedFields) => {
-    const repository = linkedRepository(linkOverrides);
-    const githubClient = updateClient();
+    [{ syncState: false }, { status: "Done" }],
+  ] as const)(
+    "does not write when link or field sync disallows it",
+    async (linkOverrides, changedFields) => {
+      const repository = linkedRepository(linkOverrides);
+      const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields
-    });
+      const result = await syncWorkItemGithubOwnedFields(
+        repository,
+        githubClient,
+        {
+          actorId: "user-1",
+          projectId: "project-1",
+          workItemId: "work-item-1",
+          changedFields,
+        }
+      );
 
-    expect(result).toEqual({ attempted: false });
-    expect(githubClient.calls).toHaveLength(0);
-    expect(repository.createdOperations).toHaveLength(0);
-  });
+      expect(result).toEqual({ attempted: false });
+      expect(githubClient.calls).toHaveLength(0);
+      expect(repository.createdOperations).toHaveLength(0);
+    }
+  );
 
   it("marks operation failed and link error with a sanitized message when GitHub update fails", async () => {
     const repository = linkedRepository();
@@ -667,25 +794,31 @@ describe("syncWorkItemGithubOwnedFields", () => {
       calls: [] as unknown[],
       async updateIssue(target: unknown, issueNumber: number, input: unknown) {
         this.calls.push({ target, issueNumber, input });
-        throw new Error("GitHub token ghp_secret_1234567890abcdef request failed");
-      }
+        throw new Error(
+          "GitHub token ghp_secret_1234567890abcdef request failed"
+        );
+      },
     };
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: { title: "Platform title" }
-    });
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: { title: "Platform title" },
+      }
+    );
 
     expect(result).toEqual({ attempted: true, succeeded: false });
     expect(repository.failedOperations[0]).toMatchObject({
       operationId: "operation-1",
-      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef")
+      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef"),
     });
     expect(repository.linkErrors[0]).toMatchObject({
       linkId: "link-1",
-      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef")
+      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef"),
     });
     expect(repository.completedOperations).toHaveLength(0);
   });
@@ -699,18 +832,20 @@ describe("syncWorkItemGithubOwnedFields", () => {
       projectId: "project-1",
       workItemId: "work-item-1",
       changedFields: { title: "Platform title" },
-      now: () => new Date("2026-04-28T12:40:00.000Z")
+      now: () => new Date("2026-04-28T12:40:00.000Z"),
     });
     await syncWorkItemGithubOwnedFields(secondRepository, updateClient(), {
       actorId: "user-1",
       projectId: "project-1",
       workItemId: "work-item-1",
       changedFields: { title: "Platform title" },
-      now: () => new Date("2026-04-28T12:45:00.000Z")
+      now: () => new Date("2026-04-28T12:45:00.000Z"),
     });
 
     expect(firstRepository.createdOperations[0]).toMatchObject({
-      operationKey: (secondRepository.createdOperations[0] as { operationKey: string }).operationKey
+      operationKey: (
+        secondRepository.createdOperations[0] as { operationKey: string }
+      ).operationKey,
     });
   });
 
@@ -719,12 +854,16 @@ describe("syncWorkItemGithubOwnedFields", () => {
     repository.existingOperationStatus = "succeeded";
     const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: { title: "Platform title" }
-    });
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: { title: "Platform title" },
+      }
+    );
 
     expect(result).toEqual({ attempted: true, succeeded: true });
     expect(githubClient.calls).toHaveLength(0);
@@ -738,14 +877,22 @@ describe("syncWorkItemGithubOwnedFields", () => {
     repository.existingOperationStatus = "pending";
     const githubClient = updateClient();
 
-    const result = await syncWorkItemGithubOwnedFields(repository, githubClient, {
-      actorId: "user-1",
-      projectId: "project-1",
-      workItemId: "work-item-1",
-      changedFields: { title: "Platform title" }
-    });
+    const result = await syncWorkItemGithubOwnedFields(
+      repository,
+      githubClient,
+      {
+        actorId: "user-1",
+        projectId: "project-1",
+        workItemId: "work-item-1",
+        changedFields: { title: "Platform title" },
+      }
+    );
 
-    expect(result).toEqual({ attempted: true, succeeded: false, pending: true });
+    expect(result).toEqual({
+      attempted: true,
+      succeeded: false,
+      pending: true,
+    });
     expect(githubClient.calls).toHaveLength(0);
     expect(repository.linkErrors).toHaveLength(0);
     expect(repository.failedOperations).toHaveLength(0);
@@ -759,10 +906,16 @@ describe("importGithubIssuesForProject", () => {
     const githubClient = client([]);
 
     await expect(
-      importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", githubClient)
+      importGithubIssuesForProject(
+        repository,
+        { userId: "user-1" },
+        "acme",
+        "WEB",
+        githubClient
+      )
     ).rejects.toMatchObject({
       name: "WorkspaceError",
-      status: 403
+      status: 403,
     });
   });
 
@@ -771,7 +924,13 @@ describe("importGithubIssuesForProject", () => {
     repository.connection = null;
 
     await expect(
-      importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", client([]))
+      importGithubIssuesForProject(
+        repository,
+        { userId: "user-1" },
+        "acme",
+        "WEB",
+        client([])
+      )
     ).rejects.toSatisfy((error) => {
       return (
         error instanceof WorkspaceError &&
@@ -793,17 +952,17 @@ describe("importGithubIssuesForProject", () => {
             url: "https://github.com/acme/web/issues/42#issuecomment-1",
             authorLogin: "mona",
             githubCreatedAt: "2026-04-28T10:30:00.000Z",
-            githubUpdatedAt: "2026-04-28T10:30:00.000Z"
-          }
-        ]
+            githubUpdatedAt: "2026-04-28T10:30:00.000Z",
+          },
+        ],
       }),
       issue({
         providerIssueId: "pr-1",
         number: 43,
         title: "Pull request",
         url: "https://github.com/acme/web/pull/43",
-        isPullRequest: true
-      })
+        isPullRequest: true,
+      }),
     ]);
 
     const summary = await importGithubIssuesForProject(
@@ -819,7 +978,7 @@ describe("importGithubIssuesForProject", () => {
       updated: 0,
       skippedPullRequests: 1,
       conflicted: 0,
-      failed: 0
+      failed: 0,
     });
     expect(repository.createdWorkItemsAndLinks).toHaveLength(1);
     expect(repository.createdWorkItemsAndLinks[0]).toMatchObject({
@@ -831,9 +990,9 @@ describe("importGithubIssuesForProject", () => {
         status: "Todo",
         workflowStateId: "backlog-state-1",
         stageId: null,
-        planItemId: null
+        planItemId: null,
       },
-      actorId: "user-1"
+      actorId: "user-1",
     });
     expect(repository.createdWorkItems).toHaveLength(0);
     expect(repository.upsertedLinks).toHaveLength(0);
@@ -844,7 +1003,7 @@ describe("importGithubIssuesForProject", () => {
       syncEnabled: false,
       syncTitle: true,
       syncBody: true,
-      syncState: true
+      syncState: true,
     });
   });
 
@@ -869,7 +1028,7 @@ describe("importGithubIssuesForProject", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const summary = await importGithubIssuesForProject(
@@ -877,7 +1036,13 @@ describe("importGithubIssuesForProject", () => {
       { userId: "user-1" },
       "acme",
       "WEB",
-      client([issue({ title: "Updated title", body: "Updated body", state: "closed" })])
+      client([
+        issue({
+          title: "Updated title",
+          body: "Updated body",
+          state: "closed",
+        }),
+      ])
     );
 
     expect(summary).toMatchObject({ created: 0, updated: 1 });
@@ -888,7 +1053,7 @@ describe("importGithubIssuesForProject", () => {
       workItemId: "work-item-1",
       title: "Updated title",
       description: "Updated body",
-      status: "Done"
+      status: "Done",
     });
   });
 
@@ -913,7 +1078,7 @@ describe("importGithubIssuesForProject", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const summary = await importGithubIssuesForProject(
@@ -930,14 +1095,19 @@ describe("importGithubIssuesForProject", () => {
               url: "https://github.com/acme/web/issues/42#issuecomment-1",
               authorLogin: "octocat",
               githubCreatedAt: "2026-04-28T10:05:00.000Z",
-              githubUpdatedAt: "2026-04-28T10:10:00.000Z"
-            }
-          ]
-        })
+              githubUpdatedAt: "2026-04-28T10:10:00.000Z",
+            },
+          ],
+        }),
       ])
     );
 
-    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      conflicted: 0,
+      failed: 0,
+    });
     expect(repository.updatedWorkItems).toHaveLength(0);
     expect(repository.upsertedComments).toHaveLength(1);
   });
@@ -954,7 +1124,12 @@ describe("importGithubIssuesForProject", () => {
       client([issue()])
     );
 
-    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      conflicted: 0,
+      failed: 0,
+    });
     expect(repository.createdWorkItemsAndLinks).toHaveLength(1);
     expect(repository.createdWorkItems).toHaveLength(0);
     expect(repository.upsertedLinks).toHaveLength(0);
@@ -981,7 +1156,7 @@ describe("importGithubIssuesForProject", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const summary = await importGithubIssuesForProject(
@@ -992,7 +1167,12 @@ describe("importGithubIssuesForProject", () => {
       client([issue()])
     );
 
-    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      conflicted: 0,
+      failed: 0,
+    });
     expect(repository.updatedWorkItems).toHaveLength(0);
   });
 
@@ -1018,7 +1198,7 @@ describe("importGithubIssuesForProject", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const summary = await importGithubIssuesForProject(
@@ -1029,7 +1209,12 @@ describe("importGithubIssuesForProject", () => {
       client([issue()])
     );
 
-    expect(summary).toMatchObject({ created: 0, updated: 0, conflicted: 0, failed: 0 });
+    expect(summary).toMatchObject({
+      created: 0,
+      updated: 0,
+      conflicted: 0,
+      failed: 0,
+    });
     expect(repository.updatedWorkItems).toHaveLength(1);
     expect(repository.upsertedLinks).toHaveLength(0);
   });
@@ -1045,13 +1230,19 @@ describe("importGithubIssuesForProject", () => {
             url: "https://github.com/acme/web/issues/42#issuecomment-1",
             authorLogin: "octocat",
             githubCreatedAt: "2026-04-28T10:05:00.000Z",
-            githubUpdatedAt: "2026-04-28T10:10:00.000Z"
-          }
-        ]
-      })
+            githubUpdatedAt: "2026-04-28T10:10:00.000Z",
+          },
+        ],
+      }),
     ]);
 
-    await importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", githubClient);
+    await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      githubClient
+    );
 
     expect(repository.upsertedComments).toEqual([
       {
@@ -1061,8 +1252,8 @@ describe("importGithubIssuesForProject", () => {
         url: "https://github.com/acme/web/issues/42#issuecomment-1",
         authorLogin: "octocat",
         githubCreatedAt: "2026-04-28T10:05:00.000Z",
-        githubUpdatedAt: "2026-04-28T10:10:00.000Z"
-      }
+        githubUpdatedAt: "2026-04-28T10:10:00.000Z",
+      },
     ]);
     expect(repository.localPlatformComments).toHaveLength(0);
   });
@@ -1071,7 +1262,13 @@ describe("importGithubIssuesForProject", () => {
     const repository = new FakeGithubIssueSyncRepository("admin");
     const githubClient = client([]);
 
-    await importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", githubClient);
+    await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      githubClient
+    );
 
     expect(githubClient.calls).toEqual([
       {
@@ -1079,12 +1276,12 @@ describe("importGithubIssuesForProject", () => {
           owner: "acme",
           name: "web",
           fullName: "acme/web",
-          installationId: "installation-1"
+          installationId: "installation-1",
         },
         options: {
-          includeClosed: false
-        }
-      }
+          includeClosed: false,
+        },
+      },
     ]);
   });
 
@@ -1095,7 +1292,13 @@ describe("importGithubIssuesForProject", () => {
     }
     const githubClient = client([]);
 
-    await importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", githubClient);
+    await importGithubIssuesForProject(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      githubClient
+    );
 
     expect(githubClient.calls).toEqual([
       {
@@ -1103,12 +1306,63 @@ describe("importGithubIssuesForProject", () => {
           owner: "acme",
           name: "web",
           fullName: "acme/web",
-          installationId: null
+          installationId: null,
         },
         options: {
-          includeClosed: false
-        }
+          includeClosed: false,
+        },
+      },
+    ]);
+  });
+});
+
+describe("updateProjectGithubIssueSyncSettings", () => {
+  it("requires admin access and persists project issue sync settings", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.workflowStates = [
+      ...repository.workflowStates,
+      {
+        id: "closed-state-1",
+        projectId: "project-1",
+        name: "Closed",
+        category: "done",
+        position: 1,
+        color: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+
+    const settings = await updateProjectGithubIssueSyncSettings(
+      repository,
+      { userId: "user-1" },
+      "acme",
+      "WEB",
+      {
+        issueSyncEnabled: true,
+        importClosedIssues: true,
+        syncTitle: true,
+        syncBody: false,
+        syncState: true,
+        closedWorkflowStateId: "closed-state-1",
+        reopenedWorkflowStateId: null,
       }
+    );
+
+    expect(settings).toEqual({
+      syncEnabled: true,
+      importClosedIssues: true,
+      syncTitle: true,
+      syncBody: false,
+      syncState: true,
+      closedWorkflowStateId: "closed-state-1",
+      reopenedWorkflowStateId: null,
+    });
+    expect(repository.settingsUpdates).toEqual([
+      {
+        projectId: "project-1",
+        settings,
+      },
     ]);
   });
 });
@@ -1125,7 +1379,7 @@ function githubIssuePayload(overrides: Record<string, unknown> = {}) {
     created_at: "2026-04-28T10:00:00.000Z",
     updated_at: "2026-04-28T11:00:00.000Z",
     closed_at: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -1137,7 +1391,7 @@ function githubIssueCommentPayload(overrides: Record<string, unknown> = {}) {
     user: { login: "mona" },
     created_at: "2026-04-28T11:05:00.000Z",
     updated_at: "2026-04-28T11:10:00.000Z",
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -1161,21 +1415,21 @@ describe("projectGithubIssueWebhookEvent", () => {
       number: 42,
       title: "GitHub issue",
       body: "GitHub issue body",
-      state: "open"
+      state: "open",
     });
     expect(repository.createdWorkItemsAndLinks).toHaveLength(1);
     expect(repository.createdWorkItemsAndLinks[0]).toMatchObject({
       workItem: {
         title: "GitHub issue",
         description: "GitHub issue body",
-        status: "Todo"
+        status: "Todo",
       },
       link: {
         repositoryId: "repository-1",
         githubIssueId: "github-1001",
         source: "github_issue_webhook",
-        syncStatus: "synced"
-      }
+        syncStatus: "synced",
+      },
     });
   });
 
@@ -1186,7 +1440,12 @@ describe("projectGithubIssueWebhookEvent", () => {
       repository,
       repository.connection!.repository,
       "issues",
-      { action: "opened", issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }) },
+      {
+        action: "opened",
+        issue: githubIssuePayload({
+          pull_request: { html_url: "https://github.com/acme/web/pull/42" },
+        }),
+      },
       now
     );
 
@@ -1210,13 +1469,14 @@ describe("projectGithubIssueWebhookEvent", () => {
       syncState: true,
       lastSyncedGithubUpdatedAt: "2026-04-28T09:00:00.000Z",
       lastSyncedWorkItemUpdatedAt: "2026-04-28T09:00:00.000Z",
-      lastSyncedTitleHash: "57f44bd39f117b9eda3418ac243c0ec12dd2f8431a96a79783c9a36ac67a43fe",
+      lastSyncedTitleHash:
+        "57f44bd39f117b9eda3418ac243c0ec12dd2f8431a96a79783c9a36ac67a43fe",
       lastSyncedBodyHash: null,
       lastSyncedState: "open",
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     repository.workItemForLink = {
       id: "work-item-1",
@@ -1239,14 +1499,17 @@ describe("projectGithubIssueWebhookEvent", () => {
       dueDate: null,
       completedAt: null,
       createdAt: now,
-      updatedAt: "2026-04-28T10:30:00.000Z"
+      updatedAt: "2026-04-28T10:30:00.000Z",
     };
 
     const result = await projectGithubIssueWebhookEvent(
       repository,
       repository.connection!.repository,
       "issues",
-      { action: "edited", issue: githubIssuePayload({ title: "Changed on GitHub" }) },
+      {
+        action: "edited",
+        issue: githubIssuePayload({ title: "Changed on GitHub" }),
+      },
       now
     );
 
@@ -1256,7 +1519,7 @@ describe("projectGithubIssueWebhookEvent", () => {
     expect(repository.upsertedLinks[0]).toMatchObject({
       workItemId: "work-item-1",
       syncStatus: "conflict",
-      conflictFields: ["title"]
+      conflictFields: ["title"],
     });
   });
 
@@ -1282,7 +1545,7 @@ describe("projectGithubIssueWebhookEvent", () => {
       conflictFields: ["title"],
       errorMessage: "stale conflict",
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     repository.workItemForLink = {
       id: "work-item-1",
@@ -1305,7 +1568,7 @@ describe("projectGithubIssueWebhookEvent", () => {
       dueDate: null,
       completedAt: null,
       createdAt: now,
-      updatedAt: "2026-04-28T10:30:00.000Z"
+      updatedAt: "2026-04-28T10:30:00.000Z",
     };
 
     const result = await projectGithubIssueWebhookEvent(
@@ -1326,11 +1589,13 @@ describe("projectGithubIssueWebhookEvent", () => {
       syncStatus: "synced",
       lastSyncedGithubUpdatedAt: "2026-04-28T11:00:00.000Z",
       lastSyncedWorkItemUpdatedAt: now,
-      lastSyncedTitleHash: "7d94e2e7acad3b70eb76f83fbf6ce2314194503e524d5bc054df0bad880cd0eb",
-      lastSyncedBodyHash: "3a370c18db71cdf372040daee6c8e55ddeb6719af5b2c9816d32863b9546ac26",
+      lastSyncedTitleHash:
+        "7d94e2e7acad3b70eb76f83fbf6ce2314194503e524d5bc054df0bad880cd0eb",
+      lastSyncedBodyHash:
+        "3a370c18db71cdf372040daee6c8e55ddeb6719af5b2c9816d32863b9546ac26",
       lastSyncedState: "open",
       conflictFields: null,
-      errorMessage: null
+      errorMessage: null,
     });
   });
 
@@ -1355,14 +1620,18 @@ describe("projectGithubIssueWebhookEvent", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     await projectGithubIssueWebhookEvent(
       repository,
       repository.connection!.repository,
       "issue_comment",
-      { action: "created", issue: githubIssuePayload(), comment: githubIssueCommentPayload() },
+      {
+        action: "created",
+        issue: githubIssuePayload(),
+        comment: githubIssueCommentPayload(),
+      },
       now
     );
     await projectGithubIssueWebhookEvent(
@@ -1372,7 +1641,7 @@ describe("projectGithubIssueWebhookEvent", () => {
       {
         action: "edited",
         issue: githubIssuePayload(),
-        comment: githubIssueCommentPayload({ body: "Edited GitHub comment" })
+        comment: githubIssueCommentPayload({ body: "Edited GitHub comment" }),
       },
       now
     );
@@ -1385,7 +1654,7 @@ describe("projectGithubIssueWebhookEvent", () => {
         url: "https://github.com/acme/web/issues/42#issuecomment-9001",
         authorLogin: "mona",
         githubCreatedAt: "2026-04-28T11:05:00.000Z",
-        githubUpdatedAt: "2026-04-28T11:10:00.000Z"
+        githubUpdatedAt: "2026-04-28T11:10:00.000Z",
       },
       {
         githubIssueId: "github-1001",
@@ -1394,8 +1663,8 @@ describe("projectGithubIssueWebhookEvent", () => {
         url: "https://github.com/acme/web/issues/42#issuecomment-9001",
         authorLogin: "mona",
         githubCreatedAt: "2026-04-28T11:05:00.000Z",
-        githubUpdatedAt: "2026-04-28T11:10:00.000Z"
-      }
+        githubUpdatedAt: "2026-04-28T11:10:00.000Z",
+      },
     ]);
     expect(repository.localPlatformComments).toHaveLength(0);
   });
@@ -1421,14 +1690,18 @@ describe("projectGithubIssueWebhookEvent", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const result = await projectGithubIssueWebhookEvent(
       repository,
       repository.connection!.repository,
       "issue_comment",
-      { action: "deleted", issue: githubIssuePayload(), comment: githubIssueCommentPayload() },
+      {
+        action: "deleted",
+        issue: githubIssuePayload(),
+        comment: githubIssueCommentPayload(),
+      },
       now
     );
 
@@ -1437,8 +1710,8 @@ describe("projectGithubIssueWebhookEvent", () => {
       {
         githubIssueId: "github-1001",
         providerCommentId: "9001",
-        githubDeletedAt: now
-      }
+        githubDeletedAt: now,
+      },
     ]);
     expect(repository.upsertedComments).toHaveLength(0);
     expect(repository.localPlatformComments).toHaveLength(0);
@@ -1453,13 +1726,18 @@ describe("projectGithubIssueWebhookEvent", () => {
       "issue_comment",
       {
         action: "created",
-        issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }),
-        comment: githubIssueCommentPayload()
+        issue: githubIssuePayload({
+          pull_request: { html_url: "https://github.com/acme/web/pull/42" },
+        }),
+        comment: githubIssueCommentPayload(),
       },
       now
     );
 
-    expect(result).toEqual({ ignored: true, reason: "pull_request_issue_comment" });
+    expect(result).toEqual({
+      ignored: true,
+      reason: "pull_request_issue_comment",
+    });
     expect(repository.upsertedComments).toHaveLength(0);
     expect(repository.localPlatformComments).toHaveLength(0);
   });
@@ -1481,7 +1759,7 @@ describe("projectGithubIssueWebhookEvent", () => {
       githubClosedAt: null,
       lastSyncedAt: now,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     repository.link = {
       id: "link-1",
@@ -1502,7 +1780,7 @@ describe("projectGithubIssueWebhookEvent", () => {
       conflictFields: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const createdResult = await projectGithubIssueWebhookEvent(
@@ -1511,8 +1789,10 @@ describe("projectGithubIssueWebhookEvent", () => {
       "issue_comment",
       {
         action: "created",
-        issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }),
-        comment: githubIssueCommentPayload()
+        issue: githubIssuePayload({
+          pull_request: { html_url: "https://github.com/acme/web/pull/42" },
+        }),
+        comment: githubIssueCommentPayload(),
       },
       now
     );
@@ -1522,14 +1802,22 @@ describe("projectGithubIssueWebhookEvent", () => {
       "issue_comment",
       {
         action: "deleted",
-        issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }),
-        comment: githubIssueCommentPayload()
+        issue: githubIssuePayload({
+          pull_request: { html_url: "https://github.com/acme/web/pull/42" },
+        }),
+        comment: githubIssueCommentPayload(),
       },
       now
     );
 
-    expect(createdResult).toEqual({ ignored: true, reason: "pull_request_issue_comment" });
-    expect(deletedResult).toEqual({ ignored: true, reason: "pull_request_issue_comment" });
+    expect(createdResult).toEqual({
+      ignored: true,
+      reason: "pull_request_issue_comment",
+    });
+    expect(deletedResult).toEqual({
+      ignored: true,
+      reason: "pull_request_issue_comment",
+    });
     expect(repository.upsertedComments).toHaveLength(0);
     expect(repository.deletedComments).toHaveLength(0);
     expect(repository.localPlatformComments).toHaveLength(0);
@@ -1537,35 +1825,38 @@ describe("projectGithubIssueWebhookEvent", () => {
 });
 
 describe("syncGithubWebhookRequest issue events", () => {
-  it.each(["issues", "issue_comment"] as const)("accepts %s as a supported event name", async (eventName) => {
-    const repository = new FakeGithubIssueSyncRepository("admin");
-    const request = new Request("https://example.test/api/webhooks/github", {
-      method: "POST",
-      headers: {
-        "x-github-event": eventName,
-        "x-github-delivery": `delivery-${eventName}`,
-        "x-hub-signature-256": "sha256=test"
-      },
-      body: JSON.stringify({
-        repository: {
-          id: "repo-1"
+  it.each(["issues", "issue_comment"] as const)(
+    "accepts %s as a supported event name",
+    async (eventName) => {
+      const repository = new FakeGithubIssueSyncRepository("admin");
+      const request = new Request("https://example.test/api/webhooks/github", {
+        method: "POST",
+        headers: {
+          "x-github-event": eventName,
+          "x-github-delivery": `delivery-${eventName}`,
+          "x-hub-signature-256": "sha256=test",
         },
-        issue: githubIssuePayload()
-      })
-    });
-    const deliveries: string[] = [];
+        body: JSON.stringify({
+          repository: {
+            id: "repo-1",
+          },
+          issue: githubIssuePayload(),
+        }),
+      });
+      const deliveries: string[] = [];
 
-    const response = await syncGithubWebhookRequest(repository, request, {
-      secret: "secret",
-      verifySignature: () => true,
-      now: () => new Date(now),
-      processDelivery: async ({ eventName: processedEventName }) => {
-        deliveries.push(processedEventName);
-      }
-    });
+      const response = await syncGithubWebhookRequest(repository, request, {
+        secret: "secret",
+        verifySignature: () => true,
+        now: () => new Date(now),
+        processDelivery: async ({ eventName: processedEventName }) => {
+          deliveries.push(processedEventName);
+        },
+      });
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ processed: true });
-    expect(deliveries).toEqual([eventName]);
-  });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ processed: true });
+      expect(deliveries).toEqual([eventName]);
+    }
+  );
 });

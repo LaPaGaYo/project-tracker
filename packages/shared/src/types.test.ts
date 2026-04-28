@@ -14,7 +14,7 @@ import {
   notificationPriorities,
   notificationRecipientReasons,
   notificationSourceTypes,
-  workItemGithubLinkSources
+  workItemGithubLinkSources,
 } from "./constants";
 import type {
   GithubCheckRollupStatus,
@@ -32,7 +32,7 @@ import type {
   NotificationPriority,
   NotificationRecipientReason,
   NotificationSourceType,
-  WorkItemGithubLinkSource
+  WorkItemGithubLinkSource,
 } from "./constants";
 import type {
   GithubCheckRollupRecord,
@@ -45,13 +45,19 @@ import type {
   NotificationPreferenceRecord,
   NotificationRecipientRecord,
   ProjectGithubConnectionRecord,
-  WorkItemGithubLinkRecord
+  WorkItemGithubLinkRecord,
 } from "./types";
 
 type Equal<Left, Right> = (
-  (<Type>() => Type extends Left ? 1 : 2) extends <Type>() => Type extends Right ? 1 : 2 ? true : false
+  (<Type>() => Type extends Left ? 1 : 2) extends <Type>() => Type extends Right
+    ? 1
+    : 2
+    ? true
+    : false
 ) extends true
-  ? (<Type>() => Type extends Right ? 1 : 2) extends <Type>() => Type extends Left ? 1 : 2
+  ? (<Type>() => Type extends Right ? 1 : 2) extends <
+      Type,
+    >() => Type extends Left ? 1 : 2
     ? true
     : false
   : false;
@@ -73,22 +79,56 @@ export const sharedGithubContractValues = {
   notificationPriorities,
   notificationRecipientReasons,
   notificationSourceTypes,
-  workItemGithubLinkSources
+  workItemGithubLinkSources,
 } as const;
 
 export type SharedGithubContractAssertions = [
-  Expect<Equal<(typeof githubRepositoryProviders)[number], GithubRepositoryProvider>>,
-  Expect<Equal<(typeof githubPullRequestStates)[number], GithubPullRequestState>>,
-  Expect<Equal<(typeof githubCheckRollupStatuses)[number], GithubCheckRollupStatus>>,
-  Expect<Equal<(typeof githubDeploymentEnvironments)[number], GithubDeploymentEnvironment>>,
-  Expect<Equal<(typeof githubDeploymentStatuses)[number], GithubDeploymentStatus>>,
+  Expect<
+    Equal<(typeof githubRepositoryProviders)[number], GithubRepositoryProvider>
+  >,
+  Expect<
+    Equal<(typeof githubPullRequestStates)[number], GithubPullRequestState>
+  >,
+  Expect<
+    Equal<(typeof githubCheckRollupStatuses)[number], GithubCheckRollupStatus>
+  >,
+  Expect<
+    Equal<
+      (typeof githubDeploymentEnvironments)[number],
+      GithubDeploymentEnvironment
+    >
+  >,
+  Expect<
+    Equal<(typeof githubDeploymentStatuses)[number], GithubDeploymentStatus>
+  >,
   Expect<Equal<(typeof githubIssueStates)[number], GithubIssueState>>,
-  Expect<Equal<(typeof githubIssueSyncStatuses)[number], GithubIssueSyncStatus>>,
-  Expect<Equal<(typeof githubIssueSyncOperationStatuses)[number], GithubIssueSyncOperationStatus>>,
-  Expect<Equal<(typeof githubIssueSyncOperationTypes)[number], GithubIssueSyncOperationType>>,
-  Expect<Equal<(typeof workItemGithubLinkSources)[number], WorkItemGithubLinkSource>>,
-  Expect<Equal<(typeof githubWebhookDeliveryStatuses)[number], GithubWebhookDeliveryStatus>>,
-  Expect<Equal<(typeof githubWebhookEventNames)[number], GithubWebhookEventName>>,
+  Expect<
+    Equal<(typeof githubIssueSyncStatuses)[number], GithubIssueSyncStatus>
+  >,
+  Expect<
+    Equal<
+      (typeof githubIssueSyncOperationStatuses)[number],
+      GithubIssueSyncOperationStatus
+    >
+  >,
+  Expect<
+    Equal<
+      (typeof githubIssueSyncOperationTypes)[number],
+      GithubIssueSyncOperationType
+    >
+  >,
+  Expect<
+    Equal<(typeof workItemGithubLinkSources)[number], WorkItemGithubLinkSource>
+  >,
+  Expect<
+    Equal<
+      (typeof githubWebhookDeliveryStatuses)[number],
+      GithubWebhookDeliveryStatus
+    >
+  >,
+  Expect<
+    Equal<(typeof githubWebhookEventNames)[number], GithubWebhookEventName>
+  >,
   Expect<
     Equal<
       keyof GithubRepositoryRecord,
@@ -115,6 +155,13 @@ export type SharedGithubContractAssertions = [
       | "repositoryId"
       | "stagingEnvironmentName"
       | "productionEnvironmentName"
+      | "issueSyncEnabled"
+      | "issueImportClosed"
+      | "issueSyncTitle"
+      | "issueSyncBody"
+      | "issueSyncState"
+      | "issueClosedWorkflowStateId"
+      | "issueReopenedWorkflowStateId"
       | "createdAt"
       | "updatedAt"
     >
@@ -172,7 +219,9 @@ export type SharedGithubContractAssertions = [
       | "updatedAt"
     >
   >,
-  Expect<Equal<GithubDeploymentRecord["environment"], GithubDeploymentEnvironment>>,
+  Expect<
+    Equal<GithubDeploymentRecord["environment"], GithubDeploymentEnvironment>
+  >,
   Expect<Equal<GithubDeploymentRecord["status"], GithubDeploymentStatus>>,
   Expect<
     Equal<
@@ -201,12 +250,23 @@ export type SharedGithubContractAssertions = [
       | "errorMessage"
     >
   >,
-  Expect<Equal<GithubWebhookDeliveryRecord["status"], GithubWebhookDeliveryStatus>>,
-  Expect<Equal<GithubWebhookDeliveryRecord["eventName"], GithubWebhookEventName>>,
-  Expect<Equal<(typeof notificationSourceTypes)[number], NotificationSourceType>>,
+  Expect<
+    Equal<GithubWebhookDeliveryRecord["status"], GithubWebhookDeliveryStatus>
+  >,
+  Expect<
+    Equal<GithubWebhookDeliveryRecord["eventName"], GithubWebhookEventName>
+  >,
+  Expect<
+    Equal<(typeof notificationSourceTypes)[number], NotificationSourceType>
+  >,
   Expect<Equal<(typeof notificationEventTypes)[number], NotificationEventType>>,
   Expect<Equal<(typeof notificationPriorities)[number], NotificationPriority>>,
-  Expect<Equal<(typeof notificationRecipientReasons)[number], NotificationRecipientReason>>,
+  Expect<
+    Equal<
+      (typeof notificationRecipientReasons)[number],
+      NotificationRecipientReason
+    >
+  >,
   Expect<
     Equal<
       keyof NotificationEventRecord,
@@ -242,7 +302,9 @@ export type SharedGithubContractAssertions = [
       | "createdAt"
     >
   >,
-  Expect<Equal<NotificationRecipientRecord["reason"], NotificationRecipientReason>>,
+  Expect<
+    Equal<NotificationRecipientRecord["reason"], NotificationRecipientReason>
+  >,
   Expect<
     Equal<
       keyof NotificationPreferenceRecord,
@@ -269,5 +331,7 @@ export type SharedGithubContractAssertions = [
     >
   >,
   Expect<Equal<NotificationInboxItem["event"], NotificationEventRecord>>,
-  Expect<Equal<NotificationInboxItem["recipient"], NotificationRecipientRecord>>
+  Expect<
+    Equal<NotificationInboxItem["recipient"], NotificationRecipientRecord>
+  >,
 ];

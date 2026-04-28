@@ -22,7 +22,7 @@ import type {
   WorkspaceRole,
   WorkItemGithubLinkSource,
   WorkItemPriority,
-  WorkItemType
+  WorkItemType,
 } from "./constants";
 
 export interface ProjectRecord {
@@ -125,6 +125,13 @@ export interface ProjectGithubConnectionRecord {
   repositoryId: string;
   stagingEnvironmentName: string | null;
   productionEnvironmentName: string | null;
+  issueSyncEnabled: boolean;
+  issueImportClosed: boolean;
+  issueSyncTitle: boolean;
+  issueSyncBody: boolean;
+  issueSyncState: boolean;
+  issueClosedWorkflowStateId: string | null;
+  issueReopenedWorkflowStateId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -280,7 +287,13 @@ export interface ActivityLogRecord {
   workspaceId: string;
   entityType: "project" | "work_item" | "workflow_state";
   entityId: string;
-  action: "created" | "updated" | "deleted" | "assigned" | "moved" | "state_changed";
+  action:
+    | "created"
+    | "updated"
+    | "deleted"
+    | "assigned"
+    | "moved"
+    | "state_changed";
   actorId: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;

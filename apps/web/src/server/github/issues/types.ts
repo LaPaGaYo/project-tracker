@@ -12,7 +12,7 @@ import type {
   WorkspaceRecord,
   WorkItemPriority,
   WorkItemRecord,
-  WorkItemType
+  WorkItemType,
 } from "@the-platform/shared";
 
 export interface NormalizedGithubIssue {
@@ -115,6 +115,16 @@ export interface GithubIssueSyncSettings {
   reopenedWorkflowStateId: string | null;
 }
 
+export interface UpdateGithubIssueSyncSettingsInput {
+  issueSyncEnabled: boolean;
+  importClosedIssues: boolean;
+  syncTitle: boolean;
+  syncBody: boolean;
+  syncState: boolean;
+  closedWorkflowStateId: string | null;
+  reopenedWorkflowStateId: string | null;
+}
+
 export interface ProjectGithubConnectionWithRepository {
   connection: ProjectGithubConnectionRecord;
   repository: Omit<GithubRepositoryRecord, "installationId"> & {
@@ -194,22 +204,41 @@ export interface GithubIssueSyncOperationRecord {
 
 export interface GithubIssueSyncRepository {
   findWorkspaceBySlug(slug: string): Promise<WorkspaceRecord | null>;
-  getMembership(workspaceId: string, userId: string): Promise<WorkspaceMemberRecord | null>;
-  getProjectByKey(workspaceId: string, projectKey: string): Promise<ProjectRecord | null>;
-  getProjectGithubConnection(projectId: string): Promise<ProjectGithubConnectionWithRepository | null>;
+  getMembership(
+    workspaceId: string,
+    userId: string
+  ): Promise<WorkspaceMemberRecord | null>;
+  getProjectByKey(
+    workspaceId: string,
+    projectKey: string
+  ): Promise<ProjectRecord | null>;
+  getProjectGithubConnection(
+    projectId: string
+  ): Promise<ProjectGithubConnectionWithRepository | null>;
   getProjectGithubConnectionByRepositoryId?(
     repositoryId: string
   ): Promise<ProjectGithubConnectionWithRepository | null>;
-  getGithubIssueSyncSettings(projectId: string): Promise<GithubIssueSyncSettings | null>;
+  getGithubIssueSyncSettings(
+    projectId: string
+  ): Promise<GithubIssueSyncSettings | null>;
+  updateGithubIssueSyncSettings?(
+    projectId: string,
+    settings: GithubIssueSyncSettings
+  ): Promise<GithubIssueSyncSettings | null>;
   listWorkflowStates(projectId: string): Promise<WorkflowStateRecord[]>;
   upsertGithubIssue(
-    input: Omit<GithubIssueProjectionRecord, "id" | "lastSyncedAt" | "createdAt" | "updatedAt">
+    input: Omit<
+      GithubIssueProjectionRecord,
+      "id" | "lastSyncedAt" | "createdAt" | "updatedAt"
+    >
   ): Promise<GithubIssueProjectionRecord>;
   findGithubIssueByProviderIssueId?(
     repositoryId: string,
     providerIssueId: string
   ): Promise<GithubIssueProjectionRecord | null>;
-  getGithubIssueLinkByIssueId(githubIssueId: string): Promise<GithubIssueLinkRecord | null>;
+  getGithubIssueLinkByIssueId(
+    githubIssueId: string
+  ): Promise<GithubIssueLinkRecord | null>;
   getGithubIssueLinkForWorkItem?(workItemId: string): Promise<{
     link: GithubIssueLinkRecord;
     issue: GithubIssueProjectionRecord;
@@ -217,9 +246,15 @@ export interface GithubIssueSyncRepository {
       installationId?: string | null;
     };
   } | null>;
-  listGithubIssueCommentsForWorkItem?(workItemId: string): Promise<GithubIssueTimelineComment[]>;
-  getGithubIssueSyncViewForWorkItem?(workItemId: string): Promise<GithubIssueSyncView | null>;
-  getWorkItemForGithubIssueLink?(workItemId: string): Promise<WorkItemRecord | null>;
+  listGithubIssueCommentsForWorkItem?(
+    workItemId: string
+  ): Promise<GithubIssueTimelineComment[]>;
+  getGithubIssueSyncViewForWorkItem?(
+    workItemId: string
+  ): Promise<GithubIssueSyncView | null>;
+  getWorkItemForGithubIssueLink?(
+    workItemId: string
+  ): Promise<WorkItemRecord | null>;
   createWorkItemForGithubIssue(input: {
     projectId: string;
     workspaceId: string;
@@ -302,7 +337,10 @@ export interface GithubIssueSyncRepository {
     errorMessage: string | null;
   }): Promise<GithubIssueLinkRecord>;
   upsertGithubIssueComment(
-    input: Omit<GithubIssueCommentProjectionRecord, "id" | "githubDeletedAt" | "lastSyncedAt" | "createdAt" | "updatedAt">
+    input: Omit<
+      GithubIssueCommentProjectionRecord,
+      "id" | "githubDeletedAt" | "lastSyncedAt" | "createdAt" | "updatedAt"
+    >
   ): Promise<GithubIssueCommentProjectionRecord | void>;
   markGithubIssueCommentDeleted?(input: {
     githubIssueId: string;
@@ -318,9 +356,17 @@ export interface GithubIssueSyncRepository {
     githubUpdatedAtBefore: string | null;
     targetFields: Record<string, unknown>;
   }): Promise<GithubIssueSyncOperationRecord>;
-  completeGithubIssueSyncOperation?(input: { operationId: string }): Promise<void>;
-  failGithubIssueSyncOperation?(input: { operationId: string; errorMessage: string }): Promise<void>;
-  markGithubIssueLinkError?(input: { linkId: string; errorMessage: string }): Promise<void>;
+  completeGithubIssueSyncOperation?(input: {
+    operationId: string;
+  }): Promise<void>;
+  failGithubIssueSyncOperation?(input: {
+    operationId: string;
+    errorMessage: string;
+  }): Promise<void>;
+  markGithubIssueLinkError?(input: {
+    linkId: string;
+    errorMessage: string;
+  }): Promise<void>;
   updateIssueProjectionFromOutbound?(input: {
     githubIssueId: string;
     issue: GithubIssueWithComments;
