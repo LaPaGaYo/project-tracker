@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
-  syncEnabled: true,
+  syncEnabled: false,
   importClosedIssues: false,
   syncTitle: true,
   syncBody: true,
@@ -134,7 +134,7 @@ export async function importGithubIssuesForProject(
     ...(options?.settings ?? {})
   };
   const workflowStates = await repository.listWorkflowStates(project.id);
-  const issues = await client.getRepositoryIssuesSnapshot(
+  const snapshot = await client.getRepositoryIssuesSnapshot(
     {
       owner: connection.repository.owner,
       name: connection.repository.name,
@@ -143,6 +143,7 @@ export async function importGithubIssuesForProject(
     },
     { includeClosed: settings.importClosedIssues }
   );
+  const issues = snapshot.issues;
 
   const summary: ImportGithubIssuesSummary = {
     created: 0,
@@ -220,31 +221,38 @@ export async function importGithubIssuesForProject(
           summary.failed += 1;
         }
       } else {
-        const workItem = await repository.createWorkItemForGithubIssue({
+        await repository.createWorkItemAndLinkGithubIssue({
           projectId: project.id,
           workspaceId: workspace.id,
-          title: issue.title,
-          description: issue.body ?? "",
-          type: "task",
-          priority: "none",
-          status: statusFromGithubState(issue.state),
-          workflowStateId: firstBacklogState(workflowStates),
-          stageId: null,
-          planItemId: null,
-          position: 0,
-          completedAt: completedAtFromGithubIssue(issue),
+          workItem: {
+            title: issue.title,
+            description: issue.body ?? "",
+            type: "task",
+            priority: "none",
+            status: statusFromGithubState(issue.state),
+            workflowStateId: firstBacklogState(workflowStates),
+            stageId: null,
+            planItemId: null,
+            position: 0,
+            completedAt: completedAtFromGithubIssue(issue)
+          },
+          link: {
+            repositoryId: connection.repository.id,
+            githubIssueId: projection.id,
+            source: "initial_import",
+            syncStatus: "synced",
+            syncEnabled: settings.syncEnabled,
+            syncTitle: settings.syncTitle,
+            syncBody: settings.syncBody,
+            syncState: settings.syncState,
+            lastSyncedGithubUpdatedAt: issue.githubUpdatedAt,
+            lastSyncedTitleHash: hashBaseline(issue.title),
+            lastSyncedBodyHash: hashBaseline(issue.body),
+            lastSyncedState: issue.state,
+            conflictFields: null,
+            errorMessage: null
+          },
           actorId: session.userId
-        });
-
-        await upsertSyncedLink(repository, {
-          link: null,
-          workItemId: workItem.id,
-          repositoryId: connection.repository.id,
-          githubIssueId: projection.id,
-          issue,
-          settings,
-          source: "initial_import",
-          lastSyncedWorkItemUpdatedAt: workItem.updatedAt
         });
         summary.created += 1;
       }

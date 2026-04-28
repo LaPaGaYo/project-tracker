@@ -31,9 +31,10 @@ import type {
 } from "./types";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type LinkMutationDatabase = Pick<typeof db, "insert">;
 
 const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
-  syncEnabled: true,
+  syncEnabled: false,
   importClosedIssues: false,
   syncTitle: true,
   syncBody: true,
@@ -254,6 +255,45 @@ async function createWorkItemForGithubIssueInTransaction(
   return serializeWorkItem(item, project.workspaceId);
 }
 
+async function upsertGithubIssueLinkInTransaction(
+  database: LinkMutationDatabase,
+  input: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0]
+) {
+  const values = {
+    workItemId: input.workItemId,
+    repositoryId: input.repositoryId,
+    githubIssueId: input.githubIssueId,
+    source: input.source,
+    syncStatus: input.syncStatus,
+    syncEnabled: input.syncEnabled,
+    syncTitle: input.syncTitle,
+    syncBody: input.syncBody,
+    syncState: input.syncState,
+    lastSyncedGithubUpdatedAt: input.lastSyncedGithubUpdatedAt ? new Date(input.lastSyncedGithubUpdatedAt) : null,
+    lastSyncedWorkItemUpdatedAt: input.lastSyncedWorkItemUpdatedAt ? new Date(input.lastSyncedWorkItemUpdatedAt) : null,
+    lastSyncedTitleHash: input.lastSyncedTitleHash,
+    lastSyncedBodyHash: input.lastSyncedBodyHash,
+    lastSyncedState: input.lastSyncedState,
+    conflictFields: input.conflictFields,
+    errorMessage: input.errorMessage,
+    updatedAt: new Date()
+  };
+  const [row] = await database
+    .insert(workItemGithubIssueLinks)
+    .values(values)
+    .onConflictDoUpdate({
+      target: workItemGithubIssueLinks.githubIssueId,
+      set: values
+    })
+    .returning();
+
+  if (!row) {
+    throw new Error("Failed to upsert GitHub issue link.");
+  }
+
+  return serializeGithubIssueLink(row);
+}
+
 export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
   const workspaceRepository = createWorkspaceRepository();
 
@@ -305,6 +345,46 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
 
     async createWorkItemForGithubIssue(input) {
       return db.transaction((tx) => createWorkItemForGithubIssueInTransaction(tx, input));
+    },
+
+    async createWorkItemAndLinkGithubIssue(input) {
+      return db.transaction(async (tx) => {
+        const workItem = await createWorkItemForGithubIssueInTransaction(tx, {
+          projectId: input.projectId,
+          workspaceId: input.workspaceId,
+          title: input.workItem.title,
+          description: input.workItem.description,
+          type: input.workItem.type,
+          priority: input.workItem.priority,
+          status: input.workItem.status,
+          workflowStateId: input.workItem.workflowStateId,
+          stageId: input.workItem.stageId,
+          planItemId: input.workItem.planItemId,
+          position: input.workItem.position,
+          completedAt: input.workItem.completedAt,
+          actorId: input.actorId
+        });
+        const link = await upsertGithubIssueLinkInTransaction(tx, {
+          workItemId: workItem.id,
+          repositoryId: input.link.repositoryId,
+          githubIssueId: input.link.githubIssueId,
+          source: input.link.source,
+          syncStatus: input.link.syncStatus,
+          syncEnabled: input.link.syncEnabled,
+          syncTitle: input.link.syncTitle,
+          syncBody: input.link.syncBody,
+          syncState: input.link.syncState,
+          lastSyncedGithubUpdatedAt: input.link.lastSyncedGithubUpdatedAt,
+          lastSyncedWorkItemUpdatedAt: workItem.updatedAt,
+          lastSyncedTitleHash: input.link.lastSyncedTitleHash,
+          lastSyncedBodyHash: input.link.lastSyncedBodyHash,
+          lastSyncedState: input.link.lastSyncedState,
+          conflictFields: input.link.conflictFields,
+          errorMessage: input.link.errorMessage
+        });
+
+        return { workItem, link };
+      });
     },
 
     async updateWorkItemFromGithubIssue(input) {
@@ -398,41 +478,7 @@ export function createGithubIssueSyncRepository(): GithubIssueSyncRepository {
     },
 
     async upsertGithubIssueLink(input) {
-      const values = {
-        workItemId: input.workItemId,
-        repositoryId: input.repositoryId,
-        githubIssueId: input.githubIssueId,
-        source: input.source,
-        syncStatus: input.syncStatus,
-        syncEnabled: input.syncEnabled,
-        syncTitle: input.syncTitle,
-        syncBody: input.syncBody,
-        syncState: input.syncState,
-        lastSyncedGithubUpdatedAt: input.lastSyncedGithubUpdatedAt ? new Date(input.lastSyncedGithubUpdatedAt) : null,
-        lastSyncedWorkItemUpdatedAt: input.lastSyncedWorkItemUpdatedAt
-          ? new Date(input.lastSyncedWorkItemUpdatedAt)
-          : null,
-        lastSyncedTitleHash: input.lastSyncedTitleHash,
-        lastSyncedBodyHash: input.lastSyncedBodyHash,
-        lastSyncedState: input.lastSyncedState,
-        conflictFields: input.conflictFields,
-        errorMessage: input.errorMessage,
-        updatedAt: new Date()
-      };
-      const [row] = await db
-        .insert(workItemGithubIssueLinks)
-        .values(values)
-        .onConflictDoUpdate({
-          target: workItemGithubIssueLinks.githubIssueId,
-          set: values
-        })
-        .returning();
-
-      if (!row) {
-        throw new Error("Failed to upsert GitHub issue link.");
-      }
-
-      return serializeGithubIssueLink(row);
+      return upsertGithubIssueLinkInTransaction(db, input);
     },
 
     async upsertGithubIssueComment(input) {

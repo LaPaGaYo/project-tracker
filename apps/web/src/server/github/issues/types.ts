@@ -54,7 +54,7 @@ export interface GithubIssueImportTarget {
   owner: string;
   name: string;
   fullName: string;
-  installationId: string;
+  installationId?: string | null | undefined;
 }
 
 export interface GithubIssueImportOptions {
@@ -65,7 +65,10 @@ export interface GithubIssueImportClient {
   getRepositoryIssuesSnapshot(
     target: GithubIssueImportTarget,
     options?: GithubIssueImportOptions
-  ): Promise<GithubIssueWithComments[]>;
+  ): Promise<{
+    fetchedAt: string;
+    issues: GithubIssueWithComments[];
+  }>;
 }
 
 export interface ImportGithubIssuesSummary {
@@ -88,7 +91,9 @@ export interface GithubIssueSyncSettings {
 
 export interface ProjectGithubConnectionWithRepository {
   connection: ProjectGithubConnectionRecord;
-  repository: GithubRepositoryRecord;
+  repository: Omit<GithubRepositoryRecord, "installationId"> & {
+    installationId?: string | null;
+  };
 }
 
 export interface GithubIssueProjectionRecord {
@@ -172,6 +177,42 @@ export interface GithubIssueSyncRepository {
     completedAt: string | null;
     actorId: string;
   }): Promise<WorkItemRecord>;
+  createWorkItemAndLinkGithubIssue(input: {
+    projectId: string;
+    workspaceId: string;
+    workItem: {
+      title: string;
+      description: string;
+      type: WorkItemType;
+      priority: WorkItemPriority;
+      status: TaskStatus;
+      workflowStateId: string | null;
+      stageId: string | null;
+      planItemId: string | null;
+      position: number;
+      completedAt: string | null;
+    };
+    link: {
+      repositoryId: string;
+      githubIssueId: string;
+      source: string;
+      syncStatus: GithubIssueSyncStatus;
+      syncEnabled: boolean;
+      syncTitle: boolean;
+      syncBody: boolean;
+      syncState: boolean;
+      lastSyncedGithubUpdatedAt: string | null;
+      lastSyncedTitleHash: string | null;
+      lastSyncedBodyHash: string | null;
+      lastSyncedState: GithubIssueState | null;
+      conflictFields: string[] | null;
+      errorMessage: string | null;
+    };
+    actorId: string;
+  }): Promise<{
+    workItem: WorkItemRecord;
+    link: GithubIssueLinkRecord;
+  }>;
   updateWorkItemFromGithubIssue(input: {
     projectId: string;
     workspaceId: string;

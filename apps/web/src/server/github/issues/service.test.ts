@@ -62,10 +62,13 @@ function issue(overrides: Partial<GithubIssueImportClientIssue> = {}): GithubIss
 
 type GithubIssueImportClientIssue = Awaited<
   ReturnType<GithubIssueImportClient["getRepositoryIssuesSnapshot"]>
->[number];
+>["issues"][number];
 
 class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   readonly createdWorkItems: Parameters<GithubIssueSyncRepository["createWorkItemForGithubIssue"]>[0][] = [];
+  readonly createdWorkItemsAndLinks: Parameters<
+    GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]
+  >[0][] = [];
   readonly updatedWorkItems: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0][] = [];
   readonly upsertedIssues: Parameters<GithubIssueSyncRepository["upsertGithubIssue"]>[0][] = [];
   readonly upsertedLinks: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0][] = [];
@@ -192,6 +195,58 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     };
   }
 
+  async createWorkItemAndLinkGithubIssue(
+    input: Parameters<GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]>[0]
+  ) {
+    this.createdWorkItemsAndLinks.push(input);
+    return {
+      workItem: {
+        id: "work-item-1",
+        projectId: input.projectId,
+        workspaceId: input.workspaceId,
+        identifier: "WEB-1",
+        title: input.workItem.title,
+        description: input.workItem.description,
+        status: input.workItem.status,
+        type: input.workItem.type,
+        parentId: null,
+        assigneeId: null,
+        priority: input.workItem.priority,
+        labels: null,
+        workflowStateId: input.workItem.workflowStateId,
+        stageId: null,
+        planItemId: null,
+        position: input.workItem.position,
+        blockedReason: null,
+        dueDate: null,
+        completedAt: input.workItem.completedAt,
+        createdAt: now,
+        updatedAt: now
+      },
+      link: {
+        id: "link-1",
+        workItemId: "work-item-1",
+        repositoryId: input.link.repositoryId,
+        githubIssueId: input.link.githubIssueId,
+        source: input.link.source,
+        syncStatus: input.link.syncStatus,
+        syncEnabled: input.link.syncEnabled,
+        syncTitle: input.link.syncTitle,
+        syncBody: input.link.syncBody,
+        syncState: input.link.syncState,
+        lastSyncedGithubUpdatedAt: input.link.lastSyncedGithubUpdatedAt,
+        lastSyncedWorkItemUpdatedAt: now,
+        lastSyncedTitleHash: input.link.lastSyncedTitleHash,
+        lastSyncedBodyHash: input.link.lastSyncedBodyHash,
+        lastSyncedState: input.link.lastSyncedState,
+        conflictFields: input.link.conflictFields,
+        errorMessage: input.link.errorMessage,
+        createdAt: now,
+        updatedAt: now
+      }
+    };
+  }
+
   async updateWorkItemFromGithubIssue(input: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0]) {
     this.updatedWorkItems.push(input);
     return {
@@ -254,7 +309,10 @@ function client(issues: GithubIssueImportClientIssue[]): GithubIssueImportClient
     calls: [],
     async getRepositoryIssuesSnapshot(target, options) {
       this.calls.push({ target, options });
-      return issues;
+      return {
+        fetchedAt: "2026-04-28T12:30:00.000Z",
+        issues
+      };
     }
   };
 }
@@ -327,25 +385,27 @@ describe("importGithubIssuesForProject", () => {
       conflicted: 0,
       failed: 0
     });
-    expect(repository.createdWorkItems).toHaveLength(1);
-    expect(repository.createdWorkItems[0]).toMatchObject({
-      title: "GitHub issue",
-      description: "GitHub issue body",
-      type: "task",
-      priority: "none",
-      status: "Todo",
-      workflowStateId: "backlog-state-1",
-      stageId: null,
-      planItemId: null,
+    expect(repository.createdWorkItemsAndLinks).toHaveLength(1);
+    expect(repository.createdWorkItemsAndLinks[0]).toMatchObject({
+      workItem: {
+        title: "GitHub issue",
+        description: "GitHub issue body",
+        type: "task",
+        priority: "none",
+        status: "Todo",
+        workflowStateId: "backlog-state-1",
+        stageId: null,
+        planItemId: null
+      },
       actorId: "user-1"
     });
-    expect(repository.upsertedLinks).toHaveLength(1);
-    expect(repository.upsertedLinks[0]).toMatchObject({
+    expect(repository.createdWorkItems).toHaveLength(0);
+    expect(repository.upsertedLinks).toHaveLength(0);
+    expect(repository.createdWorkItemsAndLinks[0]?.link).toMatchObject({
       repositoryId: "repository-1",
       githubIssueId: "github-issue-1",
-      workItemId: "work-item-1",
       syncStatus: "synced",
-      syncEnabled: true,
+      syncEnabled: false,
       syncTitle: true,
       syncBody: true,
       syncState: true
@@ -386,6 +446,7 @@ describe("importGithubIssuesForProject", () => {
 
     expect(summary).toMatchObject({ created: 0, updated: 1 });
     expect(repository.createdWorkItems).toHaveLength(0);
+    expect(repository.createdWorkItemsAndLinks).toHaveLength(0);
     expect(repository.updatedWorkItems).toHaveLength(1);
     expect(repository.updatedWorkItems[0]).toMatchObject({
       workItemId: "work-item-1",
@@ -441,6 +502,30 @@ describe("importGithubIssuesForProject", () => {
           name: "web",
           fullName: "acme/web",
           installationId: "installation-1"
+        },
+        options: {
+          includeClosed: false
+        }
+      }
+    ]);
+  });
+
+  it("accepts a null installation id in the snapshot target contract", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    if (repository.connection) {
+      repository.connection.repository.installationId = null;
+    }
+    const githubClient = client([]);
+
+    await importGithubIssuesForProject(repository, { userId: "user-1" }, "acme", "WEB", githubClient);
+
+    expect(githubClient.calls).toEqual([
+      {
+        target: {
+          owner: "acme",
+          name: "web",
+          fullName: "acme/web",
+          installationId: null
         },
         options: {
           includeClosed: false
