@@ -320,43 +320,7 @@ export async function projectGithubIssueWebhookEvent(
   }
 
   if (issue.isPullRequest) {
-    const projection = repository.findGithubIssueByProviderIssueId
-      ? await repository.findGithubIssueByProviderIssueId(githubRepository.id, issue.providerIssueId)
-      : null;
-    const link = projection ? await repository.getGithubIssueLinkByIssueId(projection.id) : null;
-    const comment = normalizeGithubIssueCommentPayload(payload.comment, receivedAt);
-
-    if (!projection || !link || !comment) {
-      return { ignored: true, reason: "pull_request_issue_comment" };
-    }
-
-    if (payload.action === "deleted") {
-      if (!repository.markGithubIssueCommentDeleted) {
-        return { ignored: true, reason: "comment_delete_not_supported" };
-      }
-      await repository.markGithubIssueCommentDeleted({
-        githubIssueId: projection.id,
-        providerCommentId: comment.providerCommentId,
-        githubDeletedAt: receivedAt
-      });
-      return { ignored: false };
-    }
-
-    if (payload.action !== "created" && payload.action !== "edited") {
-      return { ignored: true, reason: "unsupported_comment_action" };
-    }
-
-    await repository.upsertGithubIssueComment({
-      githubIssueId: projection.id,
-      providerCommentId: comment.providerCommentId,
-      body: comment.body,
-      url: comment.url,
-      authorLogin: comment.authorLogin,
-      githubCreatedAt: comment.githubCreatedAt,
-      githubUpdatedAt: comment.githubUpdatedAt
-    });
-
-    return { ignored: false };
+    return { ignored: true, reason: "pull_request_issue_comment" };
   }
 
   const connection = repository.getProjectGithubConnectionByRepositoryId

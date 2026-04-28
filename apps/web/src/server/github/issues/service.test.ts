@@ -1113,6 +1113,77 @@ describe("projectGithubIssueWebhookEvent", () => {
     expect(repository.upsertedComments).toHaveLength(0);
     expect(repository.localPlatformComments).toHaveLength(0);
   });
+
+  it("ignores pull request issue comments even when an issue projection and link already exist", async () => {
+    const repository = new FakeGithubIssueSyncRepository("admin");
+    repository.issueProjection = {
+      id: "github-1001",
+      repositoryId: "repository-1",
+      providerIssueId: "1001",
+      number: 42,
+      title: "GitHub issue",
+      body: "GitHub issue body",
+      url: "https://github.com/acme/web/issues/42",
+      state: "open",
+      authorLogin: "octocat",
+      githubCreatedAt: "2026-04-28T10:00:00.000Z",
+      githubUpdatedAt: "2026-04-28T11:00:00.000Z",
+      githubClosedAt: null,
+      lastSyncedAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+    repository.link = {
+      id: "link-1",
+      workItemId: "work-item-1",
+      repositoryId: "repository-1",
+      githubIssueId: "github-1001",
+      source: "initial_import",
+      syncStatus: "synced",
+      syncEnabled: true,
+      syncTitle: true,
+      syncBody: true,
+      syncState: true,
+      lastSyncedGithubUpdatedAt: now,
+      lastSyncedWorkItemUpdatedAt: now,
+      lastSyncedTitleHash: null,
+      lastSyncedBodyHash: null,
+      lastSyncedState: "open",
+      conflictFields: null,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const createdResult = await projectGithubIssueWebhookEvent(
+      repository,
+      repository.connection!.repository,
+      "issue_comment",
+      {
+        action: "created",
+        issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }),
+        comment: githubIssueCommentPayload()
+      },
+      now
+    );
+    const deletedResult = await projectGithubIssueWebhookEvent(
+      repository,
+      repository.connection!.repository,
+      "issue_comment",
+      {
+        action: "deleted",
+        issue: githubIssuePayload({ pull_request: { html_url: "https://github.com/acme/web/pull/42" } }),
+        comment: githubIssueCommentPayload()
+      },
+      now
+    );
+
+    expect(createdResult).toEqual({ ignored: true, reason: "pull_request_issue_comment" });
+    expect(deletedResult).toEqual({ ignored: true, reason: "pull_request_issue_comment" });
+    expect(repository.upsertedComments).toHaveLength(0);
+    expect(repository.deletedComments).toHaveLength(0);
+    expect(repository.localPlatformComments).toHaveLength(0);
+  });
 });
 
 describe("syncGithubWebhookRequest issue events", () => {
