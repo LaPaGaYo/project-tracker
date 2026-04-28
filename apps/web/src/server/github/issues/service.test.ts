@@ -86,6 +86,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
   createAndLinkCreated = true;
   updateChanged = true;
   existingOperationStatus: "pending" | "succeeded" | "failed" | null = null;
+  existingOperationRequestedBy: string | null = null;
 
   private readonly state = workspace();
   connection: Awaited<ReturnType<GithubIssueSyncRepository["getProjectGithubConnection"]>> = {
@@ -268,13 +269,15 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       githubUpdatedAtBefore: string | null;
       targetFields: Record<string, unknown>;
     };
+    const status = this.existingOperationStatus ?? operation.status;
+    const requestedBy = this.existingOperationRequestedBy ?? operation.requestedBy;
     return {
       id: "operation-1",
       linkId: operation.linkId,
       operationKey: operation.operationKey,
       operationType: operation.operationType,
-      status: this.existingOperationStatus ?? operation.status,
-      requestedBy: operation.requestedBy,
+      status,
+      requestedBy,
       requestedAt: now,
       completedAt: this.existingOperationStatus === "succeeded" ? now : null,
       githubUpdatedAtBefore: operation.githubUpdatedAtBefore,
