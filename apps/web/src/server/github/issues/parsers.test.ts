@@ -84,6 +84,58 @@ describe("github issue parsers", () => {
     });
   });
 
+  it("preserves exact issue and comment body content", () => {
+    const issue = normalizeGithubIssuePayload(
+      {
+        id: 104,
+        number: 10,
+        title: "Content body",
+        body: "  leading whitespace\n\ntrailing whitespace  ",
+        html_url: "https://github.com/acme/platform/issues/10",
+        created_at: "2026-04-27T10:00:00Z",
+        updated_at: "2026-04-27T11:00:00Z"
+      },
+      fallbackTimestamp
+    );
+    const whitespaceOnlyIssue = normalizeGithubIssuePayload(
+      {
+        id: 105,
+        number: 11,
+        title: "Whitespace body",
+        body: " \n\t ",
+        html_url: "https://github.com/acme/platform/issues/11",
+        created_at: "2026-04-27T10:00:00Z",
+        updated_at: "2026-04-27T11:00:00Z"
+      },
+      fallbackTimestamp
+    );
+    const comment = normalizeGithubIssueCommentPayload(
+      {
+        id: 203,
+        body: "  leading comment\n\ntrailing comment  ",
+        html_url: "https://github.com/acme/platform/issues/10#issuecomment-203",
+        created_at: "2026-04-27T12:00:00Z",
+        updated_at: "2026-04-27T12:30:00Z"
+      },
+      fallbackTimestamp
+    );
+    const whitespaceOnlyComment = normalizeGithubIssueCommentPayload(
+      {
+        id: 204,
+        body: " \n\t ",
+        html_url: "https://github.com/acme/platform/issues/10#issuecomment-204",
+        created_at: "2026-04-27T12:00:00Z",
+        updated_at: "2026-04-27T12:30:00Z"
+      },
+      fallbackTimestamp
+    );
+
+    expect(issue?.body).toBe("  leading whitespace\n\ntrailing whitespace  ");
+    expect(whitespaceOnlyIssue?.body).toBe(" \n\t ");
+    expect(comment?.body).toBe("  leading comment\n\ntrailing comment  ");
+    expect(whitespaceOnlyComment?.body).toBe(" \n\t ");
+  });
+
   it("returns null for malformed required issue and comment fields instead of throwing", () => {
     expect(() => normalizeGithubIssuePayload(null, fallbackTimestamp)).not.toThrow();
     expect(() => normalizeGithubIssueCommentPayload([], fallbackTimestamp)).not.toThrow();

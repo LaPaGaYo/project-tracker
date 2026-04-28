@@ -41,6 +41,7 @@ export interface GithubIssuesClient {
 interface GithubIssuesClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
+  now?: () => Date;
   token?: string;
   tokenProvider?: GithubTokenProvider;
 }
@@ -88,18 +89,40 @@ function normalizeIssueState(value: string | null | undefined): GithubIssueState
   return value === "closed" ? "closed" : "open";
 }
 
-function normalizeIssueComment(comment: GithubRestIssueComment): GithubIssueCommentSnapshot {
+function readIsoString(value: unknown, fallback: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return fallback;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
+function readOptionalIsoString(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function normalizeIssueComment(comment: GithubRestIssueComment, fallbackTimestamp: string): GithubIssueCommentSnapshot {
   return {
     providerCommentId: `${comment.id}`,
     body: comment.body,
     url: comment.html_url,
     authorLogin: comment.user?.login ?? null,
-    githubCreatedAt: comment.created_at ?? new Date(0).toISOString(),
-    githubUpdatedAt: comment.updated_at ?? new Date(0).toISOString()
+    githubCreatedAt: readIsoString(comment.created_at, fallbackTimestamp),
+    githubUpdatedAt: readIsoString(comment.updated_at, fallbackTimestamp)
   };
 }
 
-function normalizeIssue(issue: GithubRestIssue, comments: GithubIssueCommentSnapshot[]): GithubIssueSnapshot {
+function normalizeIssue(
+  issue: GithubRestIssue,
+  comments: GithubIssueCommentSnapshot[],
+  fallbackTimestamp: string
+): GithubIssueSnapshot {
   return {
     providerIssueId: `${issue.id}`,
     number: Number(issue.number),
@@ -108,9 +131,9 @@ function normalizeIssue(issue: GithubRestIssue, comments: GithubIssueCommentSnap
     url: issue.html_url,
     state: normalizeIssueState(issue.state),
     authorLogin: issue.user?.login ?? null,
-    githubCreatedAt: issue.created_at ?? new Date(0).toISOString(),
-    githubUpdatedAt: issue.updated_at ?? new Date(0).toISOString(),
-    githubClosedAt: issue.closed_at ?? null,
+    githubCreatedAt: readIsoString(issue.created_at, fallbackTimestamp),
+    githubUpdatedAt: readIsoString(issue.updated_at, fallbackTimestamp),
+    githubClosedAt: readOptionalIsoString(issue.closed_at),
     comments
   };
 }
@@ -145,7 +168,8 @@ async function fetchIssueComments(
   baseUrl: string,
   token: string,
   target: GithubClientTarget,
-  issueNumber: number
+  issueNumber: number,
+  fallbackTimestamp: string
 ) {
   const comments = await requestGithubJson<GithubRestIssueComment[]>(
     requestFetch,
@@ -154,11 +178,12 @@ async function fetchIssueComments(
     `${repositoryPath(target)}/issues/${encodePathSegment(issueNumber)}/comments?per_page=100`
   );
 
-  return comments.map(normalizeIssueComment);
+  return comments.map((comment) => normalizeIssueComment(comment, fallbackTimestamp));
 }
 
 export function createGithubIssuesClient(options: GithubIssuesClientOptions = {}): GithubIssuesClient {
   const requestFetch = options.fetch ?? fetch;
+  const now = options.now ?? (() => new Date());
   const baseUrl = normalizeApiBaseUrl(options.baseUrl);
   const tokenProvider =
     options.tokenProvider ??
@@ -170,6 +195,7 @@ export function createGithubIssuesClient(options: GithubIssuesClientOptions = {}
 
   return {
     async getRepositoryIssuesSnapshot(target, options = {}) {
+      const fallbackTimestamp = now().toISOString();
       const token = await tokenProvider.getToken(target);
       const state = options.includeClosed === true ? "all" : "open";
       const issues = await requestGithubJson<GithubRestIssue[]>(
@@ -182,18 +208,26 @@ export function createGithubIssuesClient(options: GithubIssuesClientOptions = {}
         issues
           .filter((issue) => !issue.pull_request)
           .map(async (issue) => {
-            const comments = await fetchIssueComments(requestFetch, baseUrl, token, target, Number(issue.number));
-            return normalizeIssue(issue, comments);
+            const comments = await fetchIssueComments(
+              requestFetch,
+              baseUrl,
+              token,
+              target,
+              Number(issue.number),
+              fallbackTimestamp
+            );
+            return normalizeIssue(issue, comments, fallbackTimestamp);
           })
       );
 
       return {
-        fetchedAt: new Date().toISOString(),
+        fetchedAt: fallbackTimestamp,
         issues: issueSnapshots
       };
     },
 
     async updateIssue(target, issueNumber, input) {
+      const fallbackTimestamp = now().toISOString();
       const token = await tokenProvider.getToken(target);
       const issue = await requestGithubJson<GithubRestIssue>(
         requestFetch,
@@ -205,9 +239,16 @@ export function createGithubIssuesClient(options: GithubIssuesClientOptions = {}
           body: JSON.stringify(input)
         }
       );
-      const comments = await fetchIssueComments(requestFetch, baseUrl, token, target, Number(issue.number));
+      const comments = await fetchIssueComments(
+        requestFetch,
+        baseUrl,
+        token,
+        target,
+        Number(issue.number),
+        fallbackTimestamp
+      );
 
-      return normalizeIssue(issue, comments);
+      return normalizeIssue(issue, comments, fallbackTimestamp);
     }
   };
 }

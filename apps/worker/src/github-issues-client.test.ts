@@ -93,8 +93,8 @@ void test("getRepositoryIssuesSnapshot fetches open issues by default and commen
       url: "https://github.com/the-platform/platform-ops/issues/7",
       state: "open",
       authorLogin: "octocat",
-      githubCreatedAt: "2026-04-27T10:00:00Z",
-      githubUpdatedAt: "2026-04-27T11:00:00Z",
+      githubCreatedAt: "2026-04-27T10:00:00.000Z",
+      githubUpdatedAt: "2026-04-27T11:00:00.000Z",
       githubClosedAt: null,
       comments: [
         {
@@ -102,8 +102,8 @@ void test("getRepositoryIssuesSnapshot fetches open issues by default and commen
           body: "Comment body",
           url: "https://github.com/the-platform/platform-ops/issues/7#issuecomment-201",
           authorLogin: "mona",
-          githubCreatedAt: "2026-04-27T12:00:00Z",
-          githubUpdatedAt: "2026-04-27T12:30:00Z"
+          githubCreatedAt: "2026-04-27T12:00:00.000Z",
+          githubUpdatedAt: "2026-04-27T12:30:00.000Z"
         }
       ]
     }
@@ -220,7 +220,7 @@ void test("updateIssue patches issue fields and returns a normalized issue snaps
   });
   assert.equal(snapshot.title, "Updated title");
   assert.equal(snapshot.state, "closed");
-  assert.equal(snapshot.githubClosedAt, "2026-04-27T14:00:00Z");
+  assert.equal(snapshot.githubClosedAt, "2026-04-27T14:00:00.000Z");
   assert.equal(snapshot.comments.length, 1);
 });
 
@@ -254,4 +254,45 @@ void test("GitHub non-2xx response throws a sanitized error with status, status 
       return true;
     }
   );
+});
+
+void test("getRepositoryIssuesSnapshot normalizes invalid and missing timestamps to a controlled fallback", async () => {
+  const client = createGithubIssuesClient({
+    baseUrl: "https://github.test",
+    token: "ghs_static",
+    now: () => new Date("2026-04-27T15:00:00.000Z"),
+    fetch: (url) => {
+      if (serializeFetchUrl(url).endsWith("/issues?state=open&per_page=100")) {
+        return Promise.resolve(
+          createJsonResponse([
+            {
+              ...issuePayload,
+              created_at: "not-a-date",
+              updated_at: undefined,
+              closed_at: "not-a-date"
+            }
+          ])
+        );
+      }
+
+      return Promise.resolve(
+        createJsonResponse([
+          {
+            ...commentPayload,
+            created_at: "not-a-date",
+            updated_at: undefined
+          }
+        ])
+      );
+    }
+  });
+
+  const snapshot = await client.getRepositoryIssuesSnapshot(target);
+
+  assert.equal(snapshot.fetchedAt, "2026-04-27T15:00:00.000Z");
+  assert.equal(snapshot.issues[0]?.githubCreatedAt, "2026-04-27T15:00:00.000Z");
+  assert.equal(snapshot.issues[0]?.githubUpdatedAt, "2026-04-27T15:00:00.000Z");
+  assert.equal(snapshot.issues[0]?.githubClosedAt, null);
+  assert.equal(snapshot.issues[0]?.comments[0]?.githubCreatedAt, "2026-04-27T15:00:00.000Z");
+  assert.equal(snapshot.issues[0]?.comments[0]?.githubUpdatedAt, "2026-04-27T15:00:00.000Z");
 });

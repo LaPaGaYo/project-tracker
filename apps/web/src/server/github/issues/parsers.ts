@@ -14,6 +14,10 @@ function readRequiredString(value: unknown) {
   return readOptionalString(value);
 }
 
+function readContentString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
 function readRequiredNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -84,7 +88,7 @@ export function normalizeGithubIssuePayload(
     providerIssueId,
     number,
     title,
-    body: readOptionalString(payload.body),
+    body: readContentString(payload.body),
     url,
     state: normalizeIssueState(payload.state),
     authorLogin: readAuthorLogin(payload),
@@ -104,10 +108,10 @@ export function normalizeGithubIssueCommentPayload(
   }
 
   const providerCommentId = readRequiredIdentifier(payload.id);
-  const body = readRequiredString(payload.body);
+  const body = readContentString(payload.body);
   const url = readRequiredString(payload.html_url);
 
-  if (!providerCommentId || !body || !url) {
+  if (!providerCommentId || body === null || !url) {
     return null;
   }
 
