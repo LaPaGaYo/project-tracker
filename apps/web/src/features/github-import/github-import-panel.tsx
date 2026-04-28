@@ -105,7 +105,7 @@ export function GithubImportPanel({
       return;
     }
 
-    await fetch(`${issueSyncEndpoint}/settings`, {
+    const response = await fetch(`${issueSyncEndpoint}/settings`, {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
@@ -120,6 +120,9 @@ export function GithubImportPanel({
         reopenedWorkflowStateId: null,
       }),
     });
+    if (!response.ok) {
+      throw new Error("issue sync settings save failed");
+    }
   }
 
   async function handleIssueImport() {

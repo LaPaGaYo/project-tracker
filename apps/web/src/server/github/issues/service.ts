@@ -182,7 +182,96 @@ export function createGithubIssuesClient(options?: {
     }
 
     const payload = await response.json();
-    return Array.isArray(payload) ? payload : [];
+    return {
+      items: Array.isArray(payload) ? payload : [],
+      nextUrl: nextPageUrl(response.headers.get("link"), url),
+    };
+  }
+
+  async function getPaginatedJsonArray(url: string, token: string) {
+    const items = [];
+    let nextUrl: string | null = url;
+
+    while (nextUrl) {
+      const page = await getJsonArray(nextUrl, token);
+      items.push(...page.items);
+      nextUrl = page.nextUrl;
+    }
+
+    return items;
+  }
+
+  function nextPageUrl(linkHeader: string | null, currentUrl: string) {
+    if (!linkHeader) {
+      return null;
+    }
+
+    const nextLink = linkHeader
+      .split(",")
+      .map((link) => link.trim())
+      .find((link) => /;\s*rel="next"/.test(link));
+    const match = nextLink?.match(/^<([^>]+)>/);
+    const href = match?.[1];
+    if (!href) {
+      return null;
+    }
+
+    return new URL(href, href.startsWith("/") ? apiBaseUrl : currentUrl).href;
+  }
+
+  function shouldFetchComments(item: unknown, issue: GithubIssueWithComments) {
+    if (issue.isPullRequest) {
+      return false;
+    }
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "comments" in item &&
+      typeof item.comments === "number"
+    ) {
+      return item.comments > 0;
+    }
+
+    return true;
+  }
+
+  function commentsUrl(
+    item: unknown,
+    target: GithubIssueImportTarget,
+    issueNumber: number
+  ) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "comments_url" in item &&
+      typeof item.comments_url === "string"
+    ) {
+      return item.comments_url;
+    }
+
+    return `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues/${issueNumber}/comments?per_page=100`;
+  }
+
+  async function getIssueComments(
+    item: unknown,
+    target: GithubIssueImportTarget,
+    token: string,
+    issue: GithubIssueWithComments,
+    fetchedAt: string
+  ) {
+    if (!shouldFetchComments(item, issue)) {
+      return [];
+    }
+
+    const payload = await getPaginatedJsonArray(
+      commentsUrl(item, target, issue.number),
+      token
+    );
+    return payload
+      .map((comment) => normalizeGithubIssueCommentPayload(comment, fetchedAt))
+      .filter(
+        (comment): comment is NonNullable<typeof comment> => comment !== null
+      );
   }
 
   return {
@@ -190,7 +279,7 @@ export function createGithubIssuesClient(options?: {
       const fetchedAt = now().toISOString();
       const token = await installationToken(target);
       const state = importOptions?.includeClosed ? "all" : "open";
-      const payload = await getJsonArray(
+      const payload = await getPaginatedJsonArray(
         `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues?state=${state}&per_page=100`,
         token
       );
@@ -202,26 +291,15 @@ export function createGithubIssuesClient(options?: {
           continue;
         }
 
-        const commentsUrl =
-          typeof item === "object" &&
-          item !== null &&
-          "comments_url" in item &&
-          typeof item.comments_url === "string"
-            ? item.comments_url
-            : `${apiBaseUrl}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/issues/${issue.number}/comments?per_page=100`;
-        const commentsPayload = issue.isPullRequest
-          ? []
-          : await getJsonArray(commentsUrl, token);
         issues.push({
           ...issue,
-          comments: commentsPayload
-            .map((comment) =>
-              normalizeGithubIssueCommentPayload(comment, fetchedAt)
-            )
-            .filter(
-              (comment): comment is NonNullable<typeof comment> =>
-                comment !== null
-            ),
+          comments: await getIssueComments(
+            item,
+            target,
+            token,
+            { ...issue, comments: [] },
+            fetchedAt
+          ),
         });
       }
 

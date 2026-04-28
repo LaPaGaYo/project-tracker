@@ -151,6 +151,47 @@ describe("GithubImportPanel", () => {
     });
   });
 
+  it("does not import GitHub issues when settings save fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "settings failed" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <GithubImportPanel
+        workspaceSlug="acme"
+        projectKey="OPS"
+        canImport
+        installUrl={installUrl}
+        authorizationUrl="/github/authorize?workspaceSlug=acme&githubInstallationId=987"
+        authorizationStatus="authorized"
+        authorizationErrorCode={null}
+        authorizedGithubLogin="henry"
+        installationId="987"
+        repositories={repositories}
+        errorMessage={null}
+        missingConfiguration={[]}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    );
+
+    await screen.findByText(
+      "Issue import failed. Check GitHub App permissions and try again."
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/workspaces/acme/projects/OPS/github/issues/settings",
+      expect.objectContaining({ method: "PATCH" })
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/workspaces/acme/projects/OPS/github/issues/import",
+      expect.anything()
+    );
+  });
+
   it("renders GitHub Issues sync controls for a project without workspace repository picker state", () => {
     render(
       <GithubImportPanel

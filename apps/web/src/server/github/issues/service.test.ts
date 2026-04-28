@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   GithubIssueImportClient,
@@ -8,6 +8,7 @@ import type {
   GithubIssueSyncRepository,
 } from "./types";
 import {
+  createGithubIssuesClient,
   importGithubIssuesForProject,
   projectGithubIssueWebhookEvent,
   syncWorkItemGithubOwnedFields,
@@ -17,6 +18,33 @@ import { WorkspaceError } from "../../workspaces/core";
 import { syncGithubWebhookRequest } from "../webhooks";
 
 const now = "2026-04-28T12:00:00.000Z";
+const testPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAlmE94ty2BNjZed9Mn2ij7xDcsZBCbCbSajZZQM1Vx5ouIRYF
+Tk9CGJoMn7tJwmHUaR7A7jERo3/9I2eRTZ4poTlAkyoKFLM9oMTenQZI71DfKhEn
+R6+qkNDcIMmvoLxbGQbNC1H1T3cKp2QvIrnn0pbN7+Gpv3sw3jkGXV21Es2UZcJK
+JnhnO4toTt5TkUNf0zM+D86q4GfHRWCQd2XuqMO6iLIRgCLvzxY60F7caYwznYr0
+iYHSknS5lYyxC1WzFTEDJ2V7q7syF1DxFMGWhEcefqFf9lsMzt/WBaD+pAhrYd6Z
+cEkJQnmnV6hRGSSgDJMqWK2WD+f1yoKTDqKQVQIDAQABAoIBAEm9xT8I68JEkF7d
+1IoXRlwGpPL95h8NhmpzBVmGk57W3ZqMhzhqJ8Etp/dApfr/dLqHdFRK8WqvO8Ff
+kP39E71tU0j3QFTNddcHxuQ/78QpjmIEgV5Chyn94/P7teI890UjUcYl7NlmgK4K
+XjWWED4Dk4yPbiwgvbjNO0/rG0SkjApAN4iIiBgHtsHVuX10cTqWa1vm0Nw1IvOI
+3zBsFRmygC/7HQv9w1KmGXFenZnQGeztqQxmUVM/atFOUK3qImoXkNk3tqqQySO3
+ALhS+NK7UjU89GcZi90IyHxo4xEm03dtWFjF3To3mfbDwo3qks5e+xWMeJ5L6Si/
+Tehlj/ECgYEAzb7pRO19HcpxxkFC5kQ6pM6puYPmtjfOlqQKSUtlP6jQj77+zqaG
+82Qf0K22MuKU3psWIupHY4YbTaT1c3RcnKV9QvEfQMjlMSt2TD08TWrB88YhNLuO
+AyZbjTNTI4NBs2m4HNqUmJ9sNCrPXibQlFkBNFW+lPm5mq+ioyRhf/sCgYEAt60q
+wqc4R9is1rD1NrabDvn4jaSTQwEsbTOuYtMhuxIwVI1xj99aYkgyICDZmkNAx0KB
+N2AjYIIyENdEeN9a2Z7+hw1fKGmdxt9XKijAtSOH/7OCbPH7pC8kkwY9j9ppgf3D
+7bNaY8l4QhCqxc0yo7o3uX9iGXW41M4EPlUL/FUCgYA9uEJlj85C/uB9lCmOqUnb
+2HaovDQEfVHBW6Fj7J6BkKPZvKekO5bYx0FjPMK4UqsuuAiaKZuzNsqaI7cfWHQ+
+pLWQcfKkVSyaqwfSVYl4LwY2P6X+0S24oFUii6cUIU9vkfF1fbpXKG4STvkLROvS
+1aL2acPi38NlEXKE1duDNQKBgD0roAmP5qiLJkQx+/B9kfhFVr+HS4+1+KugF7Fo
+w9c96cgTZZEi2rJmGZGdgOqjyuSWTHwHVctS6c+i39L2FjEpNVB4koYBx/Tpx3gB
+2lFgyEPf+IISCFNjDX28FWLE8QYc0Vz61Z78OAoPMqNUZVYDoHpHXeIar4+oUOBe
+4lVNAoGBAMVFgci41uABRE5BBx1BzAdlpgl/DJdjAuVKAUsaRGMQo1VBmKo0xQcd
+/80yVLY0hi+bTbNYXHsJvi58QpebuvaiNxLnoC0O9HFpb5pBjITz08b7Ikn8o8iR
+s95am2X9xg6SuKGJrPTGxYgrwQMkN+AgzqlMxDqLuDj+3PNqKN2M
+-----END RSA PRIVATE KEY-----`;
 
 function workspace(role: "owner" | "admin" | "member" | "viewer" = "admin") {
   return {
@@ -611,6 +639,161 @@ function linkedRepository(overrides: Partial<GithubIssueLinkRecord> = {}) {
   };
   return repository;
 }
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+}
+
+function githubIssuesClient(fetchImpl: typeof fetch) {
+  return createGithubIssuesClient({
+    appId: "123",
+    privateKey: testPrivateKey,
+    apiBaseUrl: "https://api.github.test",
+    fetch: fetchImpl,
+    now: () => new Date(now),
+  });
+}
+
+describe("createGithubIssuesClient", () => {
+  it("imports issues across multiple Link pages", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const requestUrl = String(url);
+      if (requestUrl.endsWith("/access_tokens")) {
+        return jsonResponse({ token: "installation-token" });
+      }
+      if (requestUrl.includes("/issues?state=open&per_page=100")) {
+        return jsonResponse(
+          [
+            githubIssuePayload({
+              id: 1001,
+              number: 1,
+              title: "First issue",
+              html_url: "https://github.com/acme/web/issues/1",
+              comments: 0,
+            }),
+          ],
+          {
+            headers: {
+              link: '<https://api.github.test/repos/acme/web/issues?page=2&per_page=100>; rel="next"',
+            },
+          }
+        );
+      }
+      if (requestUrl.includes("/issues?page=2&per_page=100")) {
+        return jsonResponse([
+          githubIssuePayload({
+            id: 1002,
+            number: 2,
+            title: "Second issue",
+            html_url: "https://github.com/acme/web/issues/2",
+            comments: 0,
+          }),
+        ]);
+      }
+
+      throw new Error(`Unexpected request: ${requestUrl}`);
+    }) as unknown as typeof fetch;
+
+    const snapshot = await githubIssuesClient(
+      fetchImpl
+    ).getRepositoryIssuesSnapshot({
+      owner: "acme",
+      name: "web",
+      fullName: "acme/web",
+      installationId: "installation-1",
+    });
+
+    expect(snapshot.issues.map((issue) => issue.number)).toEqual([1, 2]);
+    expect(vi.mocked(fetchImpl)).toHaveBeenCalledTimes(3);
+  });
+
+  it("follows comment pagination for imported issues", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const requestUrl = String(url);
+      if (requestUrl.endsWith("/access_tokens")) {
+        return jsonResponse({ token: "installation-token" });
+      }
+      if (requestUrl.includes("/issues?state=open&per_page=100")) {
+        return jsonResponse([
+          githubIssuePayload({
+            comments: 2,
+            comments_url:
+              "https://api.github.test/repos/acme/web/issues/42/comments",
+          }),
+        ]);
+      }
+      if (requestUrl.endsWith("/issues/42/comments")) {
+        return jsonResponse([githubIssueCommentPayload({ id: 9001 })], {
+          headers: {
+            link: '</repos/acme/web/issues/42/comments?page=2>; rel="next"',
+          },
+        });
+      }
+      if (requestUrl.endsWith("/issues/42/comments?page=2")) {
+        return jsonResponse([
+          githubIssueCommentPayload({
+            id: 9002,
+            body: "Second GitHub comment",
+          }),
+        ]);
+      }
+
+      throw new Error(`Unexpected request: ${requestUrl}`);
+    }) as unknown as typeof fetch;
+
+    const snapshot = await githubIssuesClient(
+      fetchImpl
+    ).getRepositoryIssuesSnapshot({
+      owner: "acme",
+      name: "web",
+      fullName: "acme/web",
+      installationId: "installation-1",
+    });
+
+    expect(
+      snapshot.issues[0]?.comments.map((comment) => comment.providerCommentId)
+    ).toEqual(["9001", "9002"]);
+  });
+
+  it("does not request comments for non-PR issues with zero comments", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const requestUrl = String(url);
+      if (requestUrl.endsWith("/access_tokens")) {
+        return jsonResponse({ token: "installation-token" });
+      }
+      if (requestUrl.includes("/issues?state=open&per_page=100")) {
+        return jsonResponse([
+          githubIssuePayload({
+            comments: 0,
+            comments_url:
+              "https://api.github.test/repos/acme/web/issues/42/comments",
+          }),
+        ]);
+      }
+
+      throw new Error(`Unexpected request: ${requestUrl}`);
+    }) as unknown as typeof fetch;
+
+    const snapshot = await githubIssuesClient(
+      fetchImpl
+    ).getRepositoryIssuesSnapshot({
+      owner: "acme",
+      name: "web",
+      fullName: "acme/web",
+      installationId: "installation-1",
+    });
+
+    expect(snapshot.issues[0]?.comments).toEqual([]);
+    expect(vi.mocked(fetchImpl)).toHaveBeenCalledTimes(2);
+  });
+});
 
 function updateClient(
   snapshotOverrides: Partial<GithubIssueImportClientIssue> = {}
