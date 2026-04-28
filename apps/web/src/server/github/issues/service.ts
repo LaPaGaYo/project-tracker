@@ -181,15 +181,16 @@ export function createGithubIssuesClient(options?: {
       );
     }
 
-    const payload = await response.json();
+    const payload: unknown = await response.json();
+    const items: unknown[] = Array.isArray(payload) ? payload : [];
     return {
-      items: Array.isArray(payload) ? payload : [],
+      items,
       nextUrl: nextPageUrl(response.headers.get("link"), url),
     };
   }
 
   async function getPaginatedJsonArray(url: string, token: string) {
-    const items = [];
+    const items: unknown[] = [];
     let nextUrl: string | null = url;
 
     while (nextUrl) {
@@ -331,7 +332,7 @@ export function createGithubIssuesClient(options?: {
         );
       }
 
-      const payload = await response.json();
+      const payload: unknown = await response.json();
       const issue = normalizeGithubIssuePayload(payload, now().toISOString());
       if (!issue) {
         throw new Error("GitHub issue update response was incomplete.");

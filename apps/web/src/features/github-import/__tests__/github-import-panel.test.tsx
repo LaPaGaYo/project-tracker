@@ -104,15 +104,16 @@ describe("GithubImportPanel", () => {
   it("renders GitHub Issues sync controls and posts issue imports for a connected project", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        summary: {
-          created: 2,
-          updated: 1,
-          skippedPullRequests: 3,
-          conflicted: 0,
-          failed: 0,
-        },
-      }),
+      json: () =>
+        Promise.resolve({
+          summary: {
+            created: 2,
+            updated: 1,
+            skippedPullRequests: 3,
+            conflicted: 0,
+            failed: 0,
+          },
+        }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -154,7 +155,7 @@ describe("GithubImportPanel", () => {
   it("does not import GitHub issues when settings save fails", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
-      json: async () => ({ error: "settings failed" }),
+      json: () => Promise.resolve({ error: "settings failed" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 

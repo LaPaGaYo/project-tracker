@@ -200,54 +200,60 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     this.state = workspace(role);
   }
 
-  async findWorkspaceBySlug(slug: string) {
-    return slug === this.state.workspace.slug ? this.state.workspace : null;
+  findWorkspaceBySlug(slug: string) {
+    return Promise.resolve(
+      slug === this.state.workspace.slug ? this.state.workspace : null
+    );
   }
 
-  async getMembership(workspaceId: string, userId: string) {
-    return workspaceId === this.state.workspace.id && userId === "user-1"
-      ? this.state.membership
-      : null;
+  getMembership(workspaceId: string, userId: string) {
+    return Promise.resolve(
+      workspaceId === this.state.workspace.id && userId === "user-1"
+        ? this.state.membership
+        : null
+    );
   }
 
-  async getProjectByKey(workspaceId: string, projectKey: string) {
-    return workspaceId === this.state.workspace.id &&
-      projectKey === this.state.project.key
-      ? this.state.project
-      : null;
+  getProjectByKey(workspaceId: string, projectKey: string) {
+    return Promise.resolve(
+      workspaceId === this.state.workspace.id &&
+        projectKey === this.state.project.key
+        ? this.state.project
+        : null
+    );
   }
 
-  async getProjectGithubConnection(projectId: string) {
-    return projectId === this.state.project.id ? this.connection : null;
+  getProjectGithubConnection(projectId: string) {
+    return Promise.resolve(
+      projectId === this.state.project.id ? this.connection : null
+    );
   }
 
-  async getProjectGithubConnectionByRepositoryId(repositoryId: string) {
-    return repositoryId === this.connection?.repository.id
-      ? this.connection
-      : null;
+  getProjectGithubConnectionByRepositoryId(repositoryId: string) {
+    return Promise.resolve(
+      repositoryId === this.connection?.repository.id ? this.connection : null
+    );
   }
 
-  async findGithubRepositoryByProviderRepositoryId(
-    providerRepositoryId: string
-  ) {
+  findGithubRepositoryByProviderRepositoryId(providerRepositoryId: string) {
     if (
       providerRepositoryId !== this.connection?.repository.providerRepositoryId
     ) {
-      return null;
+      return Promise.resolve(null);
     }
 
-    return {
+    return Promise.resolve({
       ...this.connection.repository,
       installationId:
         this.connection.repository.installationId ?? "installation-1",
-    };
+    });
   }
 
-  async getGithubWebhookDeliveryByDeliveryId() {
-    return null;
+  getGithubWebhookDeliveryByDeliveryId() {
+    return Promise.resolve(null);
   }
 
-  async createGithubWebhookDelivery(input: {
+  createGithubWebhookDelivery(input: {
     repositoryId: string | null;
     deliveryId: string;
     eventName:
@@ -263,13 +269,13 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     processedAt: string | null;
     errorMessage: string | null;
   }) {
-    return {
+    return Promise.resolve({
       id: `webhook-${input.deliveryId}`,
       ...input,
-    };
+    });
   }
 
-  async updateGithubWebhookDelivery(
+  updateGithubWebhookDelivery(
     deliveryId: string,
     input: {
       status?: "pending" | "processed" | "failed";
@@ -277,7 +283,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       errorMessage?: string | null;
     }
   ) {
-    return {
+    return Promise.resolve({
       id: `webhook-${deliveryId}`,
       repositoryId: this.connection?.repository.id ?? null,
       deliveryId,
@@ -286,30 +292,32 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       receivedAt: now,
       processedAt: input.processedAt ?? now,
       errorMessage: input.errorMessage ?? null,
-    };
+    });
   }
 
-  async getGithubRepositoryNotificationContext() {
-    return null;
+  getGithubRepositoryNotificationContext() {
+    return Promise.resolve(null);
   }
 
-  async getGithubIssueSyncSettings() {
-    return null;
+  getGithubIssueSyncSettings() {
+    return Promise.resolve(null);
   }
 
-  async updateGithubIssueSyncSettings(
+  updateGithubIssueSyncSettings(
     projectId: string,
     settings: GithubIssueSyncSettings
   ) {
     this.settingsUpdates.push({ projectId, settings });
-    return settings;
+    return Promise.resolve(settings);
   }
 
-  async listWorkflowStates(projectId: string) {
-    return projectId === this.state.project.id ? this.workflowStates : [];
+  listWorkflowStates(projectId: string) {
+    return Promise.resolve(
+      projectId === this.state.project.id ? this.workflowStates : []
+    );
   }
 
-  async upsertGithubIssue(
+  upsertGithubIssue(
     input: Parameters<GithubIssueSyncRepository["upsertGithubIssue"]>[0]
   ) {
     this.upsertedIssues.push(input);
@@ -331,34 +339,38 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       updatedAt: now,
     } satisfies GithubIssueProjectionRecord;
     this.issueProjection = projection;
-    return projection;
+    return Promise.resolve(projection);
   }
 
-  async findGithubIssueByProviderIssueId(
+  findGithubIssueByProviderIssueId(
     repositoryId: string,
     providerIssueId: string
   ) {
-    return this.issueProjection?.repositoryId === repositoryId &&
-      this.issueProjection.providerIssueId === providerIssueId
-      ? this.issueProjection
-      : null;
+    return Promise.resolve(
+      this.issueProjection?.repositoryId === repositoryId &&
+        this.issueProjection.providerIssueId === providerIssueId
+        ? this.issueProjection
+        : null
+    );
   }
 
-  async getGithubIssueLinkByIssueId() {
-    return this.link;
+  getGithubIssueLinkByIssueId() {
+    return Promise.resolve(this.link);
   }
 
-  async getGithubIssueLinkForWorkItem() {
-    return this.link && this.issueProjection && this.connection
-      ? {
-          link: this.link,
-          issue: this.issueProjection,
-          repository: this.connection.repository,
-        }
-      : null;
+  getGithubIssueLinkForWorkItem() {
+    return Promise.resolve(
+      this.link && this.issueProjection && this.connection
+        ? {
+            link: this.link,
+            issue: this.issueProjection,
+            repository: this.connection.repository,
+          }
+        : null
+    );
   }
 
-  async createGithubIssueSyncOperation(input: unknown) {
+  createGithubIssueSyncOperation(input: unknown) {
     this.createdOperations.push(input);
     const operation = input as {
       linkId: string;
@@ -372,7 +384,7 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
     const status = this.existingOperationStatus ?? operation.status;
     const requestedBy =
       this.existingOperationRequestedBy ?? operation.requestedBy;
-    return {
+    return Promise.resolve({
       id: "operation-1",
       linkId: operation.linkId,
       operationKey: operation.operationKey,
@@ -385,18 +397,20 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       targetFields: operation.targetFields,
       errorMessage: null,
       reused: this.existingOperationStatus !== null,
-    };
+    });
   }
 
-  async completeGithubIssueSyncOperation(input: unknown) {
+  completeGithubIssueSyncOperation(input: unknown) {
     this.completedOperations.push(input);
+    return Promise.resolve();
   }
 
-  async failGithubIssueSyncOperation(input: unknown) {
+  failGithubIssueSyncOperation(input: unknown) {
     this.failedOperations.push(input);
+    return Promise.resolve();
   }
 
-  async markGithubIssueLinkError(input: unknown) {
+  markGithubIssueLinkError(input: unknown) {
     this.linkErrors.push(input);
     if (this.link) {
       this.link = {
@@ -405,23 +419,26 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         errorMessage: (input as { errorMessage?: string }).errorMessage ?? null,
       };
     }
+    return Promise.resolve();
   }
 
-  async updateIssueProjectionFromOutbound(input: unknown) {
+  updateIssueProjectionFromOutbound(input: unknown) {
     this.outboundProjectionUpdates.push(input);
+    return Promise.resolve();
   }
 
-  async updateGithubIssueLinkBaseline(input: unknown) {
+  updateGithubIssueLinkBaseline(input: unknown) {
     this.baselineUpdates.push(input);
+    return Promise.resolve();
   }
 
-  async createWorkItemForGithubIssue(
+  createWorkItemForGithubIssue(
     input: Parameters<
       GithubIssueSyncRepository["createWorkItemForGithubIssue"]
     >[0]
   ) {
     this.createdWorkItems.push(input);
-    return {
+    return Promise.resolve({
       id: "work-item-1",
       projectId: input.projectId,
       workspaceId: input.workspaceId,
@@ -443,16 +460,16 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       completedAt: input.completedAt,
       createdAt: now,
       updatedAt: now,
-    };
+    });
   }
 
-  async createWorkItemAndLinkGithubIssue(
+  createWorkItemAndLinkGithubIssue(
     input: Parameters<
       GithubIssueSyncRepository["createWorkItemAndLinkGithubIssue"]
     >[0]
   ) {
     this.createdWorkItemsAndLinks.push(input);
-    return {
+    return Promise.resolve({
       workItem: {
         id: "work-item-1",
         projectId: input.projectId,
@@ -498,16 +515,16 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         updatedAt: now,
       },
       created: this.createAndLinkCreated,
-    };
+    });
   }
 
-  async updateWorkItemFromGithubIssue(
+  updateWorkItemFromGithubIssue(
     input: Parameters<
       GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]
     >[0]
   ) {
     this.updatedWorkItems.push(input);
-    return {
+    return Promise.resolve({
       workItem: {
         id: input.workItemId,
         projectId: this.state.project.id,
@@ -532,14 +549,14 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
         updatedAt: now,
       },
       changed: this.updateChanged,
-    };
+    });
   }
 
-  async upsertGithubIssueLink(
+  upsertGithubIssueLink(
     input: Parameters<GithubIssueSyncRepository["upsertGithubIssueLink"]>[0]
   ) {
     this.upsertedLinks.push(input);
-    return {
+    return Promise.resolve({
       id: "link-1",
       workItemId: input.workItemId,
       repositoryId: input.repositoryId,
@@ -559,25 +576,27 @@ class FakeGithubIssueSyncRepository implements GithubIssueSyncRepository {
       errorMessage: input.errorMessage,
       createdAt: now,
       updatedAt: now,
-    };
+    });
   }
 
-  async upsertGithubIssueComment(
+  upsertGithubIssueComment(
     input: Parameters<GithubIssueSyncRepository["upsertGithubIssueComment"]>[0]
   ) {
     this.upsertedComments.push(input);
+    return Promise.resolve();
   }
 
-  async markGithubIssueCommentDeleted(
+  markGithubIssueCommentDeleted(
     input: Parameters<
       NonNullable<GithubIssueSyncRepository["markGithubIssueCommentDeleted"]>
     >[0]
   ) {
     this.deletedComments.push(input);
+    return Promise.resolve();
   }
 
-  async getWorkItemForGithubIssueLink() {
-    return this.workItemForLink;
+  getWorkItemForGithubIssueLink() {
+    return Promise.resolve(this.workItemForLink);
   }
 }
 
@@ -586,12 +605,12 @@ function client(
 ): GithubIssueImportClient & { calls: unknown[] } {
   return {
     calls: [],
-    async getRepositoryIssuesSnapshot(target, options) {
+    getRepositoryIssuesSnapshot(target, options) {
       this.calls.push({ target, options });
-      return {
+      return Promise.resolve({
         fetchedAt: "2026-04-28T12:30:00.000Z",
         issues,
-      };
+      });
     },
   };
 }
@@ -661,41 +680,55 @@ function githubIssuesClient(fetchImpl: typeof fetch) {
   });
 }
 
+function serializeFetchUrl(url: string | URL | Request) {
+  if (typeof url === "string") {
+    return url;
+  }
+  if (url instanceof URL) {
+    return url.href;
+  }
+  return url.url;
+}
+
 describe("createGithubIssuesClient", () => {
   it("imports issues across multiple Link pages", async () => {
-    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
-      const requestUrl = String(url);
+    const fetchImpl = vi.fn((url: string | URL | Request) => {
+      const requestUrl = serializeFetchUrl(url);
       if (requestUrl.endsWith("/access_tokens")) {
-        return jsonResponse({ token: "installation-token" });
+        return Promise.resolve(jsonResponse({ token: "installation-token" }));
       }
       if (requestUrl.includes("/issues?state=open&per_page=100")) {
-        return jsonResponse(
-          [
-            githubIssuePayload({
-              id: 1001,
-              number: 1,
-              title: "First issue",
-              html_url: "https://github.com/acme/web/issues/1",
-              comments: 0,
-            }),
-          ],
-          {
-            headers: {
-              link: '<https://api.github.test/repos/acme/web/issues?page=2&per_page=100>; rel="next"',
-            },
-          }
+        return Promise.resolve(
+          jsonResponse(
+            [
+              githubIssuePayload({
+                id: 1001,
+                number: 1,
+                title: "First issue",
+                html_url: "https://github.com/acme/web/issues/1",
+                comments: 0,
+              }),
+            ],
+            {
+              headers: {
+                link: '<https://api.github.test/repos/acme/web/issues?page=2&per_page=100>; rel="next"',
+              },
+            }
+          )
         );
       }
       if (requestUrl.includes("/issues?page=2&per_page=100")) {
-        return jsonResponse([
-          githubIssuePayload({
-            id: 1002,
-            number: 2,
-            title: "Second issue",
-            html_url: "https://github.com/acme/web/issues/2",
-            comments: 0,
-          }),
-        ]);
+        return Promise.resolve(
+          jsonResponse([
+            githubIssuePayload({
+              id: 1002,
+              number: 2,
+              title: "Second issue",
+              html_url: "https://github.com/acme/web/issues/2",
+              comments: 0,
+            }),
+          ])
+        );
       }
 
       throw new Error(`Unexpected request: ${requestUrl}`);
@@ -715,34 +748,40 @@ describe("createGithubIssuesClient", () => {
   });
 
   it("follows comment pagination for imported issues", async () => {
-    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
-      const requestUrl = String(url);
+    const fetchImpl = vi.fn((url: string | URL | Request) => {
+      const requestUrl = serializeFetchUrl(url);
       if (requestUrl.endsWith("/access_tokens")) {
-        return jsonResponse({ token: "installation-token" });
+        return Promise.resolve(jsonResponse({ token: "installation-token" }));
       }
       if (requestUrl.includes("/issues?state=open&per_page=100")) {
-        return jsonResponse([
-          githubIssuePayload({
-            comments: 2,
-            comments_url:
-              "https://api.github.test/repos/acme/web/issues/42/comments",
-          }),
-        ]);
+        return Promise.resolve(
+          jsonResponse([
+            githubIssuePayload({
+              comments: 2,
+              comments_url:
+                "https://api.github.test/repos/acme/web/issues/42/comments",
+            }),
+          ])
+        );
       }
       if (requestUrl.endsWith("/issues/42/comments")) {
-        return jsonResponse([githubIssueCommentPayload({ id: 9001 })], {
-          headers: {
-            link: '</repos/acme/web/issues/42/comments?page=2>; rel="next"',
-          },
-        });
+        return Promise.resolve(
+          jsonResponse([githubIssueCommentPayload({ id: 9001 })], {
+            headers: {
+              link: '</repos/acme/web/issues/42/comments?page=2>; rel="next"',
+            },
+          })
+        );
       }
       if (requestUrl.endsWith("/issues/42/comments?page=2")) {
-        return jsonResponse([
-          githubIssueCommentPayload({
-            id: 9002,
-            body: "Second GitHub comment",
-          }),
-        ]);
+        return Promise.resolve(
+          jsonResponse([
+            githubIssueCommentPayload({
+              id: 9002,
+              body: "Second GitHub comment",
+            }),
+          ])
+        );
       }
 
       throw new Error(`Unexpected request: ${requestUrl}`);
@@ -763,19 +802,21 @@ describe("createGithubIssuesClient", () => {
   });
 
   it("does not request comments for non-PR issues with zero comments", async () => {
-    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
-      const requestUrl = String(url);
+    const fetchImpl = vi.fn((url: string | URL | Request) => {
+      const requestUrl = serializeFetchUrl(url);
       if (requestUrl.endsWith("/access_tokens")) {
-        return jsonResponse({ token: "installation-token" });
+        return Promise.resolve(jsonResponse({ token: "installation-token" }));
       }
       if (requestUrl.includes("/issues?state=open&per_page=100")) {
-        return jsonResponse([
-          githubIssuePayload({
-            comments: 0,
-            comments_url:
-              "https://api.github.test/repos/acme/web/issues/42/comments",
-          }),
-        ]);
+        return Promise.resolve(
+          jsonResponse([
+            githubIssuePayload({
+              comments: 0,
+              comments_url:
+                "https://api.github.test/repos/acme/web/issues/42/comments",
+            }),
+          ])
+        );
       }
 
       throw new Error(`Unexpected request: ${requestUrl}`);
@@ -800,15 +841,17 @@ function updateClient(
 ) {
   return {
     calls: [] as unknown[],
-    async updateIssue(target: unknown, issueNumber: number, input: unknown) {
+    updateIssue(target: unknown, issueNumber: number, input: unknown) {
       this.calls.push({ target, issueNumber, input });
-      return issue({
-        title: (input as { title?: string }).title ?? "GitHub issue",
-        body: (input as { body?: string | null }).body ?? "GitHub issue body",
-        state: (input as { state?: "open" | "closed" }).state ?? "open",
-        githubUpdatedAt: "2026-04-28T12:45:00.000Z",
-        ...snapshotOverrides,
-      });
+      return Promise.resolve(
+        issue({
+          title: (input as { title?: string }).title ?? "GitHub issue",
+          body: (input as { body?: string | null }).body ?? "GitHub issue body",
+          state: (input as { state?: "open" | "closed" }).state ?? "open",
+          githubUpdatedAt: "2026-04-28T12:45:00.000Z",
+          ...snapshotOverrides,
+        })
+      );
     },
   };
 }
@@ -831,17 +874,16 @@ describe("syncWorkItemGithubOwnedFields", () => {
     );
 
     expect(result).toEqual({ attempted: true, succeeded: true });
-    expect(githubClient.calls).toEqual([
-      {
-        target: expect.objectContaining({
-          owner: "acme",
-          name: "web",
-          fullName: "acme/web",
-        }),
-        issueNumber: 42,
-        input: { title: "Platform title" },
+    expect(githubClient.calls).toHaveLength(1);
+    expect(githubClient.calls[0]).toMatchObject({
+      target: {
+        owner: "acme",
+        name: "web",
+        fullName: "acme/web",
       },
-    ]);
+      issueNumber: 42,
+      input: { title: "Platform title" },
+    });
     expect(repository.createdOperations[0]).toMatchObject({
       operationType: "update_issue",
       status: "pending",
@@ -854,11 +896,11 @@ describe("syncWorkItemGithubOwnedFields", () => {
     ]);
     expect(repository.outboundProjectionUpdates[0]).toMatchObject({
       githubIssueId: "github-issue-1",
-      issue: expect.objectContaining({ title: "Platform title" }),
+      issue: { title: "Platform title" },
     });
     expect(repository.baselineUpdates[0]).toMatchObject({
       linkId: "link-1",
-      issue: expect.objectContaining({ title: "Platform title" }),
+      issue: { title: "Platform title" },
     });
   });
 
@@ -975,10 +1017,10 @@ describe("syncWorkItemGithubOwnedFields", () => {
     const repository = linkedRepository();
     const githubClient = {
       calls: [] as unknown[],
-      async updateIssue(target: unknown, issueNumber: number, input: unknown) {
+      updateIssue(target: unknown, issueNumber: number, input: unknown) {
         this.calls.push({ target, issueNumber, input });
-        throw new Error(
-          "GitHub token ghp_secret_1234567890abcdef request failed"
+        return Promise.reject(
+          new Error("GitHub token ghp_secret_1234567890abcdef request failed")
         );
       },
     };
@@ -997,12 +1039,16 @@ describe("syncWorkItemGithubOwnedFields", () => {
     expect(result).toEqual({ attempted: true, succeeded: false });
     expect(repository.failedOperations[0]).toMatchObject({
       operationId: "operation-1",
-      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef"),
     });
+    expect(
+      (repository.failedOperations[0] as { errorMessage: string }).errorMessage
+    ).not.toContain("ghp_secret_1234567890abcdef");
     expect(repository.linkErrors[0]).toMatchObject({
       linkId: "link-1",
-      errorMessage: expect.not.stringContaining("ghp_secret_1234567890abcdef"),
     });
+    expect(
+      (repository.linkErrors[0] as { errorMessage: string }).errorMessage
+    ).not.toContain("ghp_secret_1234567890abcdef");
     expect(repository.completedOperations).toHaveLength(0);
   });
 
@@ -2032,8 +2078,9 @@ describe("syncGithubWebhookRequest issue events", () => {
         secret: "secret",
         verifySignature: () => true,
         now: () => new Date(now),
-        processDelivery: async ({ eventName: processedEventName }) => {
+        processDelivery: ({ eventName: processedEventName }) => {
           deliveries.push(processedEventName);
+          return Promise.resolve();
         },
       });
 

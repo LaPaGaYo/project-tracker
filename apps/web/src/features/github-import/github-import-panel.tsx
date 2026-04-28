@@ -240,7 +240,9 @@ export function GithubImportPanel({
         className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isImportingIssues}
         type="button"
-        onClick={handleIssueImport}
+        onClick={() => {
+          void handleIssueImport();
+        }}
       >
         {isImportingIssues ? "Importing GitHub issues" : "Import GitHub issues"}
       </button>
