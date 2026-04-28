@@ -6,13 +6,16 @@ import { resolveWorkspaceContext } from "../../work-management/utils";
 import { WorkspaceError } from "../../workspaces/core";
 import type { AppSession } from "../../workspaces/types";
 
+import { normalizeGithubIssueCommentPayload, normalizeGithubIssuePayload } from "./parsers";
 import type {
   GithubIssueImportClient,
   GithubIssueLinkRecord,
+  GithubIssueProjectionRecord,
   GithubIssueSyncRepository,
   GithubIssueSyncSettings,
   GithubIssueWithComments,
-  ImportGithubIssuesSummary
+  ImportGithubIssuesSummary,
+  ProjectGithubConnectionWithRepository
 } from "./types";
 
 const defaultGithubIssueSyncSettings: GithubIssueSyncSettings = {
@@ -51,6 +54,10 @@ function workflowStateForUpdate(issue: GithubIssueWithComments, settings: Github
   }
 
   return settings.reopenedWorkflowStateId ?? undefined;
+}
+
+function workItemGithubState(status: TaskStatus): GithubIssueWithComments["state"] {
+  return status === "Done" ? "closed" : "open";
 }
 
 function shouldSkipLinkedWorkItemUpdate(link: GithubIssueLinkRecord) {
@@ -116,6 +123,329 @@ async function upsertSyncedLink(
     conflictFields: null,
     errorMessage: null
   });
+}
+
+async function applyLinkedWorkItemIssueSync(
+  repository: GithubIssueSyncRepository,
+  input: {
+    link: GithubIssueLinkRecord;
+    projectId: string;
+    workspaceId: string;
+    repositoryId: string;
+    githubIssueId: string;
+    issue: GithubIssueWithComments;
+    settings: GithubIssueSyncSettings;
+    actorId: string;
+  }
+) {
+  if (shouldSkipLinkedWorkItemUpdate(input.link)) {
+    return { conflicted: input.link.syncStatus === "conflict", updated: false, failed: false };
+  }
+
+  const workItem = repository.getWorkItemForGithubIssueLink
+    ? await repository.getWorkItemForGithubIssueLink(input.link.workItemId)
+    : null;
+  if (!workItem) {
+    return { conflicted: false, updated: false, failed: true };
+  }
+
+  const conflictFields: string[] = [];
+  const syncTitle = input.settings.syncTitle && input.link.syncTitle;
+  const syncBody = input.settings.syncBody && input.link.syncBody;
+  const syncState = input.settings.syncState && input.link.syncState;
+
+  if (
+    syncTitle &&
+    input.link.lastSyncedTitleHash &&
+    hashBaseline(workItem.title) !== input.link.lastSyncedTitleHash &&
+    hashBaseline(input.issue.title) !== input.link.lastSyncedTitleHash &&
+    workItem.title !== input.issue.title
+  ) {
+    conflictFields.push("title");
+  }
+
+  if (
+    syncBody &&
+    input.link.lastSyncedBodyHash &&
+    hashBaseline(workItem.description) !== input.link.lastSyncedBodyHash &&
+    hashBaseline(input.issue.body) !== input.link.lastSyncedBodyHash &&
+    workItem.description !== (input.issue.body ?? "")
+  ) {
+    conflictFields.push("body");
+  }
+
+  if (
+    syncState &&
+    input.link.lastSyncedState &&
+    workItemGithubState(workItem.status) !== input.link.lastSyncedState &&
+    input.issue.state !== input.link.lastSyncedState &&
+    workItemGithubState(workItem.status) !== input.issue.state
+  ) {
+    conflictFields.push("state");
+  }
+
+  if (conflictFields.length > 0) {
+    await repository.upsertGithubIssueLink({
+      workItemId: input.link.workItemId,
+      repositoryId: input.repositoryId,
+      githubIssueId: input.githubIssueId,
+      source: input.link.source,
+      syncStatus: "conflict",
+      syncEnabled: input.link.syncEnabled,
+      syncTitle: input.link.syncTitle,
+      syncBody: input.link.syncBody,
+      syncState: input.link.syncState,
+      lastSyncedGithubUpdatedAt: input.link.lastSyncedGithubUpdatedAt,
+      lastSyncedWorkItemUpdatedAt: input.link.lastSyncedWorkItemUpdatedAt,
+      lastSyncedTitleHash: input.link.lastSyncedTitleHash,
+      lastSyncedBodyHash: input.link.lastSyncedBodyHash,
+      lastSyncedState: input.link.lastSyncedState,
+      conflictFields,
+      errorMessage: null
+    });
+    return { conflicted: true, updated: false, failed: false };
+  }
+
+  const updateInput: Parameters<GithubIssueSyncRepository["updateWorkItemFromGithubIssue"]>[0] = {
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+    workItemId: input.link.workItemId,
+    actorId: input.actorId
+  };
+  if (syncTitle) {
+    updateInput.title = input.issue.title;
+  }
+  if (syncBody) {
+    updateInput.description = input.issue.body ?? "";
+  }
+  if (syncState) {
+    updateInput.status = statusFromGithubState(input.issue.state);
+    updateInput.completedAt = completedAtFromGithubIssue(input.issue);
+    const workflowStateId = workflowStateForUpdate(input.issue, input.settings);
+    if (workflowStateId !== undefined) {
+      updateInput.workflowStateId = workflowStateId;
+    }
+  }
+
+  if (!hasWorkItemUpdatePatch(updateInput)) {
+    return { conflicted: false, updated: false, failed: false };
+  }
+
+  const updateResult = await repository.updateWorkItemFromGithubIssue(updateInput);
+  if (!updateResult) {
+    return { conflicted: false, updated: false, failed: true };
+  }
+
+  if (updateResult.changed) {
+    await upsertSyncedLink(repository, {
+      link: input.link,
+      workItemId: input.link.workItemId,
+      repositoryId: input.repositoryId,
+      githubIssueId: input.githubIssueId,
+      issue: input.issue,
+      settings: input.settings,
+      source: input.link.source,
+      lastSyncedWorkItemUpdatedAt: updateResult.workItem.updatedAt
+    });
+  }
+
+  return { conflicted: false, updated: updateResult.changed, failed: false };
+}
+
+async function createOrFindLinkedWorkItemForIssue(
+  repository: GithubIssueSyncRepository,
+  input: {
+    connection: ProjectGithubConnectionWithRepository | null;
+    projection: GithubIssueProjectionRecord;
+    issue: GithubIssueWithComments;
+    settings: GithubIssueSyncSettings;
+    workflowStates: Awaited<ReturnType<GithubIssueSyncRepository["listWorkflowStates"]>>;
+    actorId: string;
+  }
+) {
+  if (!input.connection) {
+    return;
+  }
+
+  await repository.createWorkItemAndLinkGithubIssue({
+    projectId: input.connection.connection.projectId,
+    workspaceId: input.connection.repository.workspaceId,
+    workItem: {
+      title: input.issue.title,
+      description: input.issue.body ?? "",
+      type: "task",
+      priority: "none",
+      status: statusFromGithubState(input.issue.state),
+      workflowStateId: firstBacklogState(input.workflowStates),
+      stageId: null,
+      planItemId: null,
+      position: 0,
+      completedAt: completedAtFromGithubIssue(input.issue)
+    },
+    link: {
+      repositoryId: input.connection.repository.id,
+      githubIssueId: input.projection.id,
+      source: "github_issue_webhook",
+      syncStatus: "synced",
+      syncEnabled: input.settings.syncEnabled,
+      syncTitle: input.settings.syncTitle,
+      syncBody: input.settings.syncBody,
+      syncState: input.settings.syncState,
+      lastSyncedGithubUpdatedAt: input.issue.githubUpdatedAt,
+      lastSyncedTitleHash: hashBaseline(input.issue.title),
+      lastSyncedBodyHash: hashBaseline(input.issue.body),
+      lastSyncedState: input.issue.state,
+      conflictFields: null,
+      errorMessage: null
+    },
+    actorId: input.actorId
+  });
+}
+
+export async function projectGithubIssueWebhookEvent(
+  repository: GithubIssueSyncRepository,
+  githubRepository: { id: string },
+  eventName: "issues" | "issue_comment",
+  payload: Record<string, unknown>,
+  receivedAt: string
+): Promise<{ ignored: boolean; reason?: string }> {
+  const issue = normalizeGithubIssuePayload(payload.issue, receivedAt);
+  if (!issue) {
+    return { ignored: true, reason: "invalid_issue" };
+  }
+
+  if (issue.isPullRequest && eventName === "issues") {
+    return {
+      ignored: true,
+      reason: "pull_request_issue"
+    };
+  }
+
+  if (issue.isPullRequest) {
+    const projection = repository.findGithubIssueByProviderIssueId
+      ? await repository.findGithubIssueByProviderIssueId(githubRepository.id, issue.providerIssueId)
+      : null;
+    const link = projection ? await repository.getGithubIssueLinkByIssueId(projection.id) : null;
+    const comment = normalizeGithubIssueCommentPayload(payload.comment, receivedAt);
+
+    if (!projection || !link || !comment) {
+      return { ignored: true, reason: "pull_request_issue_comment" };
+    }
+
+    if (payload.action === "deleted") {
+      if (!repository.markGithubIssueCommentDeleted) {
+        return { ignored: true, reason: "comment_delete_not_supported" };
+      }
+      await repository.markGithubIssueCommentDeleted({
+        githubIssueId: projection.id,
+        providerCommentId: comment.providerCommentId,
+        githubDeletedAt: receivedAt
+      });
+      return { ignored: false };
+    }
+
+    if (payload.action !== "created" && payload.action !== "edited") {
+      return { ignored: true, reason: "unsupported_comment_action" };
+    }
+
+    await repository.upsertGithubIssueComment({
+      githubIssueId: projection.id,
+      providerCommentId: comment.providerCommentId,
+      body: comment.body,
+      url: comment.url,
+      authorLogin: comment.authorLogin,
+      githubCreatedAt: comment.githubCreatedAt,
+      githubUpdatedAt: comment.githubUpdatedAt
+    });
+
+    return { ignored: false };
+  }
+
+  const connection = repository.getProjectGithubConnectionByRepositoryId
+    ? await repository.getProjectGithubConnectionByRepositoryId(githubRepository.id)
+    : null;
+  if (!connection) {
+    return { ignored: true, reason: "repository_not_connected" };
+  }
+
+  const settings = {
+    ...defaultGithubIssueSyncSettings,
+    ...((await repository.getGithubIssueSyncSettings(connection.connection.projectId)) ?? {})
+  };
+  const issueWithComments: GithubIssueWithComments = { ...issue, comments: [] };
+  const projection = await repository.upsertGithubIssue({
+    repositoryId: githubRepository.id,
+    providerIssueId: issue.providerIssueId,
+    number: issue.number,
+    title: issue.title,
+    body: issue.body,
+    url: issue.url,
+    state: issue.state,
+    authorLogin: issue.authorLogin,
+    githubCreatedAt: issue.githubCreatedAt,
+    githubUpdatedAt: issue.githubUpdatedAt,
+    githubClosedAt: issue.githubClosedAt
+  });
+  const link = await repository.getGithubIssueLinkByIssueId(projection.id);
+
+  if (eventName === "issues") {
+    if (link) {
+      await applyLinkedWorkItemIssueSync(repository, {
+        link,
+        projectId: connection.connection.projectId,
+        workspaceId: connection.repository.workspaceId,
+        repositoryId: githubRepository.id,
+        githubIssueId: projection.id,
+        issue: issueWithComments,
+        settings,
+        actorId: "github-webhook"
+      });
+    } else {
+      await createOrFindLinkedWorkItemForIssue(repository, {
+        connection,
+        projection,
+        issue: issueWithComments,
+        settings,
+        workflowStates: await repository.listWorkflowStates(connection.connection.projectId),
+        actorId: "github-webhook"
+      });
+    }
+
+    return { ignored: false };
+  }
+
+  const comment = normalizeGithubIssueCommentPayload(payload.comment, receivedAt);
+  if (!comment) {
+    return { ignored: true, reason: "invalid_comment" };
+  }
+
+  if (payload.action === "deleted") {
+    if (!repository.markGithubIssueCommentDeleted) {
+      return { ignored: true, reason: "comment_delete_not_supported" };
+    }
+    await repository.markGithubIssueCommentDeleted({
+      githubIssueId: projection.id,
+      providerCommentId: comment.providerCommentId,
+      githubDeletedAt: receivedAt
+    });
+    return { ignored: false };
+  }
+
+  if (payload.action !== "created" && payload.action !== "edited") {
+    return { ignored: true, reason: "unsupported_comment_action" };
+  }
+
+  await repository.upsertGithubIssueComment({
+    githubIssueId: projection.id,
+    providerCommentId: comment.providerCommentId,
+    body: comment.body,
+    url: comment.url,
+    authorLogin: comment.authorLogin,
+    githubCreatedAt: comment.githubCreatedAt,
+    githubUpdatedAt: comment.githubUpdatedAt
+  });
+
+  return { ignored: false };
 }
 
 export async function importGithubIssuesForProject(

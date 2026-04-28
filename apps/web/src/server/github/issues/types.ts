@@ -156,12 +156,20 @@ export interface GithubIssueSyncRepository {
   getMembership(workspaceId: string, userId: string): Promise<WorkspaceMemberRecord | null>;
   getProjectByKey(workspaceId: string, projectKey: string): Promise<ProjectRecord | null>;
   getProjectGithubConnection(projectId: string): Promise<ProjectGithubConnectionWithRepository | null>;
+  getProjectGithubConnectionByRepositoryId?(
+    repositoryId: string
+  ): Promise<ProjectGithubConnectionWithRepository | null>;
   getGithubIssueSyncSettings(projectId: string): Promise<GithubIssueSyncSettings | null>;
   listWorkflowStates(projectId: string): Promise<WorkflowStateRecord[]>;
   upsertGithubIssue(
     input: Omit<GithubIssueProjectionRecord, "id" | "lastSyncedAt" | "createdAt" | "updatedAt">
   ): Promise<GithubIssueProjectionRecord>;
+  findGithubIssueByProviderIssueId?(
+    repositoryId: string,
+    providerIssueId: string
+  ): Promise<GithubIssueProjectionRecord | null>;
   getGithubIssueLinkByIssueId(githubIssueId: string): Promise<GithubIssueLinkRecord | null>;
+  getWorkItemForGithubIssueLink?(workItemId: string): Promise<WorkItemRecord | null>;
   createWorkItemForGithubIssue(input: {
     projectId: string;
     workspaceId: string;
@@ -246,4 +254,9 @@ export interface GithubIssueSyncRepository {
   upsertGithubIssueComment(
     input: Omit<GithubIssueCommentProjectionRecord, "id" | "githubDeletedAt" | "lastSyncedAt" | "createdAt" | "updatedAt">
   ): Promise<GithubIssueCommentProjectionRecord | void>;
+  markGithubIssueCommentDeleted?(input: {
+    githubIssueId: string;
+    providerCommentId: string;
+    githubDeletedAt: string;
+  }): Promise<GithubIssueCommentProjectionRecord | void>;
 }

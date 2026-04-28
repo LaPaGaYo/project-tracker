@@ -4,6 +4,8 @@ import {
   db,
   githubCheckRollups,
   githubDeployments,
+  githubIssueComments,
+  githubIssues,
   githubPullRequests,
   githubRepositories,
   githubWebhookDeliveries,
@@ -22,12 +24,14 @@ import type {
   GithubRepositoryRecord,
   GithubWebhookDeliveryRecord,
   ProjectGithubConnectionRecord,
-  ProjectRecord
+  ProjectRecord,
+  WorkItemRecord
 } from "@the-platform/shared";
 
 import { insertActivityLogEntry } from "../activity/repository";
 import { createWorkspaceRepository } from "../workspaces/repository";
 
+import { createGithubIssueSyncRepository } from "./issues/repository";
 import type {
   GithubConnectionRepository,
   GithubNotificationTarget,
@@ -93,6 +97,52 @@ function serializeGithubWebhookDelivery(row: typeof githubWebhookDeliveries.$inf
     receivedAt: row.receivedAt.toISOString(),
     processedAt: toIso(row.processedAt),
     errorMessage: row.errorMessage
+  };
+}
+
+function serializeWorkItem(row: typeof tasks.$inferSelect, workspaceId: string): WorkItemRecord {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    workspaceId,
+    identifier: row.identifier,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    type: row.type,
+    parentId: row.parentId,
+    assigneeId: row.assigneeId,
+    priority: row.priority,
+    labels: row.labels,
+    workflowStateId: row.workflowStateId,
+    stageId: row.stageId,
+    planItemId: row.planItemId,
+    position: row.position,
+    blockedReason: row.blockedReason,
+    dueDate: toIso(row.dueDate),
+    completedAt: toIso(row.completedAt),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+function serializeGithubIssue(row: typeof githubIssues.$inferSelect) {
+  return {
+    id: row.id,
+    repositoryId: row.repositoryId,
+    providerIssueId: row.providerIssueId,
+    number: row.number,
+    title: row.title,
+    body: row.body,
+    url: row.url,
+    state: row.state,
+    authorLogin: row.authorLogin,
+    githubCreatedAt: row.githubCreatedAt.toISOString(),
+    githubUpdatedAt: row.githubUpdatedAt.toISOString(),
+    githubClosedAt: toIso(row.githubClosedAt),
+    lastSyncedAt: toIso(row.lastSyncedAt),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
   };
 }
 
@@ -454,9 +504,11 @@ async function listGithubNotificationTargetsByHeadSha(
 }
 
 export function createGithubConnectionRepository(): GithubConnectionRepository {
+  const githubIssueRepository = createGithubIssueSyncRepository();
   const workspaceRepository = createWorkspaceRepository();
 
   return {
+    ...githubIssueRepository,
     ...workspaceRepository,
 
     async getProjectByKey(workspaceId, projectKey) {
@@ -488,6 +540,65 @@ export function createGithubConnectionRepository(): GithubConnectionRepository {
         connection: serializeProjectGithubConnection(row.connection),
         repository: serializeGithubRepository(row.repository)
       };
+    },
+
+    async getProjectGithubConnectionByRepositoryId(repositoryId) {
+      const [row] = await db
+        .select({
+          connection: projectGithubConnections,
+          repository: githubRepositories
+        })
+        .from(projectGithubConnections)
+        .innerJoin(githubRepositories, eq(projectGithubConnections.repositoryId, githubRepositories.id))
+        .where(eq(projectGithubConnections.repositoryId, repositoryId))
+        .limit(1);
+
+      return row
+        ? {
+            connection: serializeProjectGithubConnection(row.connection),
+            repository: serializeGithubRepository(row.repository)
+          }
+        : null;
+    },
+
+    async findGithubIssueByProviderIssueId(repositoryId, providerIssueId) {
+      const [row] = await db
+        .select()
+        .from(githubIssues)
+        .where(and(eq(githubIssues.repositoryId, repositoryId), eq(githubIssues.providerIssueId, providerIssueId)))
+        .limit(1);
+
+      return row ? serializeGithubIssue(row) : null;
+    },
+
+    async getWorkItemForGithubIssueLink(workItemId) {
+      const [row] = await db
+        .select({
+          task: tasks,
+          workspaceId: projects.workspaceId
+        })
+        .from(tasks)
+        .innerJoin(projects, eq(tasks.projectId, projects.id))
+        .where(eq(tasks.id, workItemId))
+        .limit(1);
+
+      return row ? serializeWorkItem(row.task, row.workspaceId) : null;
+    },
+
+    async markGithubIssueCommentDeleted(input) {
+      await db
+        .update(githubIssueComments)
+        .set({
+          githubDeletedAt: new Date(input.githubDeletedAt),
+          lastSyncedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(githubIssueComments.githubIssueId, input.githubIssueId),
+            eq(githubIssueComments.providerCommentId, input.providerCommentId)
+          )
+        );
     },
 
     async findGithubRepositoryByProviderRepositoryId(providerRepositoryId) {
