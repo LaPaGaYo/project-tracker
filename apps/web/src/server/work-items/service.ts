@@ -70,14 +70,13 @@ function participantRecipients(assigneeId: string | null, participantIds: string
 
 function changedFieldsForIntegration(input: UpdateWorkItemInput, updated: WorkItemRecord) {
   const changedFields: Record<string, unknown> = {};
-  for (const field of Object.keys(input) as Array<keyof UpdateWorkItemInput>) {
-    if (field === "title") {
-      changedFields.title = updated.title;
-    } else if (field === "description") {
-      changedFields.description = updated.description;
-    } else {
-      changedFields[field] = input[field];
-    }
+
+  if (input.title !== undefined) {
+    changedFields.title = updated.title;
+  }
+
+  if (input.description !== undefined) {
+    changedFields.description = updated.description;
   }
 
   return changedFields;

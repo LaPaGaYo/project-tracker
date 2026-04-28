@@ -192,10 +192,32 @@ describe("work item planning linkage", () => {
       projectId: project.id,
       workItemId: workItem.id,
       changedFields: {
-        title: "Updated title",
-        priority: "low"
+        title: "Updated title"
       }
     });
+  });
+
+  it.each([
+    { status: "Done", completedAt: "2026-04-28T12:00:00.000Z" },
+    { state: "closed" }
+  ])("does not pass unsupported raw state fields to GitHub issue field sync", async (input) => {
+    const repository = createRepository();
+    repository.updateWorkItem.mockResolvedValue(workItem);
+    const githubIssueSync = {
+      syncWorkItemFields: vi.fn().mockResolvedValue({ attempted: false })
+    };
+
+    await updateWorkItemForUser(
+      repository as never,
+      session,
+      "platform-ops",
+      "OPS",
+      "OPS-1",
+      input as never,
+      { githubIssueSync } as never
+    );
+
+    expect(githubIssueSync.syncWorkItemFields).not.toHaveBeenCalled();
   });
 
   it("does not fail the local update when GitHub issue field sync fails", async () => {

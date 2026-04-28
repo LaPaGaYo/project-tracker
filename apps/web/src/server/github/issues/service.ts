@@ -238,6 +238,22 @@ function buildGithubIssueUpdate(link: GithubIssueLinkRecord, changedFields: Reco
   return update;
 }
 
+function stableOperationKey(input: {
+  linkId: string;
+  targetFields: GithubIssueUpdateInput;
+  githubUpdatedAtBefore: string | null;
+}) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        linkId: input.linkId,
+        targetFields: Object.fromEntries(Object.entries(input.targetFields).sort(([left], [right]) => left.localeCompare(right))),
+        githubUpdatedAtBefore: input.githubUpdatedAtBefore
+      })
+    )
+    .digest("hex");
+}
+
 function shouldSkipLinkedWorkItemUpdate(link: GithubIssueLinkRecord) {
   return !link.syncEnabled || link.syncStatus === "conflict" || link.syncStatus === "paused" || link.syncStatus === "error";
 }
@@ -311,10 +327,13 @@ export async function syncWorkItemGithubOwnedFields(
     return { attempted: false };
   }
 
-  const now = input.now ?? (() => new Date());
   const operation = await repository.createGithubIssueSyncOperation({
     linkId: linked.link.id,
-    operationKey: `${linked.link.id}:${now().getTime()}:${fields.join(",")}`,
+    operationKey: stableOperationKey({
+      linkId: linked.link.id,
+      targetFields: patch,
+      githubUpdatedAtBefore: linked.issue.githubUpdatedAt
+    }),
     operationType: "update_issue",
     status: "pending",
     requestedBy: input.actorId,

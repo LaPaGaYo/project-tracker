@@ -684,6 +684,30 @@ describe("syncWorkItemGithubOwnedFields", () => {
     });
     expect(repository.completedOperations).toHaveLength(0);
   });
+
+  it("uses the same operation key for the same link, fields, and GitHub baseline", async () => {
+    const firstRepository = linkedRepository();
+    const secondRepository = linkedRepository();
+
+    await syncWorkItemGithubOwnedFields(firstRepository, updateClient(), {
+      actorId: "user-1",
+      projectId: "project-1",
+      workItemId: "work-item-1",
+      changedFields: { title: "Platform title" },
+      now: () => new Date("2026-04-28T12:40:00.000Z")
+    });
+    await syncWorkItemGithubOwnedFields(secondRepository, updateClient(), {
+      actorId: "user-1",
+      projectId: "project-1",
+      workItemId: "work-item-1",
+      changedFields: { title: "Platform title" },
+      now: () => new Date("2026-04-28T12:45:00.000Z")
+    });
+
+    expect(firstRepository.createdOperations[0]).toMatchObject({
+      operationKey: (secondRepository.createdOperations[0] as { operationKey: string }).operationKey
+    });
+  });
 });
 
 describe("importGithubIssuesForProject", () => {
