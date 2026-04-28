@@ -18,10 +18,14 @@ function handleError(error: unknown) {
 
 async function parseJsonBody(request: Request) {
   try {
-    return (await request.json()) as Record<string, unknown>;
+    return (await request.json()) as unknown;
   } catch {
     throw new WorkspaceError(400, "request body must be valid JSON.");
   }
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function requireBoolean(body: Record<string, unknown>, key: string) {
@@ -59,6 +63,16 @@ function parseSettingsInput(
   };
 }
 
+export function parseGithubIssueSettingsBody(
+  body: unknown
+): UpdateGithubIssueSyncSettingsInput {
+  if (!isJsonObject(body)) {
+    throw new WorkspaceError(400, "request body must be a JSON object.");
+  }
+
+  return parseSettingsInput(body);
+}
+
 export async function PATCH(
   request: Request,
   context: {
@@ -75,7 +89,7 @@ export async function PATCH(
 
   try {
     const { slug, key } = await context.params;
-    const input = parseSettingsInput(await parseJsonBody(request));
+    const input = parseGithubIssueSettingsBody(await parseJsonBody(request));
     const settings = await updateProjectGithubIssueSyncSettings(
       createGithubIssueSyncRepository(),
       session,
