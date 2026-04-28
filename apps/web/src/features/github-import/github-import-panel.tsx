@@ -93,6 +93,8 @@ export function GithubImportPanel({
   const issueSyncEndpoint = projectKey
     ? `/api/workspaces/${workspaceSlug}/projects/${projectKey}/github/issues`
     : null;
+  const canRenderIssueSyncControls =
+    projectKey && canImport && missingConfiguration.length === 0;
 
   async function persistIssueSyncSettings(next: {
     syncTitleAndBody: boolean;
@@ -186,6 +188,75 @@ export function GithubImportPanel({
       importClosedIssues: checked,
     });
   }
+
+  const issueSyncControls = canRenderIssueSyncControls ? (
+    <div className="mt-6 grid gap-4 rounded-3xl border border-white/8 bg-planka-card/45 p-5">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-planka-accent">
+          GitHub Issues sync
+        </p>
+        <p className="mt-2 text-sm leading-7 text-planka-text-muted">
+          Import issues into this project and keep the fields the team has opted
+          into aligned with GitHub.
+        </p>
+      </div>
+      <div className="grid gap-3">
+        <label className="flex items-center gap-3 text-sm text-planka-text">
+          <input
+            checked={syncTitleAndBody}
+            className="accent-planka-accent"
+            type="checkbox"
+            onChange={(event) =>
+              handleTitleAndBodyChange(event.currentTarget.checked)
+            }
+          />
+          <span>Sync issue title and body</span>
+        </label>
+        <label className="flex items-center gap-3 text-sm text-planka-text">
+          <input
+            checked={syncState}
+            className="accent-planka-accent"
+            type="checkbox"
+            onChange={(event) => handleStateChange(event.currentTarget.checked)}
+          />
+          <span>Sync open and closed state</span>
+        </label>
+        <label className="flex items-center gap-3 text-sm text-planka-text">
+          <input
+            checked={importClosedIssues}
+            className="accent-planka-accent"
+            type="checkbox"
+            onChange={(event) =>
+              handleImportClosedChange(event.currentTarget.checked)
+            }
+          />
+          <span>Import closed GitHub issues</span>
+        </label>
+      </div>
+      <button
+        className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isImportingIssues}
+        type="button"
+        onClick={handleIssueImport}
+      >
+        {isImportingIssues ? "Importing GitHub issues" : "Import GitHub issues"}
+      </button>
+      {issueImportSummary ? (
+        <p className="rounded-3xl border border-white/8 bg-black/10 px-4 py-3 text-xs leading-6 text-planka-text-muted">
+          Issue import summary: {issueImportSummary.created} created,{" "}
+          {issueImportSummary.updated} updated,{" "}
+          {issueImportSummary.skippedPullRequests} skipped,{" "}
+          {issueImportSummary.conflicted} conflicted, and{" "}
+          {issueImportSummary.failed} failed.
+        </p>
+      ) : null}
+      {issueImportError ? (
+        <p className="rounded-3xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          {issueImportError}
+        </p>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
     <section className="rounded-[2rem] border border-white/8 bg-black/15 p-6">
@@ -371,80 +442,10 @@ export function GithubImportPanel({
             </button>
           </form>
 
-          {projectKey ? (
-            <div className="mt-6 grid gap-4 rounded-3xl border border-white/8 bg-planka-card/45 p-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-planka-accent">
-                  GitHub Issues sync
-                </p>
-                <p className="mt-2 text-sm leading-7 text-planka-text-muted">
-                  Import issues into this project and keep the fields the team
-                  has opted into aligned with GitHub.
-                </p>
-              </div>
-              <div className="grid gap-3">
-                <label className="flex items-center gap-3 text-sm text-planka-text">
-                  <input
-                    checked={syncTitleAndBody}
-                    className="accent-planka-accent"
-                    type="checkbox"
-                    onChange={(event) =>
-                      handleTitleAndBodyChange(event.currentTarget.checked)
-                    }
-                  />
-                  <span>Sync issue title and body</span>
-                </label>
-                <label className="flex items-center gap-3 text-sm text-planka-text">
-                  <input
-                    checked={syncState}
-                    className="accent-planka-accent"
-                    type="checkbox"
-                    onChange={(event) =>
-                      handleStateChange(event.currentTarget.checked)
-                    }
-                  />
-                  <span>Sync open and closed state</span>
-                </label>
-                <label className="flex items-center gap-3 text-sm text-planka-text">
-                  <input
-                    checked={importClosedIssues}
-                    className="accent-planka-accent"
-                    type="checkbox"
-                    onChange={(event) =>
-                      handleImportClosedChange(event.currentTarget.checked)
-                    }
-                  />
-                  <span>Import closed GitHub issues</span>
-                </label>
-              </div>
-              <button
-                className="rounded-2xl bg-planka-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-planka-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isImportingIssues}
-                type="button"
-                onClick={handleIssueImport}
-              >
-                {isImportingIssues
-                  ? "Importing GitHub issues"
-                  : "Import GitHub issues"}
-              </button>
-              {issueImportSummary ? (
-                <p className="rounded-3xl border border-white/8 bg-black/10 px-4 py-3 text-xs leading-6 text-planka-text-muted">
-                  Issue import summary: {issueImportSummary.created} created,{" "}
-                  {issueImportSummary.updated} updated,{" "}
-                  {issueImportSummary.skippedPullRequests} skipped,{" "}
-                  {issueImportSummary.conflicted} conflicted, and{" "}
-                  {issueImportSummary.failed} failed.
-                </p>
-              ) : null}
-              {issueImportError ? (
-                <p className="rounded-3xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                  {issueImportError}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+          {issueSyncControls}
         </>
       )}
+      {repositories.length === 0 ? issueSyncControls : null}
     </section>
   );
 }

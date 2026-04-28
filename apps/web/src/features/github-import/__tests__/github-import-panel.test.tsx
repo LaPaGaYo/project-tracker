@@ -151,6 +151,34 @@ describe("GithubImportPanel", () => {
     });
   });
 
+  it("renders GitHub Issues sync controls for a project without workspace repository picker state", () => {
+    render(
+      <GithubImportPanel
+        workspaceSlug="acme"
+        projectKey="OPS"
+        canImport
+        installUrl={null}
+        authorizationUrl={null}
+        authorizationStatus="not_required"
+        authorizationErrorCode={null}
+        authorizedGithubLogin={null}
+        installationId={null}
+        repositories={[]}
+        errorMessage={null}
+        missingConfiguration={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Sync issue title and body")).toBeChecked();
+    expect(screen.getByLabelText("Sync open and closed state")).toBeChecked();
+    expect(
+      screen.getByLabelText("Import closed GitHub issues")
+    ).not.toBeChecked();
+  });
+
   it("renders an authorize CTA when installation exists without a valid GitHub user proof", () => {
     render(
       <GithubImportPanel
