@@ -25,8 +25,11 @@ function uniqueSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+let projectKeyCounter = 0;
+
 function createUniqueProjectKey() {
-  return `I${uniqueSuffix().replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 7)}`;
+  projectKeyCounter += 1;
+  return `I${projectKeyCounter.toString(36).toUpperCase().padStart(7, "0")}`;
 }
 
 function createNamedSession(prefix) {
