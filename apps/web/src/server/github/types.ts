@@ -13,6 +13,7 @@ import type {
 
 import type { NotificationRepository } from "../notifications/types";
 import type { WorkspaceRepository } from "../workspaces/types";
+import type { GithubIssueSyncRepository } from "./issues/types";
 
 export interface CreateProjectGithubConnectionInput {
   providerRepositoryId?: unknown;
@@ -81,7 +82,8 @@ export interface GithubWebhookRepository {
 
 export interface GithubConnectionRepository
   extends Pick<WorkspaceRepository, "findWorkspaceBySlug" | "getMembership">,
-    GithubWebhookRepository {
+    GithubWebhookRepository,
+    GithubIssueSyncRepository {
   getProjectByKey(workspaceId: string, projectKey: string): Promise<ProjectRecord | null>;
   getProjectGithubConnection(projectId: string): Promise<ProjectGithubConnectionView | null>;
   createProjectGithubConnection(input: {

@@ -92,6 +92,23 @@ export const githubDeploymentStatuses = [
   "unknown"
 ] as const satisfies readonly [string, ...string[]];
 
+export const githubIssueStates = ["open", "closed"] as const satisfies readonly [string, ...string[]];
+
+export const githubIssueSyncStatuses = [
+  "synced",
+  "pending_outbound",
+  "conflict",
+  "error",
+  "paused"
+] as const satisfies readonly [string, ...string[]];
+
+export const githubIssueSyncOperationStatuses = ["pending", "succeeded", "failed"] as const satisfies readonly [
+  string,
+  ...string[]
+];
+
+export const githubIssueSyncOperationTypes = ["update_issue"] as const satisfies readonly [string, ...string[]];
+
 export const workItemGithubLinkSources = ["pr_title", "pr_body", "branch_name", "manual"] as const satisfies readonly [
   string,
   ...string[]
@@ -102,7 +119,9 @@ export const githubWebhookEventNames = [
   "check_run",
   "check_suite",
   "deployment",
-  "deployment_status"
+  "deployment_status",
+  "issues",
+  "issue_comment"
 ] as const satisfies readonly [string, ...string[]];
 
 export const githubWebhookDeliveryStatuses = ["pending", "processed", "ignored", "failed"] as const satisfies readonly [
@@ -164,6 +183,10 @@ export type GithubPullRequestState = (typeof githubPullRequestStates)[number];
 export type GithubCheckRollupStatus = (typeof githubCheckRollupStatuses)[number];
 export type GithubDeploymentEnvironment = (typeof githubDeploymentEnvironments)[number];
 export type GithubDeploymentStatus = (typeof githubDeploymentStatuses)[number];
+export type GithubIssueState = (typeof githubIssueStates)[number];
+export type GithubIssueSyncStatus = (typeof githubIssueSyncStatuses)[number];
+export type GithubIssueSyncOperationStatus = (typeof githubIssueSyncOperationStatuses)[number];
+export type GithubIssueSyncOperationType = (typeof githubIssueSyncOperationTypes)[number];
 export type WorkItemGithubLinkSource = (typeof workItemGithubLinkSources)[number];
 export type GithubWebhookEventName = (typeof githubWebhookEventNames)[number];
 export type GithubWebhookDeliveryStatus = (typeof githubWebhookDeliveryStatuses)[number];

@@ -19,6 +19,7 @@ import {
 
 import type { AppSession } from "../workspaces/types";
 
+import { projectGithubIssueWebhookEvent } from "./issues/service";
 import type {
   CreateProjectGithubConnectionInput,
   GithubConnectionRepository,
@@ -500,6 +501,11 @@ export async function projectGithubWebhookEvent(
   receivedAt: string,
   dependencies: GithubNotificationDependencies = {}
 ) {
+  if (eventName === "issues" || eventName === "issue_comment") {
+    await projectGithubIssueWebhookEvent(repository, githubRepository, eventName, payload, receivedAt);
+    return;
+  }
+
   if (eventName === "pull_request") {
     const event = parsePullRequestWebhookEvent(payload, receivedAt);
     if (!event) {

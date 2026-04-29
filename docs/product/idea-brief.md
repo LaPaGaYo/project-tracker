@@ -1,79 +1,56 @@
-# Idea Brief: Phase 8 - Readiness Command Center
+# Idea Brief: Phase 14 - GitHub Issues Sync
 
 ## Problem
 
-The project workspace now has Jira-like execution, plan alignment, lightweight comments, live GitHub engineering status, and in-app notifications. The remaining product gap is decision clarity: teams can see many surfaces, but they still need to interpret whether the current project is ready to move forward and what the next team action should be.
+The project workspace now supports execution planning, local work items, comments, live GitHub engineering status, notifications, and readiness reporting. The remaining gap is that many engineering teams still manage day-to-day execution in GitHub Issues, while project leads need the platform workspace to stay readable, governed, and aligned.
 
-Without a lead-first readiness surface, project owners must synthesize plan progress, blocked work, engineering signals, and notifications manually.
+Without issue sync, teams must manually copy issue titles, descriptions, state changes, and discussion context between GitHub and the project workspace. That creates duplicate work, stale plans, and unclear ownership of which system controls which fields.
 
 ## Goals
 
-1. **Readiness Command Center** - Make Overview the primary project decision surface.
+1. **Bridge project execution and GitHub Issues** - Import GitHub issues into project work items without replacing the project workspace.
 
-2. **Lead-first Overview reporting** - Show readiness status, narrative, signal metrics, decision cues, and milestone context before detailed execution views.
+2. **Conservative bidirectional sync** - Sync title, body, and open/closed state only when field ownership allows it.
 
-3. **Deterministic team action list** - Convert local project, plan, work item, GitHub, and notification signals into explainable source-linked actions.
+3. **Visible conflict handling** - Surface conflicts rather than silently overwriting local or GitHub-owned edits.
 
-4. **Scoped readiness search** - Add project-scoped search across readiness-relevant work items, plan items, comments, engineering signals, and notifications.
+4. **GitHub discussion context** - Bring inbound GitHub issue comments into the project detail timeline.
 
-5. **Readiness-critical polish** - Cover empty actions, search short-query/no-result/error states, and no-GitHub-repository engineering setup guidance.
+5. **Admin-controlled settings** - Store project-level sync settings on the GitHub project connection with safe defaults.
 
 ## Constraints
 
-- Readiness is derived from local project state and deterministic rules.
-- Readiness search stays project-scoped and workspace-member scoped.
-- Overview must remain lightweight enough for team alignment, not become a portfolio analytics product.
-- Existing board, list, plan, engineering, docs, and notification surfaces remain the source-linked detail views.
+- GitHub Issues sync must build on the existing GitHub App installation and repository connection model.
+- Project-local work items remain the platform execution record.
+- Field ownership must stay explicit and conservative.
+- Imports must skip pull requests and avoid duplicate work item links.
+- Sync settings are project-level and default to disabled for automatic issue sync.
 
 ## Non-Goals
 
-- Global portfolio dashboard
-- Analytics warehouse
-- AI-generated recommendations
-- Full-text infrastructure
-- Global command palette
-- External reporting or BI integrations
+- Replacing GitHub Issues as an engineering tool
+- Multi-repository issue sync per project
+- GitHub Projects sync
+- Labels, assignees, milestones, issue types, or custom fields
+- Bulk destructive reconciliation
+- Phase 15 workflow automation, smart triage, or AI-generated issue updates
 
 ## Decisions
 
-1. **Overview leads with readiness** - The project landing surface answers "can we move forward?" before showing lower-level detail.
+1. **Project connection owns settings** - `project_github_connections` stores durable issue sync settings with conservative defaults.
 
-2. **Server-side readiness projection** - `apps/web/src/server/projects/readiness.ts` owns deterministic readiness derivation from local state.
+2. **Import is admin-triggered** - Admins explicitly import GitHub issues after the repository is connected and authorized.
 
-3. **Source-linked actions** - Actions link back to plan, work item, engineering, or notification surfaces so teams can resolve the signal directly.
+3. **Field ownership gates sync** - Title/body/state sync can be enabled independently, and conflicts pause unsafe overwrites.
 
-4. **Simple Postgres-backed search** - Phase 8 uses scoped matching without introducing global search infrastructure.
+4. **Comments are inbound context** - GitHub issue comments appear in the platform timeline but do not create local platform comments.
 
-5. **Polish only where readiness depends on it** - Empty, error, and setup states are tightened where they affect readiness comprehension.
+5. **Phase 15 remains out of scope** - Automation, deeper metadata sync, and richer mapping rules are deferred.
 
 ## Success Criteria
 
-- Overview renders a Readiness Command Center with status, narrative, metrics, decision cues, and milestone context.
-- Readiness status can be `Ready`, `Ready with risk`, or `Blocked`, derived from deterministic local rules.
-- The team action list is source-linked and explains blockers, review needs, urgent work, unread high-priority notifications, and plan gaps.
-- Project-scoped readiness search returns relevant work item, plan, comment, GitHub, and notification results with RBAC enforced.
-- Search has distinct short-query guidance, no-result copy, and failure copy.
-- Engineering shows a clear setup state when no GitHub repository is connected.
-- Phase 8 final verification passes: targeted tests, lint, typecheck, full tests, build, and browser smoke check.
-
-## Technical Direction
-
-- Readiness projection: `apps/web/src/server/projects/readiness.ts`
-- Workspace integration: `apps/web/src/server/projects/workspace.ts`
-- Search service: `apps/web/src/server/projects/search.ts`
-- Search API: `apps/web/src/app/api/workspaces/[slug]/projects/[key]/search/route.ts`
-- Overview UI: `apps/web/src/features/overview/`
-- Engineering polish: `apps/web/src/features/engineering/engineering-view.tsx`
-- Coverage: `tests/phase8-*.test.mjs`, Overview UI tests, Engineering UI tests
-
-## Phase Position
-
-Phase 8 of 8. Builds on:
-- Phase 2: Auth and workspace membership
-- Phase 3: Projects and work items
-- Phase 4: Board/list execution views
-- Phase 5: Detail, comments, plan, overview, docs, and project workspace shell
-- Phase 6: Live GitHub engineering integration
-- Phase 7: In-app notifications and collaboration foundation
-
-Next: close Phase 8 with full verification, browser smoke validation, review, and PR/merge readiness.
+- Admins can import GitHub issues from a connected repository into project work items.
+- Project settings persist issue sync enablement, closed issue import, title/body sync, state sync, and optional workflow-state mappings.
+- Existing repository onboarding remains available and unchanged.
+- Linked issue detail surfaces show sync status, conflicts, and inbound GitHub comments.
+- Product docs clearly describe conservative issue sync, field ownership, and Phase 15 non-goals.

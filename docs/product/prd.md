@@ -1,121 +1,106 @@
-# PRD: Phase 8 - Readiness Command Center
+# PRD: Phase 14 - GitHub Issues Sync
 
 ## Overview
 
-Add a lead-first Readiness Command Center to the project workspace Overview. Phase 8 synthesizes plan progress, work item state, GitHub engineering signals, and notification attention into deterministic readiness reporting, source-linked team actions, scoped readiness search, and readiness-critical polish.
+Phase 14 adds conservative GitHub Issues sync to the project workspace. Teams can import GitHub issues into platform work items, sync title/body/state when field ownership allows it, see conflicts in the detail UI, and read inbound GitHub comments in the work item timeline.
 
 ## Scope Sections
 
-### 8.1 Readiness Projection
-
-Readiness must be derived from local project state using deterministic server-side rules.
+### 14.1 Issue Schema And Projections
 
 **Requirements:**
-- Add a pure readiness projection for project stage, plan items, work items, GitHub signals, engineering state, and inbox rows.
-- Return readiness status as `Ready`, `Ready with risk`, or `Blocked`.
-- Return a plain-language narrative explaining the status.
-- Return metrics for plan, issues, GitHub, and notifications.
-- Return decision cues including ship gate and primary blocker state.
-- Return source-linked actions for blockers, review needs, urgent work, high-priority notifications, and incomplete current-stage plan work.
 
-### 8.2 Workspace Integration
+- Store normalized GitHub issue projections per repository.
+- Store one work item to one GitHub issue links.
+- Track sync status, field ownership, baselines, conflict fields, and errors.
+- Store inbound GitHub issue comments separately from local platform comments.
 
-The project workspace loader must include readiness data in the Overview view model.
+### 14.2 Issue Import
 
 **Requirements:**
-- Add readiness data to `ProjectWorkspaceView["overview"]`.
-- Use project-scoped notification inbox rows for readiness signals.
-- Preserve existing board, list, plan, engineering, docs, and notification shell behavior.
-- Keep readiness links stable for project-scoped routes.
 
-### 8.3 Overview Readiness UI
+- Add an admin-triggered import for the connected project repository.
+- Fetch GitHub issues through the existing GitHub App installation.
+- Skip pull requests returned by the issues API.
+- Create work items for unlinked issues.
+- Update linked work items only when sync settings and link field ownership allow it.
+- Return created, updated, skipped, conflicted, and failed counts.
 
-Overview should become the primary Phase 8 decision surface.
-
-**Requirements:**
-- Render `Readiness command center`.
-- Show readiness status, tone, and narrative prominently.
-- Show signal cards for plan, issues, GitHub, and notifications.
-- Show decision cues.
-- Show deterministic team actions with source labels and links.
-- Keep milestone roadmap visible as supporting context.
-- Avoid duplicate page-level headings inside the project shell.
-
-### 8.4 Project-Scoped Readiness Search
-
-Project search should support readiness work without introducing global search infrastructure.
+### 14.3 Bidirectional Field Sync
 
 **Requirements:**
-- Search work items, current-stage plan items, comments, GitHub engineering signals, and notification signals.
-- Enforce workspace membership and project scoping.
-- Ignore queries shorter than two characters at the service/API level.
-- Escape SQL wildcard characters for literal matching.
-- Return stable result types, titles, snippets, hrefs, chips, and ranks.
-- Deduplicate engineering results deterministically per task.
 
-### 8.5 Search API
+- Sync GitHub issue title to and from work item title when title sync is enabled.
+- Sync GitHub issue body to and from work item description when body sync is enabled.
+- Sync GitHub open/closed state to and from work item completion state when state sync is enabled.
+- Allow optional workflow-state mappings for closed and reopened issues.
+- Keep automatic issue sync disabled by default at the project connection level.
 
-Expose readiness search through a project-scoped API route.
+### 14.4 Conflict Visibility
 
 **Requirements:**
-- Add `GET /api/workspaces/[slug]/projects/[key]/search?q=...`.
-- Return 401 when no session exists.
-- Return 403 for non-members.
-- Return 404 when the project is missing or inaccessible.
-- Return an empty result set for short queries.
-- Return malformed-body and failed-request errors safely to the UI.
 
-### 8.6 Scoped Search UI
+- Detect changed-on-both-sides title/body/state updates.
+- Mark the issue link as `conflict` and record conflict fields.
+- Avoid unsafe overwrites while a conflict is present.
+- Show sync status, conflict fields, and errors in the work item detail UI.
 
-Overview should provide a lightweight readiness search box.
+### 14.5 GitHub Comments Inbound
 
 **Requirements:**
-- Add an accessible `Readiness search` searchbox.
-- Fetch from the project-scoped search API.
-- Guard stale responses from replacing newer results.
-- Clear stale results when a new valid query starts.
-- Show short-query guidance: `Search across blockers, PRs, comments, plan items, and notifications.`
-- Show no-result copy: `No readiness signals found for "{query}".`
-- Show failure copy: `Search failed. Try again from the project overview.`
 
-### 8.7 Readiness-Critical Polish
+- Project issue comment webhooks into `github_issue_comments`.
+- Update edited comments and mark deleted comments as deleted.
+- Show inbound GitHub comments in the work item detail timeline.
+- Do not create local platform comments for GitHub comments.
 
-Polish is limited to states that affect readiness comprehension.
+### 14.6 Import And Settings UI
 
 **Requirements:**
-- Show explicit empty action copy when no readiness actions exist.
-- Show a no-GitHub-repository engineering setup state: `Connect GitHub to populate engineering readiness signals.`
-- Keep linked PR, failing checks, deployment, and issue summary sections intact.
-- Keep search short-query, pending, no-result, and error states mutually clear.
 
-### 8.8 Verification
+- Preserve the existing GitHub repository onboarding form.
+- Show GitHub Issues sync controls when a connected project context is available.
+- Include controls for title/body sync, open/closed state sync, and importing closed issues.
+- Add an `Import GitHub issues` action that calls the project import API.
+- Show import summary counts and safe failure copy.
 
-Automated and browser coverage must prove readiness behavior and phase stability.
+### 14.7 API
 
 **Requirements:**
-- Readiness projection tests pass.
-- Project search service tests pass.
-- Search API tests pass.
-- Overview and Engineering UI tests pass.
-- Full repo verification passes: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
-- Browser smoke check verifies the Overview readiness surface, action links, search states, and engineering setup state.
 
-## Data Model
+- Add `POST /api/workspaces/[slug]/projects/[key]/github/issues/import`.
+- Add `PATCH /api/workspaces/[slug]/projects/[key]/github/issues/settings`.
+- Require an authenticated session.
+- Require admin authorization for import and settings updates.
+- Validate malformed JSON and non-boolean settings safely.
+- Return `WorkspaceError` responses with their intended status.
 
-Phase 8 does not add durable readiness tables. Readiness is a server-side projection over existing project, stage, plan, work item, GitHub, engineering, comment, and notification data.
+### 14.8 Data Model
+
+`project_github_connections` stores durable issue sync settings:
+
+- `issue_sync_enabled`
+- `issue_import_closed`
+- `issue_sync_title`
+- `issue_sync_body`
+- `issue_sync_state`
+- `issue_closed_workflow_state_id`
+- `issue_reopened_workflow_state_id`
+
+The setting defaults are conservative: automatic sync and closed issue import are disabled; title, body, and state ownership default to enabled for links created when sync is enabled.
 
 ## Non-Goals
 
-- Global portfolio dashboard
-- Analytics warehouse
-- AI-generated recommendations
-- Full-text infrastructure
-- Global command palette
-- External reporting or BI integrations
+- GitHub Projects sync
+- Multi-repository issue sync per project
+- Labels, assignees, milestones, issue types, or custom GitHub fields
+- Workflow mapping UX beyond nullable stored mappings
+- Automated triage or AI-generated issue edits
+- Bulk destructive reconciliation
+- Phase 15 automation, richer metadata sync, and broad sync policy management
 
 ## Exit Criteria
 
-- All success criteria from the Phase 8 decision brief are met.
-- Product docs identify Phase 8 as the Readiness Command Center with lead-first Overview reporting, deterministic team actions, scoped readiness search, and readiness-critical polish.
-- Phase 8 non-goals remain explicit.
-- Targeted tests, full repo verification, and browser smoke check pass.
+- Import/settings API, UI controls, durable settings, and docs are implemented.
+- Existing repository onboarding remains functional.
+- Focused UI, service, DB, typecheck, docs formatting, and diff hygiene checks pass.

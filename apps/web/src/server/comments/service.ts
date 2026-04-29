@@ -314,9 +314,10 @@ export async function listWorkItemTimelineForUser(
     throw new WorkspaceError(404, "work item not found.");
   }
 
-  const [comments, activity] = await Promise.all([
+  const [comments, activity, githubIssueComments] = await Promise.all([
     dependencies.commentRepository.listComments(workItem.id),
-    dependencies.activityRepository.listWorkItemActivity(workspace.id, workItem.id)
+    dependencies.activityRepository.listWorkItemActivity(workspace.id, workItem.id),
+    dependencies.githubIssueRepository?.listGithubIssueCommentsForWorkItem(workItem.id) ?? Promise.resolve([])
   ]);
 
   const entries: WorkItemTimelineEntry[] = [
@@ -331,7 +332,12 @@ export async function listWorkItemTimelineForUser(
         kind: "activity" as const,
         createdAt: activity.createdAt,
         activity
-      }))
+      })),
+    ...githubIssueComments.map((comment) => ({
+      kind: "github_issue_comment" as const,
+      createdAt: comment.githubCreatedAt,
+      comment
+    }))
   ];
 
   return entries.sort(

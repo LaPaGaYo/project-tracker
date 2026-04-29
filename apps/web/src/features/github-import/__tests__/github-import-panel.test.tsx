@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { render } from "../../../test/render";
@@ -99,6 +99,126 @@ describe("GithubImportPanel", () => {
     expect(
       screen.queryByLabelText("Provider repository ID")
     ).not.toBeInTheDocument();
+  });
+
+  it("renders GitHub Issues sync controls and posts issue imports for a connected project", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          summary: {
+            created: 2,
+            updated: 1,
+            skippedPullRequests: 3,
+            conflicted: 0,
+            failed: 0,
+          },
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <GithubImportPanel
+        workspaceSlug="acme"
+        projectKey="OPS"
+        canImport
+        installUrl={installUrl}
+        authorizationUrl="/github/authorize?workspaceSlug=acme&githubInstallationId=987"
+        authorizationStatus="authorized"
+        authorizationErrorCode={null}
+        authorizedGithubLogin="henry"
+        installationId="987"
+        repositories={repositories}
+        errorMessage={null}
+        missingConfiguration={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Sync issue title and body")).toBeChecked();
+    expect(screen.getByLabelText("Sync open and closed state")).toBeChecked();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/workspaces/acme/projects/OPS/github/issues/import",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+  });
+
+  it("does not import GitHub issues when settings save fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: "settings failed" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <GithubImportPanel
+        workspaceSlug="acme"
+        projectKey="OPS"
+        canImport
+        installUrl={installUrl}
+        authorizationUrl="/github/authorize?workspaceSlug=acme&githubInstallationId=987"
+        authorizationStatus="authorized"
+        authorizationErrorCode={null}
+        authorizedGithubLogin="henry"
+        installationId="987"
+        repositories={repositories}
+        errorMessage={null}
+        missingConfiguration={[]}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    );
+
+    await screen.findByText(
+      "Issue import failed. Check GitHub App permissions and try again."
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/workspaces/acme/projects/OPS/github/issues/settings",
+      expect.objectContaining({ method: "PATCH" })
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/workspaces/acme/projects/OPS/github/issues/import",
+      expect.anything()
+    );
+  });
+
+  it("renders GitHub Issues sync controls for a project without workspace repository picker state", () => {
+    render(
+      <GithubImportPanel
+        workspaceSlug="acme"
+        projectKey="OPS"
+        canImport
+        installUrl={null}
+        authorizationUrl={null}
+        authorizationStatus="not_required"
+        authorizationErrorCode={null}
+        authorizedGithubLogin={null}
+        installationId={null}
+        repositories={[]}
+        errorMessage={null}
+        missingConfiguration={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Import GitHub issues" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Sync issue title and body")).toBeChecked();
+    expect(screen.getByLabelText("Sync open and closed state")).toBeChecked();
+    expect(
+      screen.getByLabelText("Import closed GitHub issues")
+    ).not.toBeChecked();
   });
 
   it("renders an authorize CTA when installation exists without a valid GitHub user proof", () => {

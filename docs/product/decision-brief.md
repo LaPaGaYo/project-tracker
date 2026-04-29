@@ -1,80 +1,72 @@
-# Decision Brief: Phase 8 - Readiness Command Center
+# Decision Brief: Phase 14 - GitHub Issues Sync
 
 ## Context
 
-The product direction remains: Jira for execution structure, GitHub for engineering truth, and Notion-like lightness for collaboration.
+The product direction remains: Jira-like execution structure, GitHub for engineering truth, and Notion-like lightness for collaboration.
 
-By the end of Phase 7, the project workspace has execution views, implementation plans, comments, GitHub engineering state, and in-app notifications. Phase 8 turns those surfaces into a lead-first decision layer so project owners and teammates can understand readiness without manually reconciling every tab.
+Phase 14 connects that model to GitHub Issues. The decision is not to mirror every GitHub concept, but to provide a conservative bridge where teams can import issues, sync selected fields, and see conflicts clearly.
 
 ## Key Decisions
 
-### 1. Overview becomes the Readiness Command Center
+### 1. Use conservative issue sync with explicit field ownership
 
-Overview now leads with readiness status, narrative, signal metrics, decision cues, team actions, scoped search, and milestone context.
+Title, body, and open/closed state are the only bidirectional fields in scope. Each can be disabled so teams can decide whether GitHub or the platform owns the field.
 
-**Why:** Project owners need a fast decision surface before drilling into board, plan, engineering, docs, or notifications.
+**Why:** Silent overwrites would make the integration hard to trust. Field ownership keeps sync explainable.
 
-### 2. Readiness stays deterministic and local-first
+### 2. Persist settings on project GitHub connections
 
-Readiness is derived by a server-side projection from project stage, plan items, work items, GitHub-derived engineering state, and notification inbox rows.
+Issue sync settings live on `project_github_connections` instead of a separate settings table.
 
-**Why:** Phase 8 needs explainable team alignment, not opaque recommendations or external analytics infrastructure.
+**Why:** Settings are project-level, tied to the single connected repository, and small enough to keep with the connection record.
 
-### 3. Team actions are source-linked
+### 3. Imports are explicit admin actions
 
-Each action points to the project surface that owns the underlying signal: plan, work item, engineering, or notification context.
+Admins import GitHub issues from the connected repository through the project GitHub import/settings UI.
 
-**Why:** A readiness surface is only useful if teams can immediately resolve the work that caused the signal.
+**Why:** Initial import can create many work items, so it should be deliberate and permission-gated.
 
-### 4. Search is scoped to readiness work
+### 4. Conflicts are visible execution state
 
-Project search covers readiness-relevant work items, plan items, comments, GitHub signals, and notifications for the current project and current workspace member.
+When both sides change an owned field, the link records conflict fields and the detail UI shows the issue rather than overwriting.
 
-**Why:** This improves discovery without committing to a global command palette or full-text search platform.
+**Why:** Conflict visibility is safer than either platform-winning or GitHub-winning behavior.
 
-### 5. Polish is limited to readiness-critical states
+### 5. GitHub comments are inbound timeline context
 
-Phase 8 hardens empty action states, search short-query/no-result/error states, and the no-GitHub-repository engineering setup state.
+GitHub issue comments are projected into work item detail timelines as external context.
 
-**Why:** These are the states that directly affect whether the readiness surface can be trusted during real project use.
+**Why:** Project users need discussion context without confusing GitHub comments with local platform comments.
 
 ## Non-Goals
 
-- Global portfolio dashboard
-- Analytics warehouse
-- AI-generated recommendations
-- Full-text infrastructure
-- Global command palette
-- External reporting, BI, email, Slack, push, or websocket delivery
+- GitHub Projects sync
+- Multi-repository issue sync for one project
+- Labels, assignees, milestones, issue types, or custom GitHub fields
+- Automated triage or AI-generated issue edits
+- Bulk destructive reconciliation
+- Phase 15 workflow automation or richer mapping rules
 
 ## RBAC Rules
 
-| Role | Read Project Readiness | Use Project Search | Open Source-Linked Actions | Mutate Readiness Rules |
-|------|------------------------|--------------------|----------------------------|------------------------|
-| Viewer | Yes | Yes | Yes, for allowed surfaces | No |
-| Member | Yes | Yes | Yes, for allowed surfaces | No |
-| Admin | Yes | Yes | Yes, for allowed surfaces | No |
-| Owner | Yes | Yes | Yes, for allowed surfaces | No |
-| Worker/System | Derived writes only | No UI access | No UI access | No |
+| Role          | View Issue Sync | Import Issues  | Update Sync Settings | View Conflicts |
+| ------------- | --------------- | -------------- | -------------------- | -------------- |
+| Viewer        | Yes             | No             | No                   | Yes            |
+| Member        | Yes             | No             | No                   | Yes            |
+| Admin         | Yes             | Yes            | Yes                  | Yes            |
+| Owner         | Yes             | Yes            | Yes                  | Yes            |
+| Worker/System | Sync jobs only  | Reconcile only | No UI access         | Writes status  |
 
 ## Success Criteria
 
-1. Overview identifies Phase 8 as the Readiness Command Center.
-2. Readiness status is deterministic and can represent `Ready`, `Ready with risk`, and `Blocked`.
-3. Readiness metrics explain plan, issue, GitHub, and notification signals.
-4. Decision cues summarize ship gate and primary blocker state.
-5. Team actions are deterministic, source-linked, and empty-state aware.
-6. Project-scoped readiness search covers work items, plan items, comments, GitHub signals, and notifications.
-7. Search enforces workspace/project membership and handles short-query, empty, stale, malformed, and failed responses.
-8. Engineering shows a clear setup state when no GitHub repository is connected.
-9. Phase 8 product docs keep non-goals explicit.
-10. Full repo lint, typecheck, test, build, targeted tests, and browser smoke validation pass.
+1. GitHub issue import creates or updates linked work items without duplicating existing links.
+2. Durable project settings control sync enablement, closed issue import, title/body sync, state sync, and optional workflow-state mappings.
+3. Webhooks and worker reconciliation honor field ownership and conflict status.
+4. Outbound platform edits update GitHub only for owned fields.
+5. Inbound GitHub comments appear in work item timelines.
+6. Existing repository onboarding remains intact.
+7. Phase 14 docs keep Phase 15 non-goals explicit.
 
 ## Next Phase
 
-After Phase 8 closes, the next work should be selected from validated product gaps rather than extending this phase by default. Strong candidates are:
-
-- merge and PR hardening
-- performance and seed-data reliability
-- deeper GitHub setup/linking workflows
-- portfolio-level views, only after the single-project readiness loop proves useful
+Phase 15 should only expand the integration after conservative issue sync is validated. Candidate work includes richer metadata sync, workflow mapping UX, automation policies, and broader reconciliation controls.

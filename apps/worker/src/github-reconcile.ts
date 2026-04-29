@@ -22,6 +22,15 @@ import type {
   GithubSnapshotDeployment,
   GithubSnapshotPullRequest
 } from "./github-client";
+import {
+  backfillConnectedGithubIssues,
+  type GithubIssuesProjectionWriter,
+  type GithubIssuesReconcileRepository,
+  type GithubIssuesReconcileRepositorySummary,
+  type GithubIssuesReconcileSummary,
+  type GithubIssuesReconcileTarget
+} from "./github-issues-reconcile";
+import type { GithubIssuesClient } from "./github-issues-client";
 
 export interface GithubReconcileTarget extends GithubRepositoryRecord {
   stagingEnvironmentName: string | null;
@@ -73,6 +82,7 @@ export interface GithubReconcileRepository {
   listConnectedRepositories(): Promise<GithubReconcileTarget[]>;
   listRepositoriesWithFailedDeliveries(): Promise<GithubReconcileTarget[]>;
   listRepositoriesWithLinkedWorkItems(): Promise<GithubReconcileTarget[]>;
+  listConnectedRepositoriesForIssueSync(): Promise<GithubIssuesReconcileTarget[]>;
   markFailedDeliveriesProcessed(
     repositoryId: string,
     input: {
@@ -98,12 +108,15 @@ export interface GithubReconcileRepositorySummary {
 export interface GithubReconcileSummary {
   mode: GithubReconcileMode;
   repositories: GithubReconcileRepositorySummary[];
+  issueRepositories: GithubIssuesReconcileRepositorySummary[];
   totals: {
     repositoriesReconciled: number;
     pullRequestsApplied: number;
     checkRollupsApplied: number;
     deploymentsApplied: number;
     failedDeliveriesResolved: number;
+    issuesApplied: number;
+    issueCommentsApplied: number;
   };
 }
 
@@ -111,6 +124,11 @@ interface GithubReconcileDependencies {
   repository: GithubReconcileRepository;
   projector: GithubProjectionWriter;
   client: GithubClient;
+  issues?: {
+    repository: GithubIssuesReconcileRepository;
+    projector: GithubIssuesProjectionWriter;
+    client: GithubIssuesClient;
+  };
   now?: () => Date;
 }
 
@@ -136,6 +154,29 @@ function serializeRepositoryTarget(row: {
   };
 }
 
+function serializeIssueReconcileTarget(row: {
+  repository: typeof githubRepositories.$inferSelect;
+  connection: typeof projectGithubConnections.$inferSelect;
+}): GithubIssuesReconcileTarget {
+  return {
+    id: row.repository.id,
+    workspaceId: row.repository.workspaceId,
+    projectId: row.connection.projectId,
+    provider: row.repository.provider,
+    providerRepositoryId: row.repository.providerRepositoryId,
+    owner: row.repository.owner,
+    name: row.repository.name,
+    fullName: row.repository.fullName,
+    defaultBranch: row.repository.defaultBranch,
+    installationId: row.repository.installationId,
+    isActive: row.repository.isActive,
+    issueSyncEnabled: row.connection.issueSyncEnabled,
+    importClosedIssues: row.connection.issueImportClosed,
+    createdAt: row.repository.createdAt.toISOString(),
+    updatedAt: row.repository.updatedAt.toISOString()
+  };
+}
+
 function dedupeTargets(targets: GithubReconcileTarget[]) {
   const uniqueTargets = new Map<string, GithubReconcileTarget>();
 
@@ -150,12 +191,15 @@ function emptySummary(mode: GithubReconcileMode): GithubReconcileSummary {
   return {
     mode,
     repositories: [],
+    issueRepositories: [],
     totals: {
       repositoriesReconciled: 0,
       pullRequestsApplied: 0,
       checkRollupsApplied: 0,
       deploymentsApplied: 0,
-      failedDeliveriesResolved: 0
+      failedDeliveriesResolved: 0,
+      issuesApplied: 0,
+      issueCommentsApplied: 0
     }
   };
 }
@@ -165,14 +209,40 @@ function mergeSummaries(mode: GithubReconcileMode, summaries: GithubReconcileSum
 
   for (const summary of summaries) {
     merged.repositories.push(...summary.repositories);
+    merged.issueRepositories.push(...summary.issueRepositories);
     merged.totals.repositoriesReconciled += summary.totals.repositoriesReconciled;
     merged.totals.pullRequestsApplied += summary.totals.pullRequestsApplied;
     merged.totals.checkRollupsApplied += summary.totals.checkRollupsApplied;
     merged.totals.deploymentsApplied += summary.totals.deploymentsApplied;
     merged.totals.failedDeliveriesResolved += summary.totals.failedDeliveriesResolved;
+    merged.totals.issuesApplied += summary.totals.issuesApplied;
+    merged.totals.issueCommentsApplied += summary.totals.issueCommentsApplied;
   }
 
   return merged;
+}
+
+function mergeIssueBackfillSummary(
+  summary: GithubReconcileSummary,
+  issueSummary: GithubIssuesReconcileSummary
+) {
+  summary.issueRepositories.push(...issueSummary.repositories);
+  summary.totals.repositoriesReconciled += issueSummary.totals.repositoriesReconciled;
+  summary.totals.issuesApplied += issueSummary.totals.issuesApplied;
+  summary.totals.issueCommentsApplied += issueSummary.totals.commentsApplied;
+  return summary;
+}
+
+async function runIssueBackfill(dependencies: GithubReconcileDependencies) {
+  if (!dependencies.issues) {
+    return emptySummary("backfill");
+  }
+
+  const summary = emptySummary("backfill");
+  return mergeIssueBackfillSummary(
+    summary,
+    await backfillConnectedGithubIssues(dependencies.issues)
+  );
 }
 
 function createRepositorySummary(
@@ -271,7 +341,12 @@ async function reconcileTargets(
 
 export async function backfillConnectedGithubRepositories(dependencies: GithubReconcileDependencies) {
   const targets = await dependencies.repository.listConnectedRepositories();
-  return reconcileTargets(dependencies, "backfill", "backfill", targets);
+  const repositorySummary = await reconcileTargets(dependencies, "backfill", "backfill", targets);
+  if (!dependencies.issues) {
+    return repositorySummary;
+  }
+
+  return mergeSummaries("backfill", [repositorySummary, await runIssueBackfill(dependencies)]);
 }
 
 export async function replayFailedGithubDeliveries(dependencies: GithubReconcileDependencies) {
@@ -316,8 +391,9 @@ export async function runGithubReconciliationCycle(
   const resyncSummary = await resyncLinkedGithubRepositories(dependencies, {
     excludeRepositoryIds: replaySummary.repositories.map((repository) => repository.repositoryId)
   });
+  const issueSummary = await runIssueBackfill(dependencies);
 
-  return mergeSummaries("cycle", [replaySummary, resyncSummary]);
+  return mergeSummaries("cycle", [replaySummary, resyncSummary, issueSummary]);
 }
 
 export function createGithubReconcileRepository(): GithubReconcileRepository {
@@ -364,6 +440,20 @@ export function createGithubReconcileRepository(): GithubReconcileRepository {
         .orderBy(desc(workItemGithubLinks.linkedAt));
 
       return dedupeTargets(rows.map(serializeRepositoryTarget));
+    },
+
+    async listConnectedRepositoriesForIssueSync() {
+      const rows = await db
+        .select({
+          repository: githubRepositories,
+          connection: projectGithubConnections
+        })
+        .from(projectGithubConnections)
+        .innerJoin(githubRepositories, eq(projectGithubConnections.repositoryId, githubRepositories.id))
+        .where(eq(githubRepositories.isActive, true))
+        .orderBy(desc(githubRepositories.updatedAt));
+
+      return rows.map(serializeIssueReconcileTarget);
     },
 
     async markFailedDeliveriesProcessed(repositoryId, input) {

@@ -14,6 +14,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import type { ProjectWorkspaceEngineeringItemView } from "../features/workspace/project-workspace-view";
+import type { GithubIssueSyncView } from "../server/github/issues/types";
 import { BoardView } from "./board-view";
 import { DetailPanel } from "./detail-panel";
 import {
@@ -30,6 +31,7 @@ interface ViewToggleProps {
   basePath: string;
   items: WorkItemRecord[];
   itemEngineering?: ProjectWorkspaceEngineeringItemView[];
+  selectedItemGithubIssueSync?: GithubIssueSyncView | null;
   members: WorkspaceMemberRecord[];
   states: WorkflowStateRecord[];
   selectedItem?: WorkItemRecord | null;
@@ -64,6 +66,7 @@ export function ViewToggle({
   basePath,
   items,
   itemEngineering = [],
+  selectedItemGithubIssueSync = null,
   members,
   states,
   selectedItem,
@@ -176,6 +179,7 @@ export function ViewToggle({
           basePath={basePath}
           item={selectedItem}
           itemEngineering={itemEngineeringByTaskId.get(selectedItem.id) ?? null}
+          githubIssueSync={selectedItemGithubIssueSync}
           comments={comments}
           versions={versions}
           timeline={timeline}

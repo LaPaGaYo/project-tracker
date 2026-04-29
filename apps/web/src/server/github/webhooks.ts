@@ -16,7 +16,9 @@ function isSupportedGithubWebhookEvent(value: string): value is GithubWebhookEve
     value === "check_run" ||
     value === "check_suite" ||
     value === "deployment" ||
-    value === "deployment_status"
+    value === "deployment_status" ||
+    value === "issues" ||
+    value === "issue_comment"
   );
 }
 

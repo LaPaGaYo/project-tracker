@@ -1,6 +1,7 @@
 import type { ActivityLogRecord, CommentRecord, ProjectRecord, WorkItemRecord } from "@the-platform/shared";
 
 import type { ActivityRepository } from "../activity/types";
+import type { GithubIssueTimelineComment } from "../github/issues/types";
 import type { NotificationRepository } from "../notifications/types";
 import type { WorkItemRepository } from "../work-items/types";
 import type { WorkspaceRepository } from "../workspaces/types";
@@ -49,11 +50,19 @@ export type WorkItemTimelineEntry =
       kind: "comment";
       createdAt: string;
       comment: CommentRecord;
+    }
+  | {
+      kind: "github_issue_comment";
+      createdAt: string;
+      comment: GithubIssueTimelineComment;
     };
 
 export interface TimelineDependencies {
   activityRepository: ActivityRepository;
   commentRepository: CommentRepository;
+  githubIssueRepository?: {
+    listGithubIssueCommentsForWorkItem(workItemId: string): Promise<GithubIssueTimelineComment[]>;
+  };
   workItemRepository: Pick<
     WorkItemRepository,
     "findWorkspaceBySlug" | "getMembership" | "getProjectByKey" | "getWorkItemByIdentifier"

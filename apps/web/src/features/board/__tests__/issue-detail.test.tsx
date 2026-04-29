@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type {
   CommentRecord,
   DescriptionVersionRecord,
@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DetailPanel } from "../../../components/detail-panel";
 import { render } from "../../../test/render";
 import type { TimelineEntry } from "../../../components/timeline";
+import type { GithubIssueSyncView } from "../../../server/github/issues/types";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -144,6 +145,32 @@ const itemEngineering = {
   hasDeploy: true
 };
 
+const githubIssueSync: GithubIssueSyncView = {
+  status: "synced",
+  issueNumber: 42,
+  issueUrl: "https://github.com/the-platform/platform-ops/issues/42",
+  repositoryFullName: "the-platform/platform-ops",
+  conflictFields: [],
+  errorMessage: null,
+  syncEnabled: true
+};
+
+const githubCommentTimeline: TimelineEntry[] = [
+  {
+    kind: "github_issue_comment",
+    createdAt: "2026-04-20T14:00:00.000Z",
+    comment: {
+      id: "github-comment-1",
+      providerCommentId: "123456",
+      body: "GitHub says **ship it** after CI recovers.",
+      url: "https://github.com/the-platform/platform-ops/issues/42#issuecomment-123456",
+      authorLogin: "octocat",
+      githubCreatedAt: "2026-04-20T14:00:00.000Z",
+      githubUpdatedAt: "2026-04-20T14:05:00.000Z"
+    }
+  }
+];
+
 describe("DetailPanel", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -215,6 +242,97 @@ describe("DetailPanel", () => {
       "href",
       "https://staging.the-platform.dev"
     );
+  });
+
+  it("renders the GitHub issue sync card for a linked issue", () => {
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        githubIssueSync={githubIssueSync}
+        comments={comments}
+        versions={versions}
+        timeline={timeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    expect(screen.getByText("GitHub issue sync")).toBeInTheDocument();
+    expect(screen.getByText("Synced")).toBeInTheDocument();
+    expect(screen.getByText("the-platform/platform-ops")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "#42" })).toHaveAttribute(
+      "href",
+      "https://github.com/the-platform/platform-ops/issues/42"
+    );
+  });
+
+  it.each([
+    ["conflict", "Sync conflict", { conflictFields: ["title", "body"] as string[], errorMessage: null, syncEnabled: true }],
+    ["error", "Sync failed", { conflictFields: [] as string[], errorMessage: "GitHub rate limit exceeded.", syncEnabled: true }],
+    ["paused", "Sync paused", { conflictFields: [] as string[], errorMessage: null, syncEnabled: false }]
+  ] as const)("renders %s GitHub sync status detail", (_status, label, overrides) => {
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        githubIssueSync={{
+          ...githubIssueSync,
+          status: _status,
+          ...overrides
+        }}
+        comments={comments}
+        versions={versions}
+        timeline={timeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    if (overrides.conflictFields.length > 0) {
+      expect(screen.getByText("Conflict fields: title, body")).toBeInTheDocument();
+    }
+    if (overrides.errorMessage) {
+      expect(screen.getByText("GitHub rate limit exceeded.")).toBeInTheDocument();
+    }
+  });
+
+  it("renders external GitHub issue comments in the timeline without local comment controls", () => {
+    render(
+      <DetailPanel
+        workspaceSlug="platform-ops"
+        projectKey="OPS"
+        basePath="/workspaces/platform-ops/projects/OPS"
+        item={item}
+        comments={[]}
+        versions={versions}
+        timeline={githubCommentTimeline}
+        members={members}
+        states={states}
+        sessionUserId="henry"
+        membershipRole="owner"
+      />
+    );
+
+    const githubComment = screen.getByText(/GitHub says/).closest("article");
+    expect(githubComment).not.toBeNull();
+    expect(within(githubComment!).getByText("GitHub comment")).toBeInTheDocument();
+    expect(within(githubComment!).getByText("octocat")).toBeInTheDocument();
+    expect(within(githubComment!).getByRole("link", { name: "Open on GitHub" })).toHaveAttribute(
+      "href",
+      "https://github.com/the-platform/platform-ops/issues/42#issuecomment-123456"
+    );
+    expect(within(githubComment!).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(within(githubComment!).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
   it("lets editors switch the title into edit mode on demand", () => {
